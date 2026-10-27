@@ -46,15 +46,15 @@ export function calculate(state, rules) {
   };
 
   // ---- 1-3. 所得区分ごとの所得と損益通算 ----
-  const sum = (cat, f) => state.incomes.filter((i) => i.category === cat).reduce((a, i) => a + f(i), 0);
+  const sum = (cat, f) => state.incomes.filter((i) => (Array.isArray(cat) ? cat.includes(i.category) : i.category === cat)).reduce((a, i) => a + f(i), 0);
   const salaryRevenue = sum('salary', (i) => i.amount);
   const businessNet = sum('business', (i) => i.amount - i.expenses);
   const businessRevenue = sum('business', (i) => i.amount);
   const realEstateNet = sum('realEstate', (i) => i.amount - i.expenses);
-  const miscNet = sum('misc', (i) => i.amount - i.expenses);
+  const miscNet = sum(['misc', 'crypto'], (i) => i.amount - i.expenses); // 暗号資産も雑所得
   const expensesTotal = state.incomes.reduce((a, i) => a + (getIncomeCategory(i.category).hasExpenses ? i.expenses : 0), 0);
   const revenueTotal = state.incomes
-    .filter((i) => ['salary', 'business', 'realEstate', 'misc'].includes(i.category))
+    .filter((i) => ['salary', 'business', 'realEstate', 'misc', 'crypto'].includes(i.category))
     .reduce((a, i) => a + i.amount, 0);
 
   // 簡易扱い（未対応区分の直接入力所得）
@@ -118,7 +118,7 @@ export function calculate(state, rules) {
   const totalIncome = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome; // 合計所得金額（簡易）
 
   // ---- 5. 所得控除 ----
-  const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome });
+  const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes });
   const deductions = calcDeductions({ state, rules, need, totalIncome, socialInsurance });
   if (declaredAutoIds(state).length) notes.push('配偶者・扶養・障害者・寡婦/ひとり親・勤労学生などの適用は、ご自身の申告に基づく前提です（適用には証明書類が必要な場合があります）。年齢は12月31日時点で入力してください。');
 
@@ -277,13 +277,39 @@ function calcBusinessTax({ state, rules, need, round, notes }) {
   return { total: round(Math.floor(sum + 1e-6), 'businessTax'), income, taxable, note: '当年所得に対して翌年に納付' };
 }
 
-function calcSocialInsurance({ state, need, salaryRevenue, totalIncome }) {
+function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes }) {
   const actual = state.insurance.actualAnnual;
   if (actual != null) return { total: actual, mode: 'actual' };
   if (state.insurance.type === 'dependent' || state.insurance.type === 'none') return { total: 0, mode: 'estimate' };
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
+  if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
   return { total: mulFloor(baseVal, e.rate ?? 0) + (e.fixed ?? 0), mode: 'estimate' };
+}
+
+// 被保険者負担分の端数: 50銭以下切り捨て・50銭超切り上げ（保険料額表の注①）
+const roundHalfDown = (x) => {
+  const f = Math.floor(x + 1e-9);
+  return x - f > 0.5 + 1e-9 ? f + 1 : f;
+};
+
+// 協会けんぽ（会社員）の概算: 給与収入を12か月均等の報酬月額とみなし、標準報酬月額の等級から
+// 健康保険（＋介護）・子ども・子育て支援金・厚生年金の被保険者負担（折半）を求める。賞与・雇用保険は含まない。
+function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
+  if (!(salaryRevenue > 0)) return 0;
+  const monthly = Math.floor(salaryRevenue / 12);
+  const grade = e.grades.find((g) => (g.min == null || monthly >= g.min) && (g.max == null || monthly < g.max));
+  const std = grade.standard;
+  const prefRate = e.healthRateByPrefecture[state.residence.prefecture];
+  const rates = Object.values(e.healthRateByPrefecture);
+  const healthRate = prefRate ?? rates.reduce((a, b) => a + b, 0) / rates.length;
+  const kaigo = state.self.age >= e.care.ageMin && state.self.age <= e.care.ageMax ? e.care.rate : 0;
+  const pensionStd = Math.min(e.pension.range.max, Math.max(e.pension.range.min, std));
+  const monthlyShare = (std * (healthRate + kaigo + e.childSupportRate) + pensionStd * e.pension.rate) * e.employeeShare;
+  notes.push('社会保険料は協会けんぽの料率による概算です（賞与なし・12か月均等の報酬として計算。健保組合・共済や賞与の有無で異なります。雇用保険料は含みません）。');
+  if (prefRate === undefined) notes.push(`お住まいの都道府県の協会けんぽ料率が未登録のため、登録済み${rates.length}府県（広島・福岡・大阪）の健康保険料率の平均を使っています。`);
+  if (kaigo) notes.push('40〜64歳のため介護保険料を含めています。');
+  return roundHalfDown(monthlyShare) * 12;
 }

@@ -432,9 +432,11 @@ describe('令和8年分: 障害者・寡婦・ひとり親・勤労学生（p.56
 });
 
 describe('令和8年分: 統合（手計算）', () => {
-  it('給与200万・社保実額15万: 所得税まで計算でき、住民税は控除額が未登録のため手取りは出さない', () => {
-    // 給与所得=2,000,000-740,000=1,260,000 / 控除=基礎1,040,000+社保150,000=1,190,000 / 課税=70,000 / 税=70,000*5%=3,500
+  it('給与200万・社保実額15万（住民税は令和8年度の控除額で代用）', () => {
+    // 給与所得=2,000,000-740,000=1,260,000 / 所得税の控除=基礎1,040,000+社保150,000=1,190,000 / 課税=70,000 / 税=70,000*5%=3,500
     // 復興特別所得税(2.1%)=floor(73.5)=73 → 3,573（税額の端数処理は資料なしのため未実施）
+    // 住民税: 控除=基礎430,000+社保150,000=580,000 → 課税680,000 → 所得割68,000+均等割等5,500=73,500
+    // 負担=3,573+73,500+150,000=227,073 / 手取り=2,000,000-227,073=1,772,927
     const s = mk([inc('salary', 2_000_000)], { insurance: { type: 'employee', actualAnnual: 150_000 } });
     const r = run8(s);
     expect(r.income.salaryIncome).toBe(1_260_000);
@@ -443,10 +445,10 @@ describe('令和8年分: 統合（手計算）', () => {
     expect(r.incomeTax.base).toBe(3_500);
     expect(r.incomeTax.reconstruction).toBe(73);
     expect(r.incomeTax.total).toBe(3_573);
-    expect(r.residentTax).toBeNull();
-    expect(r.missing).toContain('basicDeduction.residentTax');
-    expect(r.takeHome).toBeNull();
-    expect(r.notes.join()).toMatch(/二次情報/);
+    expect(r.residentTax.total).toBe(73_500);
+    expect(r.takeHome).toBe(1_772_927);
+    expect(r.notes.join()).toMatch(/令和9年度.*代用/); // 住民税の控除額が代用であることを明示
+    expect(r.notes.join()).not.toMatch(/二次情報/); // 復興特別所得税は国税庁No.1521で確認済み
   });
   it('配偶者控除が課税所得に反映される: 事業所得300万・配偶者所得0・配偶者控除380,000', () => {
     // 所得3,000,000(白色) / 控除=基礎1,040,000+配偶者380,000=1,420,000 / 課税=1,580,000 / 税=79,000
@@ -630,9 +632,9 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
     expect(r.takeHome).toBe(3_928_470);
     expect(r.missing).toEqual([]);
   });
-  it('前提の注記（二次情報・端数処理・別表・住民税の概算）が出る', () => {
+  it('前提の注記（端数処理・別表・住民税の概算）が出る', () => {
     const n = r.notes.join('\n');
-    expect(n).toMatch(/二次情報/);
+    expect(n).not.toMatch(/二次情報/);
     expect(n).toMatch(/端数処理の根拠が未登録/);
     expect(n).toMatch(/別表/);
     expect(n).toMatch(/福山市/);
@@ -646,5 +648,114 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
     expect(item(r2, 'residentTax', 'spouse').amount).toBe(330_000);
     expect(r2.deductions.incomeTax.total).toBe(680_000 + 700_000 + 380_000);
     expect(r2.deductions.residentTax.total).toBe(430_000 + 700_000 + 330_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 協会けんぽ（令和8年3月分〜）による社会保険料の概算。期待値は保険料額表（広島・福岡・大阪）の行から取った。
+// ---------------------------------------------------------------------------
+describe('社会保険料の概算（協会けんぽ）', () => {
+  const si = (salary, patch = {}) => {
+    const s = mk([inc('salary', salary)], { insurance: { type: 'employee', actualAnnual: null }, ...patch });
+    return calculate(s, R8);
+  };
+  const withPref = (pref, age = 30) => ({ residence: { prefecture: pref, city: '' }, self: { ...defaultState().self, age } });
+  it('広島・年収480万円(月40万)・30歳: 等級27(24)標準報酬410,000円', () => {
+    // 表の行: 健保折半20,049.0 + 支援金折半471.5 + 厚年折半37,515.0 = 58,035.5 → 50銭以下切捨 58,035 → ×12 = 696,420
+    expect(si(4_800_000, withPref('広島県')).socialInsurance).toEqual({ total: 696_420, mode: 'estimate' });
+  });
+  it('広島・45歳は介護保険料を含む（介護込み折半23,370.0）', () => {
+    // 23,370.0 + 471.5 + 37,515.0 = 61,356.5 → 61,356 → ×12 = 736,272
+    const r = si(4_800_000, withPref('広島県', 45));
+    expect(r.socialInsurance.total).toBe(736_272);
+    expect(r.notes.join()).toMatch(/介護保険料/);
+  });
+  it('40歳・64歳は介護あり、39歳・65歳はなし（境界）', () => {
+    expect(si(4_800_000, withPref('広島県', 39)).socialInsurance.total).toBe(696_420);
+    expect(si(4_800_000, withPref('広島県', 40)).socialInsurance.total).toBe(736_272);
+    expect(si(4_800_000, withPref('広島県', 64)).socialInsurance.total).toBe(736_272);
+    expect(si(4_800_000, withPref('広島県', 65)).socialInsurance.total).toBe(696_420);
+  });
+  it('福岡: 健保折半20,725.5 + 支援金471.5 + 厚年37,515.0 = 58,712 → ×12 = 704,544', () => {
+    expect(si(4_800_000, withPref('福岡県')).socialInsurance.total).toBe(704_544);
+  });
+  it('大阪: 410,000×10.13%=41,533 → 折半20,766.5 + 471.5 + 37,515.0 = 58,753 → ×12 = 705,036', () => {
+    expect(si(4_800_000, withPref('大阪府')).socialInsurance.total).toBe(705_036);
+  });
+  it('未登録の都道府県は登録済み府県の平均料率で概算し、その旨を注記', () => {
+    // 平均=(9.78+10.11+10.13)/3=10.00667% → 410,000×=41,027.33 → 折半20,513.67 + 471.5 + 37,515.0 = 58,500.17 → 58,500 → ×12 = 702,000
+    const r = si(4_800_000, withPref('東京都'));
+    expect(r.socialInsurance.total).toBe(702_000);
+    expect(r.notes.join()).toMatch(/平均/);
+  });
+  it('等級の境界: 報酬月額394,999円は等級26(23)標準380,000円、395,000円は等級27(24)標準410,000円', () => {
+    // 等級26(23): 健保折半18,582.0 + 支援金折半437.0 + 厚年折半34,770.0 = 53,789 → ×12 = 645,468
+    expect(si(394_999 * 12, withPref('広島県')).socialInsurance.total).toBe(645_468);
+    expect(si(395_000 * 12, withPref('広島県')).socialInsurance.total).toBe(696_420); // 等級27(24)
+  });
+  it('厚生年金は標準報酬650,000円で頭打ち（月額100万円は健保等級43・標準980,000円）', () => {
+    // 健保折半47,922.0 + 支援金折半1,127.0 + 厚年は650,000×18.3%÷2=59,475.0 → 108,524 → ×12 = 1,302,288
+    expect(si(12_000_000, withPref('広島県')).socialInsurance.total).toBe(1_302_288);
+  });
+  it('低報酬: 報酬月額63,000円未満は標準58,000円、厚生年金は88,000円から', () => {
+    // 年収60万=月5万 → 標準58,000: 健保折半2,836.2 + 支援金折半66.7 + 厚年88,000×18.3%÷2=8,052.0 = 10,954.9 → 50銭超切上げ 10,955 → ×12 = 131,460
+    expect(si(600_000, withPref('広島県')).socialInsurance.total).toBe(131_460);
+  });
+  it('実額を入力すれば概算より優先', () => {
+    expect(si(4_800_000, { ...withPref('広島県'), insurance: { type: 'employee', actualAnnual: 500_000 } }).socialInsurance).toEqual({ total: 500_000, mode: 'actual' });
+  });
+  it('国民健康保険（個人事業主）は自治体別のため概算率は未登録 → 実額入力が必要', () => {
+    const r = calculate(mk([inc('business', 5_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R8);
+    expect(r.socialInsurance.total).toBeNull();
+    expect(r.missing).toContain('socialInsurance.estimate.national');
+  });
+  it('会社員でも給与がなければ0円', () => {
+    expect(si(0).socialInsurance.total).toBe(0);
+  });
+});
+
+describe('FX・先物（令和7年分 実データ: 所得税15%＋復興2.1%、住民税5%）', () => {
+  const fx = (profit, carry = 0) => calculate(mk([inc('fx', profit)], { fxCarryForward: carry }), R7);
+  it('利益100万円のみ: 手計算', () => {
+    // 合計所得=1,000,000 / 所得税: 基礎(132万以下)950,000 → FX課税=50,000 → 15%=7,500 / 復興floor(157.5)=157 → 7,657
+    // 住民税: 基礎430,000 → FX課税570,000 → 5%=28,500 + 均等割等5,500 = 34,000 / 手取り=1,000,000-7,657-34,000=958,343
+    const r = fx(1_000_000);
+    expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, fx: 50_000, spillToFx: 950_000 });
+    expect(r.incomeTax.fxTax).toBe(7_500);
+    expect(r.incomeTax.total).toBe(7_657);
+    expect(r.residentTax.total).toBe(34_000);
+    expect(r.takeHome).toBe(958_343);
+  });
+  it('繰越損失30万円を控除し、使い切れない所得控除は余りとして表示', () => {
+    // FX所得=700,000 → 基礎控除950,000の方が大きく課税0 / 住民税: 700,000-430,000=270,000 → 13,500+5,500=19,000
+    const r = fx(1_000_000, 300_000);
+    expect(r.income.fx).toMatchObject({ income: 700_000, carryUsed: 300_000, carryRemaining: 0 });
+    expect(r.taxable.incomeTax).toMatchObject({ fx: 0, unusedDeduction: 250_000 });
+    expect(r.incomeTax.total).toBe(0);
+    expect(r.residentTax.total).toBe(19_000);
+  });
+  it('損失は他の所得と通算せず繰り越す', () => {
+    const r = calculate(mk([inc('salary', 5_000_000), inc('fx', -200_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } }), R7);
+    expect(r.income.comprehensive).toBe(3_560_000);
+    expect(r.income.fx.carryRemaining).toBe(200_000);
+    expect(r.incomeTax.total).toBe(123_030); // FXなしと同じ
+  });
+});
+
+describe('暗号資産（雑所得・総合課税）', () => {
+  it('雑所得の赤字は他の所得と通算しない（暗号資産の赤字も同様）', () => {
+    const r = run(mk([inc('salary', 3_000_000), inc('crypto', 0, 500_000)]));
+    expect(r.income.miscLossIgnored).toBe(500_000);
+    expect(r.income.comprehensive).toBe(2_200_000);
+  });
+  it('雑所得の内部では暗号資産の損と他の雑所得が通算される', () => {
+    // 雑所得 +200,000(副業) と 暗号資産 -50,000 → 150,000
+    const r = run(mk([inc('misc', 200_000), inc('crypto', 0, 50_000)]));
+    expect(r.income.miscIncome).toBe(150_000);
+    expect(r.income.comprehensive).toBe(150_000);
+  });
+  it('暗号資産の利益は総合課税で給与と合算される', () => {
+    const r = run(mk([inc('salary', 3_000_000), inc('crypto', 400_000, 100_000)]));
+    expect(r.income.comprehensive).toBe(2_200_000 + 300_000);
   });
 });

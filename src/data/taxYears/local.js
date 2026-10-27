@@ -7,7 +7,11 @@ export const SRC = {
   FUKUYAMA_RATE: { id: 'FUKUYAMA_RATE', title: '福山市「個人市民税の納税義務者と税額の計算方法・税率等について」（ページ掲載日2024年6月10日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2179.html', localFile: 'docs/tax-sources/fukuyama_resident-tax_printed-2026-10-27.pdf' },
   FUKUYAMA_DED: { id: 'FUKUYAMA_DED', title: '福山市「所得控除の種類」（2026年5月22日更新。令和8年度＝令和7年中の所得に対する住民税の控除額）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2180.html', localFile: 'docs/tax-sources/fukuyama_resident-deductions_updated-2026-05-22.pdf' },
   HIROSHIMA: { id: 'HIROSHIMA', title: '広島県「個人事業税について」（掲載日2025年4月1日）', url: 'https://www.pref.hiroshima.lg.jp/site/zei/1170306367409.html', localFile: 'docs/tax-sources/hiroshima_business-tax_printed-2026-10-27.pdf' },
-  SECONDARY_RECON: { id: 'SECONDARY_RECON', title: '【二次情報】復興特別所得税 2.1%（ユーザーが提供した、マネーフォワード等の記事を引用した説明。国税庁 No.2260 の原本は未確認）', secondary: true },
+  NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
+  KYOKAI_HIROSHIMA: { id: 'KYOKAI_HIROSHIMA', title: '協会けんぽ 広島支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_hiroshima.pdf' },
+  KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
+  KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },
+  FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
 };
 
 // 年末調整用の速算表（令和7年分・令和8年分とも同じ値。課税給与所得金額18,050,000円まで）
@@ -20,7 +24,11 @@ export const NENCHO_BRACKETS = [
   { upTo: 18_050_000, rate: 0.4, deduction: 2_796_000 },
 ];
 
-export const RECON_ADVISORY = '復興特別所得税の率2.1%は、ユーザー提供の二次情報に基づく値です（国税庁の原本は未確認）。';
+// 復興特別所得税：平成25年〜令和29年の各年分で基準所得税額の2.1%（NTA_1521）。令和9年1月1日以後に生ずる所得は1.1%＋防衛特別所得税に変わる（対象外）。
+export const RECON_RATE = 0.021;
+
+// FX・先物取引（NTA_1521）: 所得税15%＋地方税5%の申告分離課税。損失は翌年以後3年内の「先物取引に係る雑所得等」から控除できる。
+export const FX = { incomeTaxRate: 0.15, residentTaxRate: 0.05, carryForwardYears: 3 };
 
 // 所得者の合計所得金額による列（配偶者控除・配偶者特別控除）
 export const OWNER_COLUMNS = [9_000_000, 9_500_000, 10_000_000];

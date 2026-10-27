@@ -31,15 +31,15 @@ describe('設定データの構造', () => {
       expect(ty.sources.length).toBeGreaterThan(0);
       expect(ty.sources.every((s) => s.localFile || s.url || s.secondary)).toBe(true);
       expect(ty.unverified.length).toBeGreaterThan(0);
-      expect(ty.incomeTax.reconstructionRate).toBe(0.021);
-      expect(ty.advisories.join()).toMatch(/二次情報/); // 公式資料で未確認の値は注意書きが付く
-      expect(ty.socialInsurance).toBeNull(); // 概算率の資料なし
-      expect(ty.fx.incomeTaxRate).toBeNull();
+      expect(ty.incomeTax.reconstructionRate).toBe(0.021); // 国税庁 No.1521 で確認
+      expect(ty.sources.some((x) => x.id === 'NTA_1521')).toBe(true);
+      expect(ty.fx).toMatchObject({ incomeTaxRate: 0.15, residentTaxRate: 0.05, carryForwardYears: 3 });
+      expect(ty.socialInsurance.estimate.employee.healthRateByPrefecture).toMatchObject({ '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013 });
+      expect(ty.advisories.length).toBeGreaterThan(0); // 代用・概算の前提は注意書きに残す
     }
-    // 住民税の控除額は、令和7年分の所得に対する令和8年度分のみ資料あり
-    expect(getTaxYear(2025).deductions.residentTax).not.toBeNull();
-    expect(getTaxYear(2026).deductions.residentTax).toBeNull();
-    expect(getTaxYear(2026).basicDeduction.residentTax).toBeNull();
+    // 令和8年分の住民税の控除額（令和9年度）は資料がなく、令和8年度の値を代用している旨を注意書きに残す
+    expect(getTaxYear(2026).advisories.join()).toMatch(/令和9年度/);
+    expect(getTaxYear(2026).deductions.residentTax).toBe(getTaxYear(2025).deductions.residentTax);
   });
 });
 

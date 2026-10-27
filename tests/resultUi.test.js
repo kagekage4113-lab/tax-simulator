@@ -18,10 +18,12 @@ describe('結果画面', () => {
     expect(c['所得税（復興税含む）']).toBe('123,030円');
     expect(c['住民税（翌年度分）']).toBe('248,500円');
     expect(c['年間手取り']).toBe('3,928,470円');
-    expect(el.textContent).toMatch(/二次情報/); // 公式資料で未確認の値は画面にも注意書きを出す
+    expect(el.textContent).toMatch(/端数処理/); // 前提の注記が画面に出る
     expect(el.textContent).not.toMatch(/税制データが未登録のため/);
   });
-  it('令和8年分: 所得税は出るが、住民税の控除額が未登録のため手取りは「—」', () => {
+  it('令和8年分: 給与300万・社保なし → 手計算で手取り2,785,471円（住民税の控除額は令和8年度で代用と明記）', () => {
+    // 給与所得=3,000,000-(0.3*3,000,000+80,000=980,000)=2,020,000 / 所得税: 基礎1,040,000 → 課税980,000 → 5%=49,000 / 復興floor(1,029)=1,029 → 50,029
+    // 住民税: 基礎430,000 → 課税1,590,000 → 159,000+5,500=164,500 / 手取り=3,000,000-50,029-164,500=2,785,471
     const s = defaultState();
     s.taxYear = 2026;
     s.insurance = { type: 'none', actualAnnual: null };
@@ -29,14 +31,27 @@ describe('結果画面', () => {
     const el = resultSection();
     el.update(s);
     const c = cells(el);
-    expect(c['所得税（復興税含む）']).not.toBe('—');
-    expect(c['年間手取り']).toBe('—');
-    expect(el.textContent).toMatch(/基礎控除（住民税）/);
+    expect(c['所得税（復興税含む）']).toBe('50,029円');
+    expect(c['住民税（翌年度分）']).toBe('164,500円');
+    expect(c['年間手取り']).toBe('2,785,471円');
+    expect(el.textContent).toMatch(/令和9年度/);
   });
-  it('社会保険料の概算率が未登録で実額も未入力なら、その旨を表示する', () => {
+  it('会社員で社保実額が未入力でも、協会けんぽの料率で概算して手取りを出す', () => {
     const s = defaultState();
     s.taxYear = 2025;
-    s.incomes = [{ ...newIncome('salary'), amount: 3_000_000 }];
+    s.residence.prefecture = '広島県';
+    s.incomes = [{ ...newIncome('salary'), amount: 4_800_000 }];
+    const el = resultSection();
+    el.update(s);
+    expect(cells(el)['社会保険料']).toBe('696,420円');
+    expect(cells(el)['年間手取り']).not.toBe('—');
+    expect(el.textContent).toMatch(/協会けんぽ/);
+  });
+  it('国保（個人事業主）は概算率が未登録のため、実額未入力だと手取りは「—」', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'national', actualAnnual: null };
+    s.incomes = [{ ...newIncome('business'), amount: 3_000_000 }];
     const el = resultSection();
     el.update(s);
     expect(el.textContent).toMatch(/社会保険料の概算率/);

@@ -56,8 +56,18 @@ export const INCOME_CATEGORIES = [
     supported: true,
   },
   {
+    id: 'crypto',
+    label: '暗号資産（雑所得）',
+    taxMethod: TAX_METHOD.COMPREHENSIVE,
+    computeModule: 'miscIncome', // 雑所得として総合課税。雑所得の赤字は他の所得と通算しない（雑所得内では通算する）
+    inputKind: 'revenue',
+    hasExpenses: true,
+    supportPhase: 2,
+    supported: true,
+  },
+  {
     id: 'fx',
-    label: 'FX・先物取引（国内業者）',
+    label: 'FX・先物取引（国内業者・申告分離）',
     taxMethod: TAX_METHOD.SEPARATE,
     computeModule: 'fxIncome',
     // 年間損益（経費控除後）を実額で入力する。損失はマイナスで入力。

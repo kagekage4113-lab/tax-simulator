@@ -49,7 +49,8 @@ export function settingsSection(store) {
     field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です（フェーズ2で公的資料を確認して登録します）。`) : null,
-    field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; }))),
+    field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
+      { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。広島・福岡・大阪以外は3府県の平均で概算します。住民税の税率・控除は現在、福山市の値です。' }),
     field('市区町村', h('input', { type: 'text', value: s.residence.city, maxlength: 100, placeholder: '例：渋谷区', onInput: (e) => set((x) => { x.residence.city = e.target.value; }) }),
       { hint: '自治体別の計算はフェーズ4以降。現在は全国共通の概算を使う予定です。' }),
     h('fieldset', { class: 'chips' }, h('legend', {}, '収入の種類（複数選択可）'),
@@ -120,7 +121,8 @@ export function incomesSection(store) {
       ...(inc.category === 'business' ? [
         field('事業の業種区分（個人事業税の判定用）', select(BUSINESS_TYPES, inc.businessType, (v) => upd('businessType', v)), { hint: '不明・対象外の場合、個人事業税は0円として扱います。' }),
       ] : []),
-      inc.category === 'fx' ? h('p', { class: 'note' }, '国内の業者を利用したFXが対象です。海外業者は扱いが異なるため対象外です。年間損益は業者の年間取引報告書の実額を入力してください。') : null,
+      inc.category === 'fx' ? h('p', { class: 'note' }, '国内の業者を利用したFX（先物取引に係る雑所得等）が対象で、所得税15%・住民税5%の申告分離課税です。海外業者は総合課税の雑所得になるため対象外です（「雑所得」に入力してください）。年間損益は業者の年間取引報告書の実額を入力してください。') : null,
+      inc.category === 'crypto' ? h('p', { class: 'note' }, '暗号資産は雑所得（総合課税）として扱い、赤字は他の所得と通算しません。') : null,
       inc.category === 'salary' ? h('p', { class: 'note' }, '給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
     );
   });
