@@ -188,7 +188,8 @@ export function calculate(state, rules) {
       furusato = calcFurusatoLimit(rules, taxableIT, exemption ? 0 : Math.max(0, levy - adjustment));
       residentTax = { incomeLevy, fxTax, listedTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + listedTax + perCapitaDue };
       if (exemption) notes.push(exemption === 'all' ? '住民税の非課税の基準に該当するため、住民税を0円としています。' : '住民税の所得割の非課税の基準に該当するため、所得割を0円としています（均等割は課税）。');
-      notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（${adj ? '' : '調整控除・'}非課税判定は未反映）。`);
+      const notApplied = [adj ? null : '調整控除', rules.residentTax.nonTaxable ? null : '非課税判定'].filter(Boolean);
+      notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です${notApplied.length ? `（${notApplied.join('・')}は未反映）` : ''}。`);
     }
   }
 

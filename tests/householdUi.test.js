@@ -99,3 +99,14 @@ describe('データの書き出し・読み込み（ダウンロードできな�
     expect(el.textContent).toMatch(/読み込めませんでした/);
   });
 });
+
+describe('住民税の注記', () => {
+  it('非課税判定を実装済みの年度では「非課税判定は未反映」と書かない', async () => {
+    const { calculate } = await import('../src/calc/engine.js');
+    const s = defaultState();
+    s.incomes[0].amount = 3_000_000;
+    const r = calculate(s, getTaxYear(2025));
+    expect(r.notes.some((n) => n.includes('非課税判定は未反映'))).toBe(false);
+    expect(r.notes.some((n) => n.startsWith('住民税は福山市'))).toBe(true);
+  });
+});
