@@ -109,39 +109,18 @@ export function calculate(state, rules) {
   const comprehensiveIncome = comprehensiveRaw === null ? null : Math.max(0, comprehensiveRaw);
   const lossOffset = comprehensiveRaw !== null && comprehensiveRaw < 0 ? -comprehensiveRaw : 0;
 
-  // ---- 4. FX（申告分離）----
+  // ---- 4. 申告分離課税（FX・先物／上場株式等）。損失は区分ごとに通算し、翌年以後3年間繰り越せる ----
   const fxProfit = sum('fx', (i) => i.amount);
-  // 繰越損失: 損失の年の翌年以後3年間、古い年の損失から順に控除する（NTA_1523）。控除は当年の利益が限度。
-  const carryYears = state.fxCarryLosses.length ? need('fx.carryForwardYears') : undefined;
-  let profitLeft = Math.max(0, fxProfit);
-  let carryIn = 0;
-  let fxCarryUsed = 0;
-  const carryNext = []; // 翌年に繰り越せる損失
-  const carryExpired = []; // 期限（3年）を過ぎて使えない損失
-  let expiringAmount = 0;
-  for (const l of [...state.fxCarryLosses].sort((a, b) => a.year - b.year)) {
-    if (carryYears === undefined) break;
-    if (l.year >= state.taxYear) { notes.push(`${l.year}年に生じた損失は${state.taxYear}年分には繰り越せないため無視しています。`); continue; }
-    if (l.year < state.taxYear - carryYears) { carryExpired.push(l); continue; }
-    carryIn += l.amount;
-    const use = Math.min(l.amount, profitLeft);
-    profitLeft -= use;
-    fxCarryUsed += use;
-    const rest = l.amount - use;
-    if (rest > 0) {
-      if (l.year >= state.taxYear + 1 - carryYears) carryNext.push({ year: l.year, amount: rest });
-      else expiringAmount += rest;
-    }
-  }
-  const fxIncome = Math.max(0, fxProfit) - fxCarryUsed;
-  if (fxProfit < 0) carryNext.push({ year: state.taxYear, amount: -fxProfit });
-  const fxCarryRemaining = carryNext.reduce((a, c) => a + c.amount, 0);
-  if (fxProfit < 0) notes.push('FXの損失は総合課税の所得と通算せず、翌年以後3年間の繰越損失として計上しています。');
-  if (carryExpired.length) notes.push(`${carryExpired.map((l) => `${l.year}年`).join('・')}に生じた損失は3年を過ぎているため、繰越控除に使えません。`);
-  if (expiringAmount > 0) notes.push(`繰越損失のうち${formatYenText(expiringAmount)}円は、今年で3年の期限を迎えるため翌年には繰り越せません。`);
-  if (state.fxCarryLosses.length || fxProfit < 0) notes.push('繰越控除を受けるには、損失の年から連続して「先物取引に係る繰越損失用」の付表付きで確定申告を行う必要があります（国税庁No.1523）。');
+  const fxPool = carryPool({ state, need, notes, profit: fxProfit, losses: state.fxCarryLosses, key: 'fx', label: 'FX・先物', procedure: '繰越控除を受けるには、損失の年から連続して「先物取引に係る繰越損失用」の付表付きで確定申告を行う必要があります（国税庁No.1523）。' });
+  const listedProfit = sum('listedStock', (i) => i.amount);
+  const listedPool = carryPool({ state, need, notes, profit: listedProfit, losses: state.listedCarryLosses, key: 'listed', label: '上場株式等', procedure: '繰越控除を受けるには、損失の年から連続して確定申告を行う必要があります（国税庁「株式・配当・利子と税」）。NISA口座の損失は、ないものとみなされ通算・繰越できません。' });
+  const { carryIn, carryNext, carryExpired, expiringAmount } = fxPool;
+  const fxCarryUsed = fxPool.carryUsed;
+  const fxIncome = fxPool.income;
+  const fxCarryRemaining = fxPool.remaining;
+  const listedIncome = listedPool.income;
 
-  const totalIncome = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome; // 合計所得金額（簡易）
+  const totalIncome = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome + listedIncome; // 合計所得金額（簡易）
 
   // ---- 5. 所得控除 ----
   const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes });
@@ -155,8 +134,11 @@ export function calculate(state, rules) {
     if (ded.total === null || comprehensiveIncome === null) return null;
     const comp = Math.max(0, comprehensiveIncome - ded.total);
     const spill = Math.max(0, ded.total - comprehensiveIncome); // 総合で引ききれない控除
+    // 総合課税で引ききれない控除は、FX・先物 → 上場株式等 の順に分離課税の所得から引く
     const fx = Math.max(0, fxIncome - spill);
-    return { comprehensive: round(comp, roundKey), fx: round(fx, roundKey), spillToFx: Math.min(spill, fxIncome), unusedDeduction: Math.max(0, spill - fxIncome) };
+    const listed = Math.max(0, listedIncome - Math.max(0, spill - fxIncome));
+    const sep = fxIncome + listedIncome;
+    return { comprehensive: round(comp, roundKey), fx: round(fx, roundKey), listed: round(listed, roundKey), spillToFx: Math.min(spill, sep), unusedDeduction: Math.max(0, spill - sep) };
   };
   const taxableIT = taxableFor('incomeTax');
   const taxableRT = taxableFor('residentTax');
@@ -167,16 +149,18 @@ export function calculate(state, rules) {
     const brackets = need('incomeTax.brackets');
     const recRate = need('incomeTax.reconstructionRate');
     const fxRate = fxIncome > 0 ? need('fx.incomeTaxRate') : 0;
-    if (brackets && fxRate !== undefined) {
+    const listedRate = listedIncome > 0 ? need('listed.incomeTaxRate') : 0;
+    if (brackets && fxRate !== undefined && listedRate !== undefined) {
       const comp = calcProgressive(taxableIT.comprehensive, brackets);
       if (comp === null) missing.add(`incomeTax.brackets@>${brackets[brackets.length - 1].upTo}`);
       else {
         const fx = mulFloor(taxableIT.fx, fxRate);
+        const listed = mulFloor(taxableIT.listed, listedRate);
         const credit = state.taxCredits.housingLoan.amount; // 所得税の税額控除（手入力）
-        const base = Math.max(0, comp + fx - credit);
+        const base = Math.max(0, comp + fx + listed - credit);
         // 復興特別所得税の率が未登録の間は、基準所得税額までを表示し合計は出さない。
         const recon = recRate === undefined ? null : round(mulFloor(base, recRate), 'reconstruction');
-        incomeTax = { comprehensiveTax: comp, fxTax: fx, credit, base, reconstruction: recon, total: recon === null ? null : round(base + recon, 'incomeTax') };
+        incomeTax = { comprehensiveTax: comp, fxTax: fx, listedTax: listed, credit, base, reconstruction: recon, total: recon === null ? null : round(base + recon, 'incomeTax') };
       }
     }
   }
@@ -188,18 +172,21 @@ export function calculate(state, rules) {
     const rate = need('residentTax.incomeRate');
     const perCapita = need('residentTax.perCapita');
     const fxRate = fxIncome > 0 ? need('fx.residentTaxRate') : 0;
-    if (rate !== undefined && perCapita !== undefined && fxRate !== undefined) {
+    const listedRate = listedIncome > 0 ? need('listed.residentTaxRate') : 0;
+    if (rate !== undefined && perCapita !== undefined && fxRate !== undefined && listedRate !== undefined) {
       const levy = round(mulFloor(taxableRT.comprehensive, rate), 'residentIncomeLevy');
       const fx = mulFloor(taxableRT.fx, fxRate);
+      const listed = mulFloor(taxableRT.listed, listedRate);
       const credit = state.taxCredits.donationCredit.amount;
       const adj = rules.residentTax.adjustment;
       const adjustment = adj ? calcAdjustmentCredit(state, adj, deductions.residentTax, totalIncome, taxableRT.comprehensive) : 0;
       const exemption = calcResidentExemption(state, rules, totalIncome);
       const incomeLevy = exemption ? 0 : Math.max(0, levy - adjustment - credit);
       const fxTax = exemption ? 0 : fx;
+      const listedTax = exemption ? 0 : listed;
       const perCapitaDue = exemption === 'all' ? 0 : perCapita;
       furusato = calcFurusatoLimit(rules, taxableIT, exemption ? 0 : Math.max(0, levy - adjustment));
-      residentTax = { incomeLevy, fxTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + perCapitaDue };
+      residentTax = { incomeLevy, fxTax, listedTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + listedTax + perCapitaDue };
       if (exemption) notes.push(exemption === 'all' ? '住民税の非課税の基準に該当するため、住民税を0円としています。' : '住民税の所得割の非課税の基準に該当するため、所得割を0円としています（均等割は課税）。');
       notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（${adj ? '' : '調整控除・'}非課税判定は未反映）。`);
     }
@@ -211,7 +198,7 @@ export function calculate(state, rules) {
   // ---- 手取り（7章の定義）----
   const taxesKnown = incomeTax && incomeTax.total !== null && residentTax && businessTax.total !== null && socialInsurance.total !== null;
   const takeHome = taxesKnown
-    ? revenueTotal - expensesTotal + simpleComp + fxProfit
+    ? revenueTotal - expensesTotal + simpleComp + fxProfit + listedProfit
       - incomeTax.total - residentTax.total - businessTax.total - socialInsurance.total
     : null;
   const burden = taxesKnown ? incomeTax.total + residentTax.total + businessTax.total + socialInsurance.total : null;
@@ -221,7 +208,7 @@ export function calculate(state, rules) {
   const cryptoRevenue = sum('crypto', (i) => i.amount);
   const cth = get(rules, 'crypto.businessRevenueThreshold');
   if (cth != null && cryptoRevenue > cth) notes.push(`暗号資産の年間収入が${formatYenText(cth)}円を超えています。帳簿書類を保存している場合は原則として事業所得、保存がない場合は雑所得（業務に係る雑所得）に区分されます（国税庁FAQ 2-2）。事業所得として申告する場合は「事業収入」に入力してください。`);
-  const filing = filingGuide(state, rules, { salaryRevenue, businessIncome, realEstateNet, miscIncome, simpleComp, fxProfit });
+  const filing = filingGuide(state, rules, { salaryRevenue, businessIncome, realEstateNet, miscIncome, simpleComp, fxProfit: fxProfit + listedProfit });
 
   // 途中で計算を打ち切っても、この入力で必要な未登録データを漏れなく列挙する。
   const required = [
@@ -230,6 +217,7 @@ export function calculate(state, rules) {
   ];
   if (salaryRevenue > 0) required.push('salaryDeduction.brackets');
   if (fxIncome > 0) required.push('fx.incomeTaxRate', 'fx.residentTaxRate');
+  if (listedIncome > 0) required.push('listed.incomeTaxRate', 'listed.residentTaxRate');
   if (state.incomes.some((i) => i.category === 'business' && i.businessType !== 'unknown')) required.push('businessTax.rates', 'businessTax.mainDeduction');
   if (state.insurance.actualAnnual == null && ['employee', 'national'].includes(state.insurance.type)) required.push(`socialInsurance.estimate.${state.insurance.type}`);
   if (declaredAutoIds(state).length) required.push('deductions.incomeTax', 'deductions.residentTax');
@@ -245,6 +233,7 @@ export function calculate(state, rules) {
       realEstateNet, miscNet, miscIncome, miscLossIgnored, simpleComp,
       comprehensiveRaw, lossOffset, comprehensive: comprehensiveIncome,
       fx: { profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining, carryNext, carryExpired, expiringAmount },
+      listed: { profit: listedProfit, carryIn: listedPool.carryIn, carryUsed: listedPool.carryUsed, income: listedIncome, carryRemaining: listedPool.remaining, carryNext: listedPool.carryNext, carryExpired: listedPool.carryExpired, expiringAmount: listedPool.expiringAmount },
       total: totalIncome,
       revenueTotal, expensesTotal,
     },
@@ -254,6 +243,38 @@ export function calculate(state, rules) {
     filing, furusato,
     burden, takeHome,
   };
+}
+
+// 申告分離課税の繰越損失プール（FX・先物／上場株式等）。損失の年の翌年以後 carryForwardYears 年間、古い年の損失から順に、当年の利益を限度に控除する。
+function carryPool({ state, need, notes, profit, losses, key, label, procedure }) {
+  const years = losses.length ? need(`${key}.carryForwardYears`) : undefined;
+  let profitLeft = Math.max(0, profit);
+  let carryIn = 0;
+  let carryUsed = 0;
+  let expiringAmount = 0;
+  const carryNext = []; // 翌年に繰り越せる損失
+  const carryExpired = []; // 期限を過ぎて使えない損失
+  for (const l of [...losses].sort((a, b) => a.year - b.year)) {
+    if (years === undefined) break;
+    if (l.year >= state.taxYear) { notes.push(`${l.year}年に生じた${label}の損失は${state.taxYear}年分には繰り越せないため無視しています。`); continue; }
+    if (l.year < state.taxYear - years) { carryExpired.push(l); continue; }
+    carryIn += l.amount;
+    const use = Math.min(l.amount, profitLeft);
+    profitLeft -= use;
+    carryUsed += use;
+    const rest = l.amount - use;
+    if (rest > 0) {
+      if (l.year >= state.taxYear + 1 - years) carryNext.push({ year: l.year, amount: rest });
+      else expiringAmount += rest;
+    }
+  }
+  const income = Math.max(0, profit) - carryUsed;
+  if (profit < 0) carryNext.push({ year: state.taxYear, amount: -profit });
+  if (profit < 0) notes.push(`${label}の損失は総合課税の所得と通算せず、翌年以後3年間の繰越損失として計上しています。`);
+  if (carryExpired.length) notes.push(`${carryExpired.map((l) => `${l.year}年`).join('・')}に生じた${label}の損失は3年を過ぎているため、繰越控除に使えません。`);
+  if (expiringAmount > 0) notes.push(`${label}の繰越損失のうち${expiringAmount.toLocaleString('ja-JP')}円は、今年で3年の期限を迎えるため翌年には繰り越せません。`);
+  if (losses.length || profit < 0) notes.push(procedure);
+  return { income, carryIn, carryUsed, carryNext, carryExpired, expiringAmount, remaining: carryNext.reduce((a, c) => a + c.amount, 0) };
 }
 
 // ふるさと納税の寄附上限額の目安（自己負担2,000円で収まる額）。住民税の特例分の上限（所得割額の20%）から逆算する一般的な算式。
@@ -355,6 +376,19 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
         else {
           const threshold = Math.min(m.thresholdFixed, mulFloor(totalIncome, m.thresholdRate));
           amount = Math.min(m.cap, Math.max(0, box.paid - box.reimbursed - threshold));
+        }
+      } else if (id === 'casualty') {
+        // 雑損控除: (1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額
+        const cfg = rules.casualty;
+        if (!(box.loss + box.related > 0)) amount = 0;
+        else if (!cfg) { need('casualty'); amount = null; }
+        else if (totalIncome === null) amount = null;
+        else {
+          const disaster = Math.min(box.disasterRelated, box.related);
+          const insuranceOnRelated = Math.max(0, box.insurance - box.loss); // 保険金等はまず損害金額から差し引き、超える分を関連支出から差し引く
+          const a1 = box.loss + box.related - box.insurance - mulFloor(totalIncome, cfg.incomeRate);
+          const a2 = disaster - insuranceOnRelated - cfg.relatedFloor;
+          amount = Math.max(0, a1, a2);
         }
       } else if (id === 'lifeInsurance' || id === 'earthquakeInsurance') {
         // 控除額の直接入力があればそれを優先（手入力値）。なければ支払保険料から自動計算

@@ -21,6 +21,9 @@ export const SRC = {
   NTA_INSURANCE: { id: 'NTA_INSURANCE', title: '国税庁 パンフレット「暮らしの税情報」（令和8年度版）保険と税（生命保険料控除・地震保険料控除）', url: 'https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm', localFile: 'docs/tax-sources/nta_pamphlet-2026_insurance-and-tax.pdf' },
   SECONDARY_FURUSATO: { id: 'SECONDARY_FURUSATO', title: '【二次情報】ふるさと納税の控除上限額：ふるさと納税サイト「さとふる」の早見表・シミュレーション（税理士監修・2026年4月現在の制度）と一般的な算式。総務省の公式資料は未確認', url: 'https://www.satofull.jp/static/calculation01.php', localFile: 'docs/tax-sources/satofull_furusato-limit-table_2026-04.pdf', secondary: true },
   NTA_1535: { id: 'NTA_1535', title: '国税庁 タックスアンサー No.1535 NISA制度［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1535.htm', localFile: 'docs/tax-sources/nta_tax-answer-1535_nisa_2026-04-01.pdf' },
+  NTA_1110: { id: 'NTA_1110', title: '国税庁 タックスアンサー No.1110 災害や盗難などで資産に損害を受けたとき（雑損控除）［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1110.htm', localFile: 'docs/tax-sources/nta_tax-answer-1110_casualty-loss_2026-04-01.pdf' },
+  NTA_STOCKS: { id: 'NTA_STOCKS', title: '国税庁 パンフレット「暮らしの税情報」（令和8年度版）株式・配当・利子と税', url: 'https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_5.htm', localFile: 'docs/tax-sources/nta_pamphlet-2026_stocks-dividends-interest.pdf' },
+  NTA_1250: { id: 'NTA_1250', title: '国税庁 タックスアンサー No.1250 配当所得があるとき（配当控除）［令和8年4月1日現在法令等］（未対応。記録のみ）', localFile: 'docs/tax-sources/nta_tax-answer-1250_dividend-credit_2026-04-01.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -47,6 +50,13 @@ export const RECON_RATE = 0.021;
 
 // FX・先物取引（NTA_1521・NTA_1522）: 所得税15%＋地方税5%の申告分離課税。損失は同制度内でのみ通算し、一定の要件の下で翌年以後3年間繰り越せる。
 // 対象は商品先物取引等・金融商品先物取引等（株価指数先物・オプション等）・国内のFX（第一種金融商品取引業者等）で、一定の暗号資産に係る店頭デリバティブは除く。
+// 雑損控除（NTA_1110。住民税も福山市 FUKUYAMA_DED で同じ式）: (1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額
+export const CASUALTY = { incomeRate: 0.1, relatedFloor: 50_000 };
+
+// 上場株式等の譲渡益・配当（申告分離課税）（NTA_STOCKS）: 譲渡益×所得税15%（ほかに住民税5%）＋復興特別所得税。損失は上場株式等の譲渡益・配当（申告分離を選択）と損益通算でき、
+// 通算してもなお控除しきれない損失は翌年以後3年間繰越控除できる（確定申告が必要）。NISA口座の損失はないものとみなされる。
+export const LISTED = { incomeTaxRate: 0.15, residentTaxRate: 0.05, carryForwardYears: 3 };
+
 export const FX = { incomeTaxRate: 0.15, residentTaxRate: 0.05, carryForwardYears: 3 };
 
 // 所得者の合計所得金額による列（配偶者控除・配偶者特別控除）

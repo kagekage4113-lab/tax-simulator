@@ -32,7 +32,7 @@ export function metricsOf(r) {
   const ok = r.burden !== null && r.takeHome !== null;
   return {
     ok,
-    revenue: r.income.revenueTotal + r.income.fx.profit + r.income.simpleComp,
+    revenue: r.income.revenueTotal + r.income.fx.profit + r.income.listed.profit + r.income.simpleComp,
     income: r.income.total,
     incomeTax: ok ? r.incomeTax.total : null,
     residentTax: ok ? r.residentTax.total : null,

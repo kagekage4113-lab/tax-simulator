@@ -79,6 +79,7 @@ export function defaultState() {
     insurance: { type: 'employee', actualAnnual: null }, // actualAnnual: 実額（円）。null=概算を使う
     filing: { type: 'white', blueDeduction: 65 },
     incomes: [newIncome('salary')],
+    listedCarryLosses: [], // 上場株式等の繰越損失（fxCarryLosses と同じ形式）
     fxCarryLosses: [], // FX・先物の繰越損失 [{ year: 損失が生じた年, amount: 円(正の値) }]。損失の年の翌年以後3年間繰越控除できる（No.1523）
     deductions,
     taxCredits: credits,
@@ -189,15 +190,18 @@ export function validateState(input) {
   } else err('incomes', '配列ではありません');
 
   // 繰越損失（年ごと）。旧形式の fxCarryForward（単一の金額）は「前年に生じた損失」として読み替える。
-  const rawLosses = input.fxCarryLosses ?? (Number.isSafeInteger(input.fxCarryForward) && input.fxCarryForward > 0 ? [{ year: s.taxYear - 1, amount: input.fxCarryForward }] : []);
-  if (Array.isArray(rawLosses)) {
-    if (rawLosses.length > 20) err('fxCarryLosses', '件数が多すぎます');
-    s.fxCarryLosses = rawLosses.slice(0, 20).map((l, i) => {
-      const p = `fxCarryLosses[${i}]`;
+  const lossList = (raw, name) => {
+    if (!Array.isArray(raw)) { err(name, '配列ではありません'); return []; }
+    if (raw.length > 20) err(name, '件数が多すぎます');
+    return raw.slice(0, 20).map((l, i) => {
+      const p = `${name}[${i}]`;
       if (!isObj(l)) { err(p, '不正です'); return { year: s.taxYear - 1, amount: 0 }; }
       return { year: yen(l.year, `${p}.year`, { min: 1990, max: 2100 }) || s.taxYear - 1, amount: yen(l.amount, `${p}.amount`) };
     });
-  } else err('fxCarryLosses', '配列ではありません');
+  };
+  const rawLosses = input.fxCarryLosses ?? (Number.isSafeInteger(input.fxCarryForward) && input.fxCarryForward > 0 ? [{ year: s.taxYear - 1, amount: input.fxCarryForward }] : []);
+  s.fxCarryLosses = lossList(rawLosses, 'fxCarryLosses');
+  s.listedCarryLosses = lossList(input.listedCarryLosses ?? [], 'listedCarryLosses');
 
   const ded = isObj(input.deductions) ? input.deductions : (err('deductions', '不正です'), {});
   for (const d of MANUAL_DEDUCTIONS) {

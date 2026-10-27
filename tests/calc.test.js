@@ -229,7 +229,7 @@ describe('FXの繰越損失（年ごと・3年・古い年から: No.1523）', (
   it('今年以降の年の損失は無視して注記する', () => {
     const r = carry(100_000, [{ year: 2025, amount: 50_000 }]);
     expect(r.income.fx.carryUsed).toBe(0);
-    expect(r.notes.join()).toMatch(/2025年に生じた損失は2025年分には繰り越せない/);
+    expect(r.notes.join()).toMatch(/2025年に生じたFX・先物の損失は2025年分には繰り越せない/);
   });
   it('繰越控除の手続き要件を注記する', () => {
     expect(carry(100_000, [{ year: 2024, amount: 10_000 }]).notes.join()).toMatch(/付表付きで確定申告/);
@@ -1137,5 +1137,93 @@ describe('暗号資産（国税庁FAQ 令和4年12月）', () => {
   it('出典として国税庁FAQを登録している', () => {
     expect(R7.sources.some((s) => s.id === 'NTA_CRYPTO_FAQ')).toBe(true);
     expect(R7.crypto.businessRevenueThreshold).toBe(3_000_000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 上場株式等の譲渡益・配当（申告分離課税）: 所得税15%＋住民税5%、損失は区分内で通算し3年繰越（国税庁「株式・配当・利子と税」）
+// ---------------------------------------------------------------------------
+describe('上場株式等（申告分離課税）', () => {
+  const ls = (profit, patch = {}) => calculate(mk([inc('listedStock', profit)], patch), R7);
+  it('利益100万円のみ（令和7年分）: FXと同じ分離課税の率で手計算', () => {
+    // 所得税: 基礎(132万以下)950,000 → 課税50,000 → 15%=7,500、復興floor(157.5)=157 → 7,657
+    // 住民税: 基礎430,000 → 課税570,000×5%=28,500 + 均等割等5,500 = 34,000 / 手取り=1,000,000-7,657-34,000=958,343
+    const r = ls(1_000_000);
+    expect(r.income.listed).toMatchObject({ profit: 1_000_000, income: 1_000_000 });
+    expect(r.income.comprehensive).toBe(0); // 総合課税には入らない
+    expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, listed: 50_000 });
+    expect(r.incomeTax).toMatchObject({ listedTax: 7_500, total: 7_657 });
+    expect(r.residentTax.total).toBe(34_000);
+    expect(r.takeHome).toBe(958_343);
+  });
+  it('損失は総合課税の所得と通算せず、翌年以後3年間繰り越す', () => {
+    const r = calculate(mk([inc('salary', 3_000_000), inc('listedStock', -200_000)]), R7);
+    expect(r.income.comprehensive).toBe(2_020_000); // 給与300万円-給与所得控除(30%+8万円)。上場株式等の損失は引かない
+    expect(r.income.listed.carryNext).toEqual([{ year: 2025, amount: 200_000 }]);
+    expect(r.notes.join()).toMatch(/上場株式等の損失は総合課税の所得と通算せず/);
+    expect(r.notes.join()).toMatch(/NISA口座の損失は、ないものとみなされ/);
+  });
+  it('繰越損失を控除する（年ごと・3年以内）', () => {
+    const r = ls(300_000, { listedCarryLosses: [{ year: 2024, amount: 100_000 }, { year: 2021, amount: 50_000 }] });
+    expect(r.income.listed).toMatchObject({ carryUsed: 100_000, income: 200_000 });
+    expect(r.income.listed.carryExpired).toEqual([{ year: 2021, amount: 50_000 }]);
+  });
+  it('FX・先物の損失と上場株式等の損益は別々に通算する（互いに引かない）', () => {
+    const r = calculate(mk([inc('fx', -100_000), inc('listedStock', 300_000)], { fxCarryLosses: [{ year: 2024, amount: 80_000 }] }), R7);
+    expect(r.income.listed).toMatchObject({ profit: 300_000, carryUsed: 0, income: 300_000 }); // FXの繰越は使えない
+    expect(r.income.fx.carryNext).toEqual([{ year: 2024, amount: 80_000 }, { year: 2025, amount: 100_000 }]);
+  });
+  it('総合課税で引ききれない所得控除は、FX・先物 → 上場株式等 の順に分離課税の所得から引く（架空データ）', () => {
+    // 基礎控除480,000円。FX300,000円から先に引く（控除300,000円）→ 残り180,000円を上場株式等400,000円から引く → 課税220,000円
+    // 税=220,000×15%=33,000、復興floor(660)=660 → 33,660 → 100円未満切捨 33,600
+    const r = calculate(mk([inc('fx', 300_000), inc('listedStock', 400_000)]), R);
+    expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, fx: 0, listed: 220_000, spillToFx: 480_000, unusedDeduction: 0 });
+    expect(r.incomeTax.total).toBe(33_600);
+  });
+  it('確定申告の要否の判定（給与以外の所得20万円超）にも含める', () => {
+    expect(calculate(mk([inc('salary', 5_000_000), inc('listedStock', 300_000)]), R7).filing.status).toBe('required');
+  });
+  it('「その他の株式等」は従来どおり簡易扱い（分離課税の所得は税額に含めない）', () => {
+    const r = calculate(mk([inc('securities', 500_000)]), R7);
+    expect(r.income.listed.income).toBe(0);
+    expect(r.notes.join()).toMatch(/分離課税/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 雑損控除: 国税庁 No.1110（住民税も福山市で同じ式）
+// ---------------------------------------------------------------------------
+describe('雑損控除', () => {
+  // 事業所得300万円（白色）→ 総所得金額等3,000,000円 → ×10% = 300,000円
+  const cas = (box) => {
+    const s = mk([inc('business', 3_000_000)]);
+    s.deductions.casualty = { loss: 0, related: 0, disasterRelated: 0, insurance: 0, ...box };
+    return calculate(s, R7);
+  };
+  it('(1)が大きい場合: 損害200万円・保険金50万円', () => {
+    // (1)=(2,000,000+0-500,000)-300,000=1,200,000 / (2)=(0-0)-50,000<0 → 1,200,000円
+    const r = cas({ loss: 2_000_000, insurance: 500_000 });
+    expect(item(r, 'incomeTax', 'casualty')).toMatchObject({ amount: 1_200_000, mode: 'manual' });
+    expect(item(r, 'residentTax', 'casualty').amount).toBe(1_200_000);
+    // 所得税: 控除=基礎880,000+雑損1,200,000 → 課税920,000 → 5%=46,000、復興966 → 46,966
+    expect(r.incomeTax.total).toBe(46_966);
+  });
+  it('(2)が大きい場合: 損害10万円・災害関連支出40万円', () => {
+    // (1)=(100,000+400,000-0)-300,000=200,000 / (2)=(400,000-0)-50,000=350,000 → 350,000円
+    expect(item(cas({ loss: 100_000, related: 400_000, disasterRelated: 400_000 }), 'incomeTax', 'casualty').amount).toBe(350_000);
+  });
+  it('保険金等は、まず損害金額から差し引き、超える分を災害関連支出から差し引く', () => {
+    // 損害100,000・災害関連支出300,000・保険金150,000: (1)=(100,000+300,000-150,000)-300,000=-50,000
+    // (2)=(300,000-(150,000-100,000))-50,000=200,000 → 200,000円
+    expect(item(cas({ loss: 100_000, related: 300_000, disasterRelated: 300_000, insurance: 150_000 }), 'incomeTax', 'casualty').amount).toBe(200_000);
+  });
+  it('総所得金額等の10%以内の損害は控除なし／入力がなければ0円', () => {
+    expect(item(cas({ loss: 300_000 }), 'incomeTax', 'casualty').amount).toBe(0); // (1)=300,000-300,000=0
+    expect(item(cas({}), 'incomeTax', 'casualty').amount).toBe(0);
+    expect(item(cas({ loss: 300_001 }), 'incomeTax', 'casualty').amount).toBe(1);
+  });
+  it('災害関連支出は災害等関連支出を超えない', () => {
+    // related=100,000・disasterRelated=900,000(誤入力)→100,000として扱う: (2)=100,000-50,000=50,000 / (1)=100,000-300,000<0 → 50,000
+    expect(item(cas({ related: 100_000, disasterRelated: 900_000 }), 'incomeTax', 'casualty').amount).toBe(50_000);
   });
 });

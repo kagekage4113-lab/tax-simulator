@@ -121,7 +121,8 @@ export function incomesSection(store) {
       ...(inc.category === 'business' ? [
         field('事業の業種区分（個人事業税の判定用）', select(BUSINESS_TYPES, inc.businessType, (v) => upd('businessType', v)), { hint: '不明・対象外の場合、個人事業税は0円として扱います。' }),
       ] : []),
-      cat.id === 'securities' ? h('p', { class: 'note' }, '株式等は簡易扱いです。NISA口座内の売却益・配当は非課税なので入力しないでください（NISAの損失は損益通算・繰越控除できません。国税庁No.1535）。特定口座（源泉徴収あり）で確定申告をしないことを選んだ分も入力は不要です（国税庁No.1900）。申告する場合の所得は、課税方式を選んで直接入力してください（分離課税の税額は計算に含めません）。') : null,
+      cat.id === 'listedStock' ? h('p', { class: 'note' }, '上場株式等（株式・公募投資信託・国債など）の譲渡益と、申告分離課税を選んだ配当を、取得費・手数料を引いた年間の損益で入力します。所得税15%・住民税5%（ほかに復興特別所得税）の申告分離課税で、損失は上場株式等の中でだけ通算できます。NISA口座内の損益は非課税なので入力しないでください（NISAの損失は通算・繰越できません）。特定口座（源泉徴収あり）で申告しないことを選んだ分も入力は不要です。総合課税を選ぶ配当（配当控除の対象）は未対応です。') : null,
+      cat.id === 'securities' ? h('p', { class: 'note' }, '上場株式等以外の株式等（一般株式等など）は簡易扱いです。NISA口座内の売却益・配当は非課税なので入力しないでください（NISAの損失は損益通算・繰越控除できません。国税庁No.1535）。特定口座（源泉徴収あり）で確定申告をしないことを選んだ分も入力は不要です（国税庁No.1900）。申告する場合の所得は、課税方式を選んで直接入力してください（分離課税の税額は計算に含めません）。') : null,
       inc.category === 'fx' ? h('p', { class: 'note' }, '先物取引に係る雑所得等（国内のFX、商品先物、株価指数先物・オプションなど）が対象で、所得税15%・住民税5%の申告分離課税です。損失は同じ区分の中でだけ通算できます。海外業者のFXや、暗号資産のレバレッジ取引・デリバティブは対象外（総合課税の雑所得）なので、「雑所得」や「暗号資産」に入力してください。年間損益は業者の年間取引報告書の実額（経費控除後）を入力してください。') : null,
       inc.category === 'crypto' ? h('p', { class: 'note' }, '暗号資産の売却・暗号資産同士の交換・商品購入の利益は、原則として雑所得（総合課税）です。収入には売却額、経費には譲渡原価と手数料などを入力します（取得価額は総平均法または移動平均法で計算した額）。赤字は他の所得と通算できません。証拠金取引（レバレッジ取引）も総合課税です。年間の収入が300万円を超えると、帳簿書類の保存の有無で区分が変わります（国税庁FAQ）。') : null,
       inc.category === 'salary' ? h('p', { class: 'note' }, '給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
@@ -131,26 +132,27 @@ export function incomesSection(store) {
   return section('現在の収入と経費', 'sec-incomes', [
     s.incomes.length === 0 ? h('p', { class: 'note' }, '収入がまだ登録されていません。') : null,
     ...cards,
-    s.incomes.some((x) => x.category === 'fx') ? fxCarrySection(store) : null,
+    s.incomes.some((x) => x.category === 'fx') ? carrySection(store, 'fxCarryLosses', 'FX・先物の繰越損失', 'FX・先物') : null,
+    s.incomes.some((x) => x.category === 'listedStock') ? carrySection(store, 'listedCarryLosses', '上場株式等の繰越損失', '上場株式等') : null,
     h('button', { type: 'button', class: 'btn primary', onClick: () => set((x) => { x.incomes.push(newIncome('business')); }, true) }, '＋ 収入を追加'),
   ]);
 }
 
 // FX・先物の繰越損失（損失が生じた年ごと）。損失の年の翌年以後3年間、古い年から控除される（国税庁No.1523）。
-function fxCarrySection(store) {
+function carrySection(store, listKey, title, what) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
   const yearOptions = Object.fromEntries([1, 2, 3].map((n) => [s.taxYear - n, `${s.taxYear - n}年に生じた損失`]));
   return h('div', { class: 'item' },
-    h('strong', {}, 'FX・先物の繰越損失'),
-    h('p', { class: 'hint' }, '前年以前3年内に生じた損失で、その年から連続して「繰越損失用」付表付きの確定申告をしているものを入力します。古い年の損失から先に控除されます。'),
-    ...s.fxCarryLosses.map((l, i) => h('div', { class: 'item' },
+    h('strong', {}, title),
+    h('p', { class: 'hint' }, `前年以前3年内に生じた${what}の損失で、その年から連続して確定申告をしているものを入力します。古い年の損失から先に控除されます。`),
+    ...s[listKey].map((l, i) => h('div', { class: 'item' },
       h('div', { class: 'item-head' }, h('strong', {}, `繰越損失 ${i + 1}`),
-        h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.fxCarryLosses.splice(i, 1); }, true) }, '削除')),
-      field('損失が生じた年', select(yearOptions, l.year, (v) => set((x) => { x.fxCarryLosses[i].year = Number(v); }, true))),
+        h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x[listKey].splice(i, 1); }, true) }, '削除')),
+      field('損失が生じた年', select(yearOptions, l.year, (v) => set((x) => { x[listKey][i].year = Number(v); }, true))),
       s.taxYear - l.year > 3 || l.year >= s.taxYear ? h('p', { class: 'warn' }, '3年を過ぎている（または今年以降の）損失は、繰越控除に使えないため計算に含めません。') : null,
-      gaugeField({ label: '繰り越された損失額', value: l.amount, max: 5_000_000, onChange: (v) => set((x) => { x.fxCarryLosses[i].amount = v; }) }))),
-    h('button', { type: 'button', class: 'btn', onClick: () => set((x) => { x.fxCarryLosses.push({ year: x.taxYear - 1, amount: 0 }); }, true) }, '＋ 繰越損失を追加'));
+      gaugeField({ label: '繰り越された損失額', value: l.amount, max: 5_000_000, onChange: (v) => set((x) => { x[listKey][i].amount = v; }) }))),
+    h('button', { type: 'button', class: 'btn', onClick: () => set((x) => { x[listKey].push({ year: x.taxYear - 1, amount: 0 }); }, true) }, '＋ 繰越損失を追加'));
 }
 
 // ---- 3. 所得控除・税額控除 ----
@@ -255,7 +257,10 @@ export function resultSection(rulesFor = getTaxYear) {
       row('総合課税の所得（損益通算後）', yen(i.comprehensive), { strong: true }),
       i.lossOffset ? row('通算しきれない赤字', yen(i.lossOffset)) : null,
       s.incomes.some((x) => x.category === 'fx') ? row(`FX所得（損益${formatYen(i.fx.profit)} − 繰越控除${formatYen(i.fx.carryUsed)}）`, yen(i.fx.income), { tag: '分離課税' }) : null,
-      s.incomes.some((x) => x.category === 'fx') ? row('翌年への繰越損失', yen(i.fx.carryRemaining)) : null)));
+      s.incomes.some((x) => x.category === 'fx') ? row('FX・先物：翌年への繰越損失', yen(i.fx.carryRemaining)) : null,
+      s.incomes.some((x) => x.category === 'listedStock') ? row(`上場株式等の所得（損益${formatYen(i.listed.profit)} − 繰越控除${formatYen(i.listed.carryUsed)}）`, yen(i.listed.income), { tag: '分離課税' }) : null,
+      s.incomes.some((x) => x.category === 'listedStock') ? row('上場株式等：翌年への繰越損失', yen(i.listed.carryRemaining)) : null)));
+    if (i.listed.carryNext.length) det.push(h('p', { class: 'hint' }, `上場株式等：翌年に繰り越せる損失：${i.listed.carryNext.map((c) => `${c.year}年分 ${formatYen(c.amount)}円`).join('、')}`));
     if (i.fx.carryNext.length) det.push(h('p', { class: 'hint' }, `翌年に繰り越せる損失：${i.fx.carryNext.map((c) => `${c.year}年分 ${formatYen(c.amount)}円`).join('、')}`));
 
     det.push(h('h3', {}, '所得控除'));
@@ -265,7 +270,7 @@ export function resultSection(rulesFor = getTaxYear) {
         h('table', { class: 'tbl' }, h('tbody', {}, d.items.map((x) => row(x.label, yen(x.amount), { tag: MODE_LABEL[x.mode] }))))));
     }
     const t = r.taxable.incomeTax;
-    if (t) det.push(h('p', { class: 'hint' }, `所得税の課税所得：総合 ${formatYen(t.comprehensive)}円${i.fx.income ? ` ／ FX ${formatYen(t.fx)}円（総合で引ききれない控除 ${formatYen(t.spillToFx)}円をFXから差引）` : ''}${t.unusedDeduction ? ` ／ 使い切れない控除 ${formatYen(t.unusedDeduction)}円` : ''}`));
+    if (t) det.push(h('p', { class: 'hint' }, `所得税の課税所得：総合 ${formatYen(t.comprehensive)}円${i.fx.income || i.listed.income ? ` ／ 分離課税：${i.fx.income ? `FX ${formatYen(t.fx)}円` : ''}${i.fx.income && i.listed.income ? '、' : ''}${i.listed.income ? `上場株式等 ${formatYen(t.listed)}円` : ''}（総合で引ききれない控除 ${formatYen(t.spillToFx)}円を差引）` : ''}${t.unusedDeduction ? ` ／ 使い切れない控除 ${formatYen(t.unusedDeduction)}円` : ''}`));
 
     if (r.filing) {
       det.push(h('h3', {}, '確定申告の要否（参考）'));
@@ -282,6 +287,7 @@ export function resultSection(rulesFor = getTaxYear) {
       r.incomeTax ? [
         row('総合課税分の所得税', yen(r.incomeTax.comprehensiveTax)),
         i.fx.income ? row('FX分の所得税（分離課税）', yen(r.incomeTax.fxTax)) : null,
+        i.listed.income ? row('上場株式等の所得税（分離課税）', yen(r.incomeTax.listedTax)) : null,
         r.incomeTax.credit ? row('税額控除（住宅ローン控除など）', `−${formatYen(r.incomeTax.credit)}円`, { tag: '手入力値' }) : null,
         row('基準所得税額（復興税を除く）', yen(r.incomeTax.base)),
         row('復興特別所得税', yen(r.incomeTax.reconstruction)),
@@ -291,6 +297,7 @@ export function resultSection(rulesFor = getTaxYear) {
         r.residentTax.adjustment ? row('調整控除（住民税）', `−${formatYen(r.residentTax.adjustment)}円`) : null,
         r.residentTax.credit ? row('寄附金税額控除など', `−${formatYen(r.residentTax.credit)}円`, { tag: '手入力値' }) : null,
         i.fx.income ? row('FX分の住民税（分離課税）', yen(r.residentTax.fxTax)) : null,
+        i.listed.income ? row('上場株式等の住民税（分離課税）', yen(r.residentTax.listedTax)) : null,
         row('住民税 均等割', yen(r.residentTax.perCapita)),
       ] : null)));
     if (r.businessTax.note) det.push(h('p', { class: 'hint' }, `個人事業税：${r.businessTax.note}`));

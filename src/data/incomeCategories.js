@@ -77,8 +77,19 @@ export const INCOME_CATEGORIES = [
     supported: true,
   },
   {
+    id: 'listedStock',
+    label: '上場株式等の譲渡益・配当（申告分離）',
+    taxMethod: TAX_METHOD.SEPARATE,
+    computeModule: 'separatePool', // 所得税15%＋住民税5%。損失は同区分内で通算し、3年繰越
+    // 年間の損益（取得費・手数料等を控除後）を実額で入力する。損失はマイナスで入力。
+    inputKind: 'profit',
+    hasExpenses: false,
+    supportPhase: 4,
+    supported: true,
+  },
+  {
     id: 'securities',
-    label: '株式等の譲渡・配当（特定口座など）',
+    label: 'その他の株式等（一般株式等など・簡易扱い）',
     taxMethod: TAX_METHOD.SEPARATE,
     computeModule: null,
     inputKind: 'directIncome',

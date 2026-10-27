@@ -11,7 +11,7 @@ import { formatYen } from '../core/money.js';
 const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
 const signed = (v) => (v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatYen(Math.abs(v))}円`);
 const pct = (v) => (v == null ? '—' : `${(Math.round(v * 10) / 10).toFixed(1)}%`);
-const NEW_CATEGORIES = ['salary', 'business', 'realEstate', 'misc', 'crypto', 'fx'];
+const NEW_CATEGORIES = ['salary', 'business', 'realEstate', 'misc', 'crypto', 'fx', 'listedStock'];
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svg(tag, attrs = {}, ...children) {

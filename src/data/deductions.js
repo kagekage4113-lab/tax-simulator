@@ -54,19 +54,25 @@ export const INCOME_DEDUCTIONS = [
     fields: [{ key: 'paid', label: '支払った医療費' }, { key: 'reimbursed', label: '補填される金額（保険金など）' }] },
   { id: 'donation', label: '寄附金控除（ふるさと納税など）', inputMode: 'manual', phase: 2, incomeTax: both, residentTax: both, supported: true,
     condition: '住民税側の特例分は税額控除と合わせて扱う。上限額の推定はフェーズ4' },
-  { id: 'casualty', label: '雑損控除', inputMode: 'manual', phase: 4, incomeTax: both, residentTax: both, supported: false,
-    condition: '災害・盗難・横領による損失（フェーズ4）' },
+  { id: 'casualty', label: '雑損控除', inputMode: 'manual+calc', phase: 4, incomeTax: both, residentTax: both, supported: true,
+    condition: '災害・盗難・横領による損失。(1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額（所得税・住民税とも同じ式）。繰越控除（3年）・災害減免法との選択は未対応',
+    fields: [
+      { key: 'loss', label: '損害金額（損害直前の時価ベース）' },
+      { key: 'related', label: '災害等関連支出の合計（取壊し・除去・原状回復など）' },
+      { key: 'disasterRelated', label: 'うち災害関連支出（災害で滅失した住宅・家財の取壊し・除去費用）' },
+      { key: 'insurance', label: '保険金・損害賠償金など受け取った額' },
+    ] },
   { id: 'otherIncomeDeduction', label: 'その他の所得控除', inputMode: 'manual', phase: 2, incomeTax: both, residentTax: both, supported: true,
     condition: '未対応の控除を控除額として直接入力する枠' },
 ];
 
 export const TAX_CREDITS = [
   { id: 'housingLoan', label: '住宅借入金等特別控除（住宅ローン控除）', inputMode: 'manual', phase: 2, incomeTax: both, residentTax: none, supported: true,
-    condition: '税額控除。手入力（自動計算はフェーズ4）' },
+    condition: '税額控除。確定申告書等作成コーナー（または年末調整の書類）で計算された「住宅借入金等特別控除額」を入力してください。住宅の区分・入居年・借入限度額で計算が変わるため、アプリでは自動計算しません。所得税から引ききれない分の住民税からの控除は未反映です' },
   { id: 'donationCredit', label: '寄附金に係る税額控除（ふるさと納税など）', inputMode: 'manual', phase: 2, incomeTax: none, residentTax: both, supported: true,
-    condition: '手入力。上限額の推定はフェーズ4' },
+    condition: '手入力。ふるさと納税の寄附上限額の目安は、結果の詳細に表示されます' },
   { id: 'dividendCredit', label: '配当控除', inputMode: 'auto', phase: 4, incomeTax: both, residentTax: both, supported: false,
-    condition: '株式等の収入区分と同時にフェーズ4' },
+    condition: '総合課税を選択した国内株式等の配当だけが対象（申告分離や申告不要を選ぶと対象外）。使う人が限られるため未対応（国税庁 No.1250）' },
   { id: 'foreignTaxCredit', label: '外国税額控除', inputMode: 'manual', phase: null, incomeTax: both, residentTax: both, supported: false,
     condition: '未対応' },
 ];
