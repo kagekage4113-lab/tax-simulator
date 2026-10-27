@@ -1,0 +1,196 @@
+import { h, field, select, checkbox, badge } from './dom.js';
+import { gaugeField } from './gaugeField.js';
+import {
+  BLUE_DEDUCTIONS, BUSINESS_TYPES, DISABILITY, FILING_TYPE, INSURANCE_TYPE, RELATIONSHIPS, WIDOW_SINGLE, WORK_STYLES,
+  newDependent, newIncome,
+} from '../core/schema.js';
+import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/incomeCategories.js';
+import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
+import { SUPPORTED_YEARS, getTaxYear, yearLabel } from '../data/taxYears/index.js';
+import { formatYen } from '../core/money.js';
+
+const PREFECTURES = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+const section = (title, id, children, { open = true, note } = {}) =>
+  h('details', { class: 'card', id, open }, h('summary', {}, title), note ? h('p', { class: 'note' }, note) : null, h('div', { class: 'body' }, children));
+
+const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
+
+// ---- 1. 年度・申告条件 ----
+export function settingsSection(store) {
+  const s = store.get();
+  const set = (fn, structural = false) => store.update(fn, { structural });
+  const yearOptions = Object.fromEntries(SUPPORTED_YEARS.map((y) => [y, yearLabel(y)]));
+  const ty = getTaxYear(s.taxYear);
+
+  const prefOptions = { '': '選択してください', ...Object.fromEntries(PREFECTURES.map((p) => [p, p])) };
+  const personal = [
+    h('h3', {}, '本人'),
+    gaugeField({ label: '年齢', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
+    field('障害の区分', select(DISABILITY, s.self.disability, (v) => set((x) => { x.self.disability = v; }))),
+    field('寡婦・ひとり親', select(WIDOW_SINGLE, s.self.widowSingleParent, (v) => set((x) => { x.self.widowSingleParent = v; }))),
+    checkbox('勤労学生に該当する', s.self.workingStudent, (v) => set((x) => { x.self.workingStudent = v; })),
+    h('h3', {}, '配偶者'),
+    checkbox('配偶者がいる', s.spouse.exists, (v) => set((x) => { x.spouse.exists = v; }, true)),
+    ...(s.spouse.exists ? [
+      gaugeField({ label: '配偶者の合計所得金額（見込み）', value: s.spouse.income, max: 2_000_000, onChange: (v) => set((x) => { x.spouse.income = v; }) }),
+      field('配偶者の障害の区分', select(DISABILITY, s.spouse.disability, (v) => set((x) => { x.spouse.disability = v; }))),
+      checkbox('同居している', s.spouse.cohabiting, (v) => set((x) => { x.spouse.cohabiting = v; })),
+    ] : []),
+    h('h3', {}, '扶養親族'),
+    ...s.dependents.map((d, i) => dependentCard(store, d, i)),
+    h('button', { type: 'button', class: 'btn', onClick: () => set((x) => { x.dependents.push(newDependent()); }, true) }, '＋ 扶養親族を追加'),
+    h('p', { class: 'note' }, '障害者・扶養・寡婦などの適用はユーザーの申告に基づきます。適用には証明書類が必要な場合があります。税法上の扶養と、健康保険・社会保険上の扶養は別の制度です。'),
+  ];
+
+  return section('年度・申告条件', 'sec-settings', [
+    field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
+    ty && ty.status === 'skeleton'
+      ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です（フェーズ2で公的資料を確認して登録します）。`) : null,
+    field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; }))),
+    field('市区町村', h('input', { type: 'text', value: s.residence.city, maxlength: 100, placeholder: '例：渋谷区', onInput: (e) => set((x) => { x.residence.city = e.target.value; }) }),
+      { hint: '自治体別の計算はフェーズ4以降。現在は全国共通の概算を使う予定です。' }),
+    h('fieldset', { class: 'chips' }, h('legend', {}, '収入の種類（複数選択可）'),
+      Object.entries(WORK_STYLES).map(([k, label]) => checkbox(label, s.workStyles.includes(k), (on) => set((x) => {
+        x.workStyles = on ? [...new Set([...x.workStyles, k])] : x.workStyles.filter((w) => w !== k);
+      })))),
+    field('申告方式', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true))),
+    ...(s.filing.type === 'blue' ? [
+      field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
+        { hint: '55万円・65万円は複式簿記での記帳が必要で、65万円はe-Tax提出または電子帳簿保存も必要です。条件を満たすかはご自身の申告として扱います。' }),
+    ] : []),
+    field('社会保険の加入状況', select(INSURANCE_TYPE, s.insurance.type, (v) => set((x) => { x.insurance.type = v; }))),
+    checkbox('年間の社会保険料の実額を入力する（未入力時は概算）', s.insurance.actualAnnual != null, (on) => set((x) => { x.insurance.actualAnnual = on ? 0 : null; }, true)),
+    ...(s.insurance.actualAnnual != null ? [
+      gaugeField({ label: '年間の社会保険料（実額）', value: s.insurance.actualAnnual, max: 3_000_000, onChange: (v) => set((x) => { x.insurance.actualAnnual = v; }) }),
+    ] : []),
+    h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal),
+  ]);
+}
+
+function dependentCard(store, d, i) {
+  const set = (fn, structural = false) => store.update(fn, { structural });
+  const upd = (key, val, structural) => set((x) => { x.dependents[i][key] = val; }, structural);
+  return h('div', { class: 'item' },
+    h('div', { class: 'item-head' }, h('strong', {}, `扶養親族 ${i + 1}`),
+      h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.dependents.splice(i, 1); }, true) }, '削除')),
+    field('名前（メモ）', h('input', { type: 'text', value: d.name, maxlength: 100, onInput: (e) => upd('name', e.target.value) })),
+    field('続柄', select(RELATIONSHIPS, d.relationship, (v) => upd('relationship', v))),
+    gaugeField({ label: '年齢', value: d.age, max: 100, step: 1, unit: '歳', onChange: (v) => upd('age', Math.min(v, 120)) }),
+    gaugeField({ label: '合計所得金額（見込み）', value: d.income, max: 2_000_000, onChange: (v) => upd('income', v) }),
+    field('障害の区分', select(DISABILITY, d.disability, (v) => upd('disability', v))),
+    checkbox('同居している', d.cohabiting, (v) => upd('cohabiting', v)),
+  );
+}
+
+// ---- 2. 収入と経費 ----
+export function incomesSection(store) {
+  const s = store.get();
+  const set = (fn, structural = false) => store.update(fn, { structural });
+  const catOptions = Object.fromEntries(INCOME_CATEGORIES.map((c) => [c.id, c.label + (c.supported ? '' : '（未対応）')]));
+
+  const cards = s.incomes.map((inc, i) => {
+    const cat = getIncomeCategory(inc.category);
+    const upd = (key, val, structural) => set((x) => { x.incomes[i][key] = val; }, structural);
+    const tm = cat.taxMethod || inc.taxMethod;
+    const label = cat.inputKind === 'profit' ? '年間の損益（経費控除後・損失はマイナス）'
+      : cat.inputKind === 'directIncome' ? '所得金額（直接入力）'
+      : inc.category === 'salary' ? '年間の給与収入（額面）' : '年間の収入（売上）';
+    return h('div', { class: 'item' },
+      h('div', { class: 'item-head' },
+        h('strong', {}, inc.name || cat.label),
+        h('span', {}, badge(TAX_METHOD_LABEL[tm] || '課税方式未選択'), ' ', cat.supported ? null : badge('簡易扱い', 'warn')),
+        h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.incomes.splice(i, 1); }, true) }, '削除')),
+      field('収入区分', select(catOptions, inc.category, (v) => set((x) => {
+        const it = x.incomes[i]; it.category = v;
+        const c = getIncomeCategory(v);
+        if (c.taxMethod) it.taxMethod = c.taxMethod;
+        if (!c.hasExpenses) it.expenses = 0;
+        if (c.inputKind !== 'profit' && c.inputKind !== 'directIncome' && it.amount < 0) it.amount = 0;
+      }, true))),
+      field('名称（メモ）', h('input', { type: 'text', value: inc.name, maxlength: 100, placeholder: '例：本業の給与、ブログ収入', onInput: (e) => set((x) => { x.incomes[i].name = e.target.value; }) })),
+      ...(!cat.supported ? [
+        h('p', { class: 'warn' }, `「${cat.label}」の自動計算は未対応です。所得金額を直接入力してください。特例や通算ルールは自動適用しません（簡易扱い）。`),
+        ...(cat.taxMethod === null ? [field('課税方式', select({ comprehensive: '総合課税', separate: '申告分離課税' }, inc.taxMethod, (v) => upd('taxMethod', v)))] : []),
+      ] : []),
+      gaugeField({ label, value: inc.amount, max: cat.inputKind === 'profit' ? 5_000_000 : 20_000_000, allowNegative: cat.inputKind === 'profit' || cat.inputKind === 'directIncome', onChange: (v) => upd('amount', v) }),
+      ...(cat.hasExpenses ? [gaugeField({ label: '必要経費の合計', value: inc.expenses, max: 10_000_000, onChange: (v) => upd('expenses', v), hint: '内訳は入力しません（合計のみ）。' })] : []),
+      ...(inc.category === 'business' ? [
+        field('事業の業種区分（個人事業税の判定用）', select(BUSINESS_TYPES, inc.businessType, (v) => upd('businessType', v)), { hint: '不明・対象外の場合、個人事業税は0円として扱います。' }),
+      ] : []),
+      inc.category === 'fx' ? h('p', { class: 'note' }, '国内の業者を利用したFXが対象です。海外業者は扱いが異なるため対象外です。年間損益は業者の年間取引報告書の実額を入力してください。') : null,
+      inc.category === 'salary' ? h('p', { class: 'note' }, '給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
+    );
+  });
+
+  return section('現在の収入と経費', 'sec-incomes', [
+    s.incomes.length === 0 ? h('p', { class: 'note' }, '収入がまだ登録されていません。') : null,
+    ...cards,
+    h('button', { type: 'button', class: 'btn primary', onClick: () => set((x) => { x.incomes.push(newIncome('business')); }, true) }, '＋ 収入を追加'),
+  ]);
+}
+
+// ---- 3. 所得控除・税額控除 ----
+export function deductionsSection(store) {
+  const s = store.get();
+  const set = (fn) => store.update(fn);
+
+  const manual = (def, group) => {
+    const box = group === 'deductions' ? s.deductions[def.id] : s.taxCredits[def.id];
+    const fields = def.fields || [{ key: 'amount', label: '金額' }];
+    return h('div', { class: 'item' },
+      h('strong', {}, def.label),
+      h('p', { class: 'hint' }, def.condition),
+      ...fields.map((f) => gaugeField({
+        label: def.fields ? f.label : '控除額（年間）',
+        value: box[f.key], max: 1_000_000,
+        onChange: (v) => set((x) => { x[group][def.id][f.key] = v; }),
+      })),
+      h('span', {}, badge('手入力値')));
+  };
+
+  const statusRow = (d) => h('li', {},
+    h('span', {}, d.label), ' ',
+    d.supported ? badge(d.inputMode === 'auto' ? '自動計算（フェーズ2）' : '手入力', '') : badge('未対応', 'warn'));
+
+  return section('所得控除・税額控除', 'sec-deductions', [
+    h('p', { class: 'note' }, '控除額の自動計算はフェーズ2で対応します。ここでは手入力が必要な控除の入力欄を用意しています。適用条件を満たすかはご自身の申告に基づきます。'),
+    h('h3', {}, '手入力する所得控除'),
+    ...MANUAL_DEDUCTIONS.filter((d) => d.supported).map((d) => manual(d, 'deductions')),
+    h('h3', {}, '手入力する税額控除'),
+    ...MANUAL_TAX_CREDITS.map((d) => manual(d, 'taxCredits')),
+    h('details', { class: 'sub' }, h('summary', {}, '控除の対応状況'),
+      h('ul', { class: 'status-list' }, [...INCOME_DEDUCTIONS, ...TAX_CREDITS].map(statusRow))),
+  ], { open: false });
+}
+
+// ---- 4. 結果（フェーズ1は入力サマリーのみ） ----
+export function resultSection() {
+  const body = h('div', {});
+  const el = section('税金と手取りの結果', 'sec-result', [
+    h('p', { class: 'warn' }, '税額・手取りの計算はフェーズ2で実装します。現在は入力内容の集計のみを表示しています（税額ではありません）。'),
+    body,
+  ]);
+  el.update = (s) => {
+    const rows = s.incomes.map((i) => {
+      const c = getIncomeCategory(i.category);
+      return [i.name || c.label, formatYen(i.amount), c.hasExpenses ? formatYen(i.expenses) : '—'];
+    });
+    const total = s.incomes.reduce((a, i) => a + i.amount, 0);
+    body.replaceChildren(
+      h('table', { class: 'tbl' },
+        h('thead', {}, h('tr', {}, h('th', {}, '収入'), h('th', {}, '金額'), h('th', {}, '経費'))),
+        h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', { class: 'r' }, r[1]), h('td', { class: 'r' }, r[2])))),
+        h('tfoot', {}, h('tr', {}, h('th', {}, '入力した金額の合計'), h('th', { class: 'r' }, formatYen(total)), h('th', {}, '')))),
+      h('p', { class: 'hint' }, `対象年：${yearLabel(s.taxYear)} ／ 扶養親族 ${s.dependents.length}人 ／ 配偶者 ${s.spouse.exists ? 'あり' : 'なし'}`),
+    );
+  };
+  return el;
+}
+
+// ---- 5. シミュレーション（フェーズ3） ----
+export function simulationSection() {
+  return section('収入・経費の変動シミュレーション', 'sec-sim', [
+    h('p', { class: 'note' }, 'フェーズ3で実装予定：「あと50万円稼いだら？」の比較、限界負担率、壁の表示、FXの利確タイミング比較。'),
+  ], { open: false });
+}
