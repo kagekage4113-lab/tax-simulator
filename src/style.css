@@ -139,3 +139,5 @@ svg.chart { width: 100%; height: auto; touch-action: pan-y; }
 .hh-box h3 { margin-top: 4px; }
 .edit { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
 .edit > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.json-box { width: 100%; font: .78rem/1.4 ui-monospace, Menlo, Consolas, monospace; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
+.json-box[hidden] { display: none; }

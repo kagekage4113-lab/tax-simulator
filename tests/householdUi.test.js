@@ -70,3 +70,32 @@ describe('世帯（かんたん入力）の画面', () => {
     expect(s.dependents).toHaveLength(1);
   });
 });
+
+import { dataSection } from '../src/ui/dataSection.js';
+import { buildExport } from '../src/io/exchange.js';
+
+describe('データの書き出し・読み込み（ダウンロードできない環境でも使える）', () => {
+  it('書き出しで内容が画面に出て、貼り付けて読み込める', async () => {
+    const s = defaultState();
+    s.household.enabled = true;
+    s.household.people = [{ ...s.household, id: 'x' }].slice(0, 0);
+    let replaced = null;
+    const store = { get: () => s, replace: (n) => { replaced = n; } };
+    globalThis.URL.createObjectURL ??= () => 'blob:x';
+    globalThis.URL.revokeObjectURL ??= () => {};
+    const el = dataSection(store);
+    const box = el.querySelector('textarea[readonly]');
+    expect(box.hidden).toBe(true);
+    [...el.querySelectorAll('button')].find((b) => b.textContent === 'JSONを書き出す').click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(box.hidden).toBe(false);
+    expect(JSON.parse(box.value).app).toBe('tax-simulator');
+    const paste = el.querySelector('textarea:not([readonly])');
+    paste.value = buildExport(s);
+    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
+    expect(replaced.household.enabled).toBe(true);
+    paste.value = '{ばらばら';
+    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
+    expect(el.textContent).toMatch(/読み込めませんでした/);
+  });
+});
