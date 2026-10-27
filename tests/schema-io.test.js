@@ -25,12 +25,16 @@ describe('設定データの構造', () => {
     expect(INCOME_CATEGORIES.find((c) => c.id === 'securities').supported).toBe(false);
   });
   it('年度データは未確認項目を記録し、税率を推測で入れていない', () => {
-    for (const y of [2025, 2026]) {
-      const ty = getTaxYear(y);
-      expect(ty.status).toBe('skeleton');
-      expect(ty.incomeTax.brackets).toBeNull();
-      expect(ty.unverified.length).toBeGreaterThan(0);
-    }
+    const y25 = getTaxYear(2025);
+    expect(y25.status).toBe('skeleton');
+    expect(y25.incomeTax.brackets).toBeNull();
+    const y26 = getTaxYear(2026);
+    expect(y26.status).toBe('partial');
+    expect(y26.sources.length).toBeGreaterThan(0);
+    expect(y26.incomeTax.reconstructionRate).toBeNull(); // 資料なし
+    expect(y26.deductions.residentTax).toBeNull(); // 資料なし
+    expect(y26.unverified.length).toBeGreaterThan(0);
+    for (const y of [y25, y26]) expect(y.sources.every((s) => s.localFile || s.url)).toBe(true);
   });
 });
 
@@ -87,7 +91,7 @@ describe('JSON エクスポート/インポート', () => {
     const s = defaultState();
     s.dependents.push({ ...newDependent(), name: '長男', age: 19, income: 90000, disability: 'special' });
     s.incomes.push({ ...newIncome('fx'), amount: -123456 });
-    s.spouse = { exists: true, income: 480000, disability: 'general', cohabiting: false };
+    s.spouse = { exists: true, age: 41, income: 480000, disability: 'general', cohabiting: false };
     s.insurance.actualAnnual = 345678;
     const r = parseImport(buildExport(s));
     expect(r.ok).toBe(true);

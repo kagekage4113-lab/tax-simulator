@@ -26,7 +26,13 @@ export const WORK_STYLES = {
   realEstate: '不動産',
 };
 export const RELATIONSHIPS = { child: '子', parent: '親', grandparent: '祖父母', sibling: '兄弟姉妹', other: 'その他親族' };
-export const BUSINESS_TYPES = { unknown: '不明・対象外', general: '事業税の対象業種（要確認）' };
+export const BUSINESS_TYPES = {
+  unknown: '不明・対象外（個人事業税0円として扱う）',
+  type1: '第1種事業（物品販売業・飲食店業・請負業・製造業など）',
+  type2: '第2種事業（畜産業・水産業・薪炭製造業）',
+  type3: '第3種事業（医業・弁護士業・税理士業・デザイン業・理容業など）',
+  type3b: '第3種事業のうち、あん摩・マッサージ・柔道整復など／装蹄師業',
+};
 
 export const newId = () =>
   (globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
@@ -68,7 +74,7 @@ export function defaultState() {
     residence: { prefecture: '', city: '' },
     workStyles: [],
     self: { age: 30, disability: 'none', widowSingleParent: 'none', workingStudent: false },
-    spouse: { exists: false, income: 0, disability: 'none', cohabiting: true },
+    spouse: { exists: false, age: 30, income: 0, disability: 'none', cohabiting: true },
     dependents: [],
     insurance: { type: 'employee', actualAnnual: null }, // actualAnnual: 実額（円）。null=概算を使う
     filing: { type: 'white', blueDeduction: 65 },
@@ -126,6 +132,7 @@ export function validateState(input) {
   const sp = isObj(input.spouse) ? input.spouse : (err('spouse', '不正です'), {});
   s.spouse = {
     exists: bool(sp.exists, 'spouse.exists', false),
+    age: yen(sp.age ?? 30, 'spouse.age', { max: 120 }),
     income: yen(sp.income, 'spouse.income'),
     disability: oneOf(sp.disability, Object.keys(DISABILITY), 'spouse.disability', 'none'),
     cohabiting: bool(sp.cohabiting, 'spouse.cohabiting', true),

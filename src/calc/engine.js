@@ -13,8 +13,12 @@
 //   socialInsurance: { estimate: { <保険区分>: { rate, base:'salaryRevenue'|'totalIncome', fixed } } }
 //   businessTax: { rate, mainDeduction }
 //   fx: { incomeTaxRate, residentTaxRate }
+//   deductions: { incomeTax: { spouse, dependent, specificRelative, disability, widow, singleParent, workingStudent } }  → autoDeductions.js
+// 表の最後の upTo が null でない場合は「その金額までしか資料がない」。超える入力は「未登録」として扱う。
+// rounding.* が未登録の場合は端数処理なしで計算し、notes に記載する（概算）。
 import { applyRounding } from './rounding.js';
 import { calcProgressive, lookupStep } from './progressive.js';
+import { autoIncomeTaxDeductions, autoLabel, declaredAutoIds } from './autoDeductions.js';
 import { getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS } from '../data/deductions.js';
 
@@ -28,9 +32,11 @@ export function calculate(state, rules) {
     if (v == null) { missing.add(path); return undefined; }
     return v;
   };
+  const softMissing = new Set();
   const round = (value, key) => {
-    const r = need(`rounding.${key}`);
-    return r ? applyRounding(value, r) : undefined;
+    const r = get(rules, `rounding.${key}`);
+    if (!r) { softMissing.add(key); return Math.floor(value); }
+    return applyRounding(value, r);
   };
 
   // ---- 1-3. 所得区分ごとの所得と損益通算 ----
@@ -57,8 +63,11 @@ export function calculate(state, rules) {
   let salaryDeductionAmount = 0;
   if (salaryRevenue > 0) {
     const sd = need('salaryDeduction.brackets');
-    if (sd) {
-      const b = sd.find((x) => x.upTo == null || salaryRevenue <= x.upTo);
+    const b = sd && sd.find((x) => x.upTo == null || salaryRevenue <= x.upTo);
+    if (sd && !b) {
+      missing.add(`salaryDeduction.brackets@>${sd[sd.length - 1].upTo}`);
+      salaryIncome = null;
+    } else if (sd) {
       salaryDeductionAmount = Math.floor(salaryRevenue * b.rate) + b.add;
       salaryIncome = Math.max(0, salaryRevenue - salaryDeductionAmount);
     } else salaryIncome = null;
@@ -99,11 +108,7 @@ export function calculate(state, rules) {
   // ---- 5. 所得控除 ----
   const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome });
   const deductions = calcDeductions({ state, rules, need, totalIncome, socialInsurance });
-
-  if (deductions.pendingAuto.length) {
-    const labels = deductions.pendingAuto.map((id) => INCOME_DEDUCTIONS.find((d) => d.id === id).label).join('、');
-    notes.push(`${labels}の自動計算は未対応（フェーズ2b）のため、控除額0円として計算しています。`);
-  }
+  if (declaredAutoIds(state).length) notes.push('配偶者・扶養・障害者・寡婦/ひとり親・勤労学生などの適用は、ご自身の申告に基づく前提です（適用には証明書類が必要な場合があります）。年齢は12月31日時点で入力してください。');
 
   // ---- 6-7. 課税所得 ----
   const taxableFor = (kind) => {
@@ -113,10 +118,7 @@ export function calculate(state, rules) {
     const comp = Math.max(0, comprehensiveIncome - ded.total);
     const spill = Math.max(0, ded.total - comprehensiveIncome); // 総合で引ききれない控除
     const fx = Math.max(0, fxIncome - spill);
-    const rc = round(comp, roundKey);
-    const rf = round(fx, roundKey);
-    if (rc === undefined) return null;
-    return { comprehensive: rc, fx: rf, spillToFx: Math.min(spill, fxIncome), unusedDeduction: Math.max(0, spill - fxIncome) };
+    return { comprehensive: round(comp, roundKey), fx: round(fx, roundKey), spillToFx: Math.min(spill, fxIncome), unusedDeduction: Math.max(0, spill - fxIncome) };
   };
   const taxableIT = taxableFor('incomeTax');
   const taxableRT = taxableFor('residentTax');
@@ -127,14 +129,17 @@ export function calculate(state, rules) {
     const brackets = need('incomeTax.brackets');
     const recRate = need('incomeTax.reconstructionRate');
     const fxRate = fxIncome > 0 ? need('fx.incomeTaxRate') : 0;
-    if (brackets && recRate !== undefined && fxRate !== undefined) {
+    if (brackets && fxRate !== undefined) {
       const comp = calcProgressive(taxableIT.comprehensive, brackets);
-      const fx = Math.floor(taxableIT.fx * fxRate);
-      const credit = state.taxCredits.housingLoan.amount; // 所得税の税額控除（手入力）
-      const base = Math.max(0, comp + fx - credit);
-      const recon = round(base * recRate, 'reconstruction');
-      const total = recon === undefined ? undefined : round(base + recon, 'incomeTax');
-      if (total !== undefined) incomeTax = { comprehensiveTax: comp, fxTax: fx, credit, base, reconstruction: recon, total };
+      if (comp === null) missing.add(`incomeTax.brackets@>${brackets[brackets.length - 1].upTo}`);
+      else {
+        const fx = Math.floor(taxableIT.fx * fxRate);
+        const credit = state.taxCredits.housingLoan.amount; // 所得税の税額控除（手入力）
+        const base = Math.max(0, comp + fx - credit);
+        // 復興特別所得税の率が未登録の間は、基準所得税額までを表示し合計は出さない。
+        const recon = recRate === undefined ? null : round(base * recRate, 'reconstruction');
+        incomeTax = { comprehensiveTax: comp, fxTax: fx, credit, base, reconstruction: recon, total: recon === null ? null : round(base + recon, 'incomeTax') };
+      }
     }
   }
 
@@ -148,36 +153,35 @@ export function calculate(state, rules) {
       const levy = round(taxableRT.comprehensive * rate, 'residentIncomeLevy');
       const fx = Math.floor(taxableRT.fx * fxRate);
       const credit = state.taxCredits.donationCredit.amount;
-      if (levy !== undefined) {
-        const incomeLevy = Math.max(0, levy - credit);
-        // 非課税判定・調整控除は未対応（概算）
-        residentTax = { incomeLevy: incomeLevy, fxTax: fx, perCapita, credit, total: incomeLevy + fx + perCapita };
-        notes.push('住民税は調整控除・非課税判定・自治体別の違いを反映していない概算です。');
-      }
+      const incomeLevy = Math.max(0, levy - credit);
+      residentTax = { incomeLevy, fxTax: fx, perCapita, credit, total: incomeLevy + fx + perCapita };
+      notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（調整控除・非課税判定は未反映）。`);
     }
   }
 
   // ---- 13. 個人事業税 ----
-  const businessTax = calcBusinessTax({ state, need, round, businessNet });
+  const businessTax = calcBusinessTax({ state, rules, need, round, notes });
 
   // ---- 手取り（7章の定義）----
-  const taxesKnown = incomeTax && residentTax && businessTax.total !== null && socialInsurance.total !== null;
+  const taxesKnown = incomeTax && incomeTax.total !== null && residentTax && businessTax.total !== null && socialInsurance.total !== null;
   const takeHome = taxesKnown
     ? revenueTotal - expensesTotal + simpleComp + fxProfit
       - incomeTax.total - residentTax.total - businessTax.total - socialInsurance.total
     : null;
   const burden = taxesKnown ? incomeTax.total + residentTax.total + businessTax.total + socialInsurance.total : null;
 
+  if (softMissing.size) notes.push(`端数処理の根拠が未登録のため、端数処理を行っていない項目があります（概算）：${[...softMissing].join('、')}`);
+
   // 途中で計算を打ち切っても、この入力で必要な未登録データを漏れなく列挙する。
   const required = [
     'incomeTax.brackets', 'incomeTax.reconstructionRate', 'residentTax.incomeRate', 'residentTax.perCapita',
     'basicDeduction.incomeTax', 'basicDeduction.residentTax',
-    'rounding.taxableIncome', 'rounding.residentTaxableIncome', 'rounding.incomeTax', 'rounding.reconstruction', 'rounding.residentIncomeLevy',
   ];
   if (salaryRevenue > 0) required.push('salaryDeduction.brackets');
   if (fxIncome > 0) required.push('fx.incomeTaxRate', 'fx.residentTaxRate');
-  if (state.incomes.some((i) => i.category === 'business' && i.businessType === 'general')) required.push('businessTax.rate', 'businessTax.mainDeduction', 'rounding.businessTax');
+  if (state.incomes.some((i) => i.category === 'business' && i.businessType !== 'unknown')) required.push('businessTax.rates', 'businessTax.mainDeduction');
   if (state.insurance.actualAnnual == null && ['employee', 'national'].includes(state.insurance.type)) required.push(`socialInsurance.estimate.${state.insurance.type}`);
+  if (declaredAutoIds(state).length) required.push('deductions.residentTax');
   required.forEach(need);
 
   return {
@@ -202,16 +206,23 @@ export function calculate(state, rules) {
 
 function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFull }) {
   const out = { incomeTax: { items: [], total: 0 }, residentTax: { items: [], total: 0 } };
-  const push = (kind, id, label, amount, mode) => {
-    out[kind].items.push({ id, label, amount, mode });
-    if (out[kind].total !== null) out[kind].total = amount === null ? null : out[kind].total + amount;
+  const push = (kind, item) => {
+    out[kind].items.push(item);
+    if (out[kind].total !== null) out[kind].total = item.amount === null ? null : out[kind].total + item.amount;
   };
+  const auto = autoIncomeTaxDeductions(state, get(rules, 'deductions.incomeTax'), totalIncome, need);
+
   for (const kind of ['incomeTax', 'residentTax']) {
     // 基礎控除（自動）
     const steps = need(`basicDeduction.${kind}`);
-    push(kind, 'basic', '基礎控除', steps && totalIncome !== null ? lookupStep(totalIncome, steps) : null, 'auto');
+    const basic = steps && totalIncome !== null ? lookupStep(totalIncome, steps) : null;
+    if (steps && totalIncome !== null && basic === null) need(`basicDeduction.${kind}@>${steps[steps.length - 1].upTo}`);
+    push(kind, { id: 'basic', label: '基礎控除', amount: basic, mode: 'auto' });
     // 社会保険料控除（自動: 実額 or 概算）
-    push(kind, 'socialInsurance', '社会保険料控除', siFull.total, siFull.mode === 'actual' ? 'actual' : 'estimate');
+    push(kind, { id: 'socialInsurance', label: '社会保険料控除', amount: siFull.total, mode: siFull.mode === 'actual' ? 'actual' : 'estimate' });
+    // 人的控除などの自動計算。住民税の控除額は資料が未登録のため、該当しうる控除は金額未確定として扱う。
+    if (kind === 'incomeTax') auto.forEach((a) => push(kind, a));
+    else declaredAutoIds(state).filter((id) => id !== 'specificRelative').forEach((id) => push(kind, { id, label: autoLabel(id), amount: null, mode: 'auto' }));
     // 手入力の控除
     for (const [id, box] of Object.entries(state.deductions)) {
       const def = INCOME_DEDUCTIONS.find((d) => d.id === id);
@@ -227,39 +238,33 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
           amount = Math.min(m.cap, Math.max(0, box.paid - box.reimbursed - threshold));
         }
       } else amount = box.amount;
-      if (amount !== 0 || id !== 'medical') push(kind, id, def.label, amount, 'manual');
-    }
-    // 自動計算（フェーズ2b）で未実装の控除: 該当しうる条件があれば「データ未登録」として明示
-    for (const id of pendingAuto(state)) {
-      const def = INCOME_DEDUCTIONS.find((d) => d.id === id);
-      push(kind, id, def.label, 0, 'pending');
+      if (amount !== 0 || id !== 'medical') push(kind, { id, label: def.label, amount, mode: 'manual' });
     }
   }
-  out.pendingAuto = pendingAuto(state);
   return out;
 }
 
-// 自動計算が未実装（2b）で、入力条件上は該当し得る控除
-function pendingAuto(state) {
-  const ids = [];
-  if (state.spouse.exists) ids.push('spouse');
-  if (state.dependents.length) ids.push('dependent');
-  if (state.self.disability !== 'none' || state.spouse.disability !== 'none' || state.dependents.some((d) => d.disability !== 'none')) ids.push('disability');
-  if (state.self.widowSingleParent !== 'none') ids.push('widowSingleParent');
-  if (state.self.workingStudent) ids.push('workingStudent');
-  return ids;
-}
-
-function calcBusinessTax({ state, need, round, businessNet }) {
-  const targets = state.incomes.filter((i) => i.category === 'business' && i.businessType === 'general');
+// 個人事業税（業種ごとの税率）。青色申告特別控除は適用しない（広島県の資料）。
+// 複数の業種がある場合は、事業主控除を所得の割合で按分する（簡易）。
+function calcBusinessTax({ state, rules, need, round, notes }) {
+  const targets = state.incomes.filter((i) => i.category === 'business' && i.businessType !== 'unknown');
   if (targets.length === 0) return { total: 0, note: state.incomes.some((i) => i.category === 'business') ? '業種が不明・対象外のため0円として扱っています' : '事業所得なし' };
-  const rate = need('businessTax.rate');
+  const rates = need('businessTax.rates');
   const main = need('businessTax.mainDeduction');
-  if (rate === undefined || main === undefined) return { total: null };
-  const income = targets.reduce((a, i) => a + i.amount - i.expenses, 0); // 青色特別控除は適用しない前提（要確認）
+  if (rates === undefined || main === undefined) return { total: null };
+  const byType = {};
+  for (const i of targets) byType[i.businessType] = (byType[i.businessType] || 0) + i.amount - i.expenses;
+  const income = Object.values(byType).reduce((a, b) => a + b, 0);
   const taxable = Math.max(0, income - main);
-  const total = round(Math.floor(taxable * rate), 'businessTax');
-  return total === undefined ? { total: null } : { total, income, taxable, note: '当年所得に対して翌年に納付' };
+  const positive = Object.values(byType).reduce((a, v) => a + Math.max(0, v), 0);
+  let sum = 0;
+  for (const [type, v] of Object.entries(byType)) {
+    if (rates[type] == null) return { total: null };
+    if (positive > 0 && v > 0) sum += taxable * (v / positive) * rates[type];
+  }
+  if (Object.keys(byType).length > 1) notes.push('複数の業種がある個人事業税は、事業主控除を所得の割合で按分した簡易計算です。');
+  notes.push('個人事業税は事業主控除の月割（年の途中の開業・廃業）、損失の繰越控除、専従者給与を反映していません。');
+  return { total: round(Math.floor(sum), 'businessTax'), income, taxable, note: '当年所得に対して翌年に納付' };
 }
 
 function calcSocialInsurance({ state, need, salaryRevenue, totalIncome }) {

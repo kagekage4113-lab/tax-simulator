@@ -37,6 +37,6 @@ export const syntheticRules = {
       national: { rate: 0.1, base: 'totalIncome' },
     },
   },
-  businessTax: { rate: 0.05, mainDeduction: 3_000_000 },
+  businessTax: { mainDeduction: 3_000_000, rates: { type1: 0.05, type2: 0.04, type3: 0.05, type3b: 0.03 } },
   fx: { incomeTaxRate: 0.15, residentTaxRate: 0.05 },
 };

@@ -7,6 +7,17 @@ import { syntheticRules } from './fixtures/syntheticRules.js';
 const cells = (el) => Object.fromEntries([...el.querySelectorAll('table.summary tr')].map((tr) => [tr.querySelector('th').textContent.replace(/概算|実額|手入力値/g, '').trim(), tr.querySelector('td').textContent]));
 
 describe('結果画面', () => {
+  it('令和8年分: 資料のある範囲は表示し、無い部分は「未登録」と範囲を明示する', () => {
+    const s = defaultState();
+    s.incomes = [{ ...newIncome('salary'), amount: 3_000_000 }];
+    const el = resultSection();
+    el.update(s);
+    expect(el.textContent).toMatch(/給与所得控除（2,200,000円超の区分）/);
+    expect(cells(el)['年間手取り']).toBe('—');
+    s.incomes = [{ ...newIncome('salary'), amount: 2_000_000 }];
+    el.update(s);
+    expect(el.textContent).toMatch(/復興特別所得税の率/);
+  });
   it('税制データがあれば手取りまで表示する（給与500万・社保概算: 手計算で手取り350万）', () => {
     const s = defaultState();
     s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }];
@@ -21,13 +32,14 @@ describe('結果画面', () => {
   it('税制データ未登録なら理由を表示し、手取りは「—」（確定値のように見せない）', () => {
     const s = defaultState();
     s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }];
+    s.taxYear = 2025;
     const el = resultSection(); // 実際の令和7年分（骨組み）
     el.update(s);
     const c = cells(el);
     expect(c['年間手取り']).toBe('—');
     expect(c['所得税（復興税含む）']).toBe('—');
     expect(c['年間収入']).toBe('5,000,000円');
-    expect(el.textContent).toMatch(/未登録のため、税額・手取りは計算できません/);
+    expect(el.textContent).toMatch(/税制データが未登録のため/);
     expect(el.textContent).toMatch(/所得税の税率表/);
   });
 });

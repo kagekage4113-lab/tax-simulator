@@ -27,13 +27,14 @@ export function settingsSection(store) {
   const prefOptions = { '': '選択してください', ...Object.fromEntries(PREFECTURES.map((p) => [p, p])) };
   const personal = [
     h('h3', {}, '本人'),
-    gaugeField({ label: '年齢', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
+    gaugeField({ label: '年齢（12月31日時点）', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
     field('障害の区分', select(DISABILITY, s.self.disability, (v) => set((x) => { x.self.disability = v; }))),
     field('寡婦・ひとり親', select(WIDOW_SINGLE, s.self.widowSingleParent, (v) => set((x) => { x.self.widowSingleParent = v; }))),
     checkbox('勤労学生に該当する', s.self.workingStudent, (v) => set((x) => { x.self.workingStudent = v; })),
     h('h3', {}, '配偶者'),
     checkbox('配偶者がいる', s.spouse.exists, (v) => set((x) => { x.spouse.exists = v; }, true)),
     ...(s.spouse.exists ? [
+      gaugeField({ label: '配偶者の年齢（12月31日時点）', value: s.spouse.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.spouse.age = Math.min(v, 120); }) }),
       gaugeField({ label: '配偶者の合計所得金額（見込み）', value: s.spouse.income, max: 2_000_000, onChange: (v) => set((x) => { x.spouse.income = v; }) }),
       field('配偶者の障害の区分', select(DISABILITY, s.spouse.disability, (v) => set((x) => { x.spouse.disability = v; }))),
       checkbox('同居している', s.spouse.cohabiting, (v) => set((x) => { x.spouse.cohabiting = v; })),
@@ -77,7 +78,7 @@ function dependentCard(store, d, i) {
       h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.dependents.splice(i, 1); }, true) }, '削除')),
     field('名前（メモ）', h('input', { type: 'text', value: d.name, maxlength: 100, onInput: (e) => upd('name', e.target.value) })),
     field('続柄', select(RELATIONSHIPS, d.relationship, (v) => upd('relationship', v))),
-    gaugeField({ label: '年齢', value: d.age, max: 100, step: 1, unit: '歳', onChange: (v) => upd('age', Math.min(v, 120)) }),
+    gaugeField({ label: '年齢（12月31日時点）', value: d.age, max: 100, step: 1, unit: '歳', onChange: (v) => upd('age', Math.min(v, 120)) }),
     gaugeField({ label: '合計所得金額（見込み）', value: d.income, max: 2_000_000, onChange: (v) => upd('income', v) }),
     field('障害の区分', select(DISABILITY, d.disability, (v) => upd('disability', v))),
     checkbox('同居している', d.cohabiting, (v) => upd('cohabiting', v)),
@@ -179,9 +180,18 @@ const MISSING_LABEL = {
   'fx.residentTaxRate': 'FXの住民税率',
   'businessTax.rate': '個人事業税の税率',
   'businessTax.mainDeduction': '個人事業税の事業主控除',
+  'businessTax.rates': '個人事業税の税率',
+  'deductions.residentTax': '住民税の所得控除額（配偶者・扶養・障害者など）',
+  'deductions.incomeTax': '所得税の人的控除の金額',
+  'deductions.incomeTax.specificRelative.ageMin': '特定親族の年齢要件',
   medical: '医療費控除の足切り・上限',
 };
-const missingLabel = (k) => MISSING_LABEL[k] || (k.startsWith('rounding.') ? `端数処理（${k.slice(9)}）` : k.startsWith('socialInsurance.estimate') ? '社会保険料の概算率' : k);
+const missingLabel = (key) => {
+  const [k, over] = key.split('@');
+  const base = missingLabelBase(k);
+  return over ? `${base}（${formatYen(Number(over.slice(1)))}円超の区分）` : base;
+};
+const missingLabelBase = (k) => MISSING_LABEL[k] || (k.startsWith('rounding.') ? `端数処理（${k.slice(9)}）` : k.startsWith('socialInsurance.estimate') ? '社会保険料の概算率' : k);
 const MODE_LABEL = { auto: '自動', manual: '手入力値', actual: '実額', estimate: '概算', pending: '未対応（0円）' };
 
 export function resultSection(rulesFor = getTaxYear) {
@@ -193,12 +203,12 @@ export function resultSection(rulesFor = getTaxYear) {
   el.update = (s) => {
     const r = calculate(s, rulesFor(s.taxYear));
     const i = r.income;
-    const hasBusinessTax = s.incomes.some((x) => x.category === 'business' && x.businessType === 'general');
+    const hasBusinessTax = s.incomes.some((x) => x.category === 'business' && x.businessType !== 'unknown');
     const kids = [];
 
     if (r.missing.length) {
       kids.push(h('p', { class: 'warn' },
-        `${yearLabel(s.taxYear)}の次の税制データが未登録のため、税額・手取りは計算できません：`,
+        `${yearLabel(s.taxYear)}の次の税制データが未登録のため、確定できない金額があります（—と表示）：`,
         h('br'), [...new Set(r.missing.map(missingLabel))].join('、')));
     }
     kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},
@@ -241,6 +251,7 @@ export function resultSection(rulesFor = getTaxYear) {
         row('総合課税分の所得税', yen(r.incomeTax.comprehensiveTax)),
         i.fx.income ? row('FX分の所得税（分離課税）', yen(r.incomeTax.fxTax)) : null,
         r.incomeTax.credit ? row('税額控除（住宅ローン控除など）', `−${formatYen(r.incomeTax.credit)}円`, { tag: '手入力値' }) : null,
+        row('基準所得税額（復興税を除く）', yen(r.incomeTax.base)),
         row('復興特別所得税', yen(r.incomeTax.reconstruction)),
       ] : null,
       r.residentTax ? [
