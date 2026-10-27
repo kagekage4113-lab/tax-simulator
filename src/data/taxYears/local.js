@@ -15,7 +15,8 @@ export const SRC = {
   NTA_1900: { id: 'NTA_1900', title: '国税庁 タックスアンサー No.1900 給与所得者で確定申告が必要な人［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm', localFile: 'docs/tax-sources/nta_tax-answer-1900_filing-required-salary_2026-04-01.pdf' },
   NTA_1525: { id: 'NTA_1525', title: '国税庁 タックスアンサー No.1525 暗号資産交換業者から暗号資産に代えて金銭の補償を受けた場合［令和8年4月1日現在法令等］（補償金は総合課税の雑所得、損失は他の雑所得と通算可）', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1525.htm', localFile: 'docs/tax-sources/nta_tax-answer-1525_crypto-compensation_2026-04-01.pdf' },
   FUKUYAMA_KOKUHO: { id: 'FUKUYAMA_KOKUHO', title: '福山市「国民健康保険税について」（2026年7月7日更新。令和8年度＝令和7年中の所得に対する国保税）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/hokennenkin/405324.html', localFile: 'docs/tax-sources/fukuyama_national-health-insurance-tax_updated-2026-07-07.pdf' },
-  SECONDARY_NENKIN_KOKUHO: { id: 'SECONDARY_NENKIN_KOKUHO', title: '【二次情報】国民年金保険料 令和8年度 月額17,920円（付加保険料400円）、国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。日本年金機構・福山市の公式資料は未確認', secondary: true },
+  NENKIN_PREMIUM: { id: 'NENKIN_PREMIUM', title: '日本年金機構「国民年金保険料」（更新日2026年4月1日）：令和8年度の保険料は1か月17,920円（付加保険料400円）', url: 'https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html', localFile: 'docs/tax-sources/nenkin-kikou_national-pension-premium_updated-2026-04-01.pdf' },
+  SECONDARY_KOKUHO_REDUCTION: { id: 'SECONDARY_KOKUHO_REDUCTION', title: '【二次情報】国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。福山市の公式資料は未確認', secondary: true },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -149,8 +150,8 @@ export const FUKUYAMA_ADJUSTMENT = {
 };
 
 const KOKUHO_ADVISORIES = [
-  '個人事業主の国民年金（月17,920円）と国民健康保険税の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（日本年金機構・福山市の公式資料は未確認）。',
-  '個人事業主の国保税は令和8年度（令和7年所得）の福山市の値、国民年金は令和8年度の額を、年分にかかわらず当てはめた概算です（令和9年度の税率・令和7年度の年金額は未入手）。',
+  '国民健康保険税の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（福山市の公式資料は未確認）。',
+  '個人事業主の国保税は令和8年度（令和7年所得）の福山市の値、国民年金は令和8年度の額（月17,920円）を、年分にかかわらず当てはめた概算です（令和9年度の税率・令和7年度の年金額は未入手）。',
 ];
 
 // 福山市の国民健康保険税 令和8年度（令和7年中の所得に対する分）。FUKUYAMA_KOKUHO。
@@ -173,8 +174,8 @@ export const FUKUYAMA_KOKUHO = {
     care: { incomeRate: 0.0279, perPerson: 9_960, perHousehold: 4_800, limit: 170_000, ageMin: 40, ageMax: 64 },
     children: { incomeRate: 0.0029, perPerson: 1_262, perPersonAdult: 79, perHousehold: 802, limit: 30_000, exemptUnderAge: 18 },
   },
-  // 国民年金（第1号被保険者）: 令和8年度の月額17,920円。20歳以上60歳未満の本人・配偶者が対象（二次情報。令和7年度の額は未入手のため令和8年度の値で代用）
-  pension: { monthly: 17_920, ageMin: 20, ageMax: 59, secondary: true },
+  // 国民年金（第1号被保険者）: 令和8年度の月額17,920円（NENKIN_PREMIUM）。20歳以上60歳未満の本人・配偶者が対象。令和7年度の額は未入手のため令和8年度の値で代用
+  pension: { monthly: 17_920, ageMin: 20, ageMax: 59 },
   // 法定軽減（二次情報）: 世帯の判定用所得（基礎控除前の合計所得）が基準以下なら、均等割・平等割を7割・5割・2割軽減。
   //   7割: 43万円＋10万円×(給与・年金所得者数−1) / 5割: 7割の基準＋31万円×被保険者数 / 2割: 7割の基準＋57万円×被保険者数
   //   給与・年金所得者＝給与収入55万円超など。扶養者側の給与・年金の有無は入力がないため、本人の給与収入のみで数える。

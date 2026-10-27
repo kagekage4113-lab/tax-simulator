@@ -39,6 +39,13 @@ describe('設定データの構造', () => {
     }
     expect(getTaxYear(2025).socialInsurance.estimate.employee.schedule[0].healthRateByPrefecture).toEqual({ '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024 });
     expect(getTaxYear(2026).socialInsurance.estimate.employee.schedule[2].healthRateByPrefecture).toEqual({ '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013 });
+    // 国民年金は日本年金機構（令和8年度17,920円）。国保の法定軽減は二次情報と明記
+    const nat = getTaxYear(2026).socialInsurance.estimate.national;
+    expect(nat.pension).toMatchObject({ monthly: 17_920 });
+    expect(nat.pension.secondary).toBeUndefined();
+    expect(getTaxYear(2026).sources.some((x) => x.id === 'NENKIN_PREMIUM' && x.url.includes('nenkin.go.jp'))).toBe(true);
+    expect(nat.reduction.secondary).toBe(true);
+    expect(nat.advisories.join()).toMatch(/法定軽減.*二次情報/);
     // 令和8年分の住民税の控除額（令和9年度）は資料がなく、令和8年度の値を代用している旨を注意書きに残す
     expect(getTaxYear(2026).advisories.join()).toMatch(/令和9年度/);
     expect(getTaxYear(2026).deductions.residentTax).toBe(getTaxYear(2025).deductions.residentTax);
