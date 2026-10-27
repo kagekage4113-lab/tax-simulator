@@ -905,3 +905,48 @@ describe('暗号資産（雑所得・総合課税）', () => {
     expect(r.income.comprehensive).toBe(2_200_000 + 300_000);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 住民税の非課税判定（福山市 FUKUYAMA_RATE）。令和7年分（令和8年度分）の実データ
+// ---------------------------------------------------------------------------
+describe('住民税の非課税判定（福山市）', () => {
+  // 本人のみ: 合計所得 ≦ 35万+10万=45万 で均等割・所得割とも非課税（扶養なしなら+21万・+32万はない）
+  const rt = (incomes, patch) => calculate(mk(incomes, { insurance: { type: 'none', actualAnnual: null }, ...patch }), R7).residentTax;
+  it('本人のみ: 合計所得450,000円まで非課税、450,001円から課税', () => {
+    // 給与所得=収入-650,000（令和7年分 190万以下）。給与1,100,000 → 450,000 / 1,100,001 → 450,001
+    expect(rt([inc('salary', 1_100_000)])).toMatchObject({ exemption: 'all', total: 0 });
+    const t = rt([inc('salary', 1_100_001)]);
+    expect(t.exemption).toBeNull();
+    expect(t.perCapita).toBe(5_500);
+  });
+  it('配偶者・扶養がいる場合は +21万円（均等割・所得割とも非課税）／+32万円（所得割のみ非課税）', () => {
+    // 子1人（10歳・所得0）: n=2 → 非課税 ≦ 70万+10万+21万=1,010,000 / 所得割のみ非課税 ≦ 70万+10万+32万=1,120,000
+    const kid = { dependents: [person({ age: 10 })] };
+    const at = (income) => rt([inc('business', income)], kid);
+    expect(at(1_010_000).exemption).toBe('all');
+    const levyOnly = at(1_010_001);
+    expect(levyOnly).toMatchObject({ exemption: 'levy', incomeLevy: 0, perCapita: 5_500, total: 5_500 });
+    expect(at(1_120_000).exemption).toBe('levy');
+    expect(at(1_120_001).exemption).toBeNull();
+  });
+  it('16歳未満の扶養親族も扶養人数に含める／所得が要件(58万円)を超える親族は含めない', () => {
+    expect(rt([inc('business', 1_010_000)], { dependents: [person({ age: 5 })] }).exemption).toBe('all');
+    expect(rt([inc('business', 1_010_000)], { dependents: [person({ age: 30, income: 580_001 })] }).exemption).toBeNull();
+  });
+  it('同一生計配偶者（所得58万円以下）も扶養人数に含める', () => {
+    expect(rt([inc('business', 1_010_000)], { spouse: { exists: true, age: 40, income: 580_000, disability: 'none', cohabiting: true } }).exemption).toBe('all');
+    expect(rt([inc('business', 1_010_000)], { spouse: { exists: true, age: 40, income: 580_001, disability: 'none', cohabiting: true } }).exemption).toBeNull();
+  });
+  it('障がい者・未成年者・ひとり親・寡婦は合計所得135万円以下で非課税（境界）', () => {
+    const me = (o) => ({ self: { ...defaultState().self, ...o } });
+    expect(rt([inc('business', 1_350_000)], me({ disability: 'general' })).exemption).toBe('all');
+    expect(rt([inc('business', 1_350_001)], me({ disability: 'general' })).exemption).toBeNull();
+    expect(rt([inc('business', 1_350_000)], me({ age: 17 })).exemption).toBe('all');
+    expect(rt([inc('business', 1_350_000)], me({ age: 18 })).exemption).toBeNull();
+    expect(rt([inc('business', 1_350_000)], me({ widowSingleParent: 'widow' })).exemption).toBe('all');
+  });
+  it('非課税のときは調整控除・分離課税(FX)の住民税も0円', () => {
+    const r = rt([inc('fx', 400_000)]);
+    expect(r).toMatchObject({ exemption: 'all', fxTax: 0, adjustment: 0, total: 0 });
+  });
+});

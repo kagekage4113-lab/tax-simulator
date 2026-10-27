@@ -148,7 +148,11 @@ export const FUKUYAMA_RESIDENT = {
   incomeRate: 0.1, // 所得割：市民税6%＋県民税4%
   perCapita: 5_500, // 均等割4,500円（市3,000＋県1,500、ひろしまの森づくり県民税500円を含む）＋森林環境税1,000円
   adjustment: FUKUYAMA_ADJUSTMENT,
-  nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 } },
+  // 非課税（FUKUYAMA_RATE）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
+  //  ・障がい者・未成年者・ひとり親・寡婦で前年の合計所得金額が135万円以下 → 均等割・所得割とも非課税
+  //  ・合計所得金額 ≦ (本人+扶養人数)×35万円+10万円(+21万円: 同一生計配偶者・扶養親族がいる場合) → 均等割・所得割とも非課税
+  //  ・総所得金額等 ≦ (本人+扶養人数)×35万円+10万円(+32万円: 同上) → 所得割のみ非課税
+  nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 }, specialGroup: { incomeMax: 1_350_000, minorUnderAge: 18 } },
 };
 
 export const HIROSHIMA_BUSINESS_TAX = {

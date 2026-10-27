@@ -58,3 +58,38 @@ footer { color: var(--muted); font-size: .78rem; text-align: center; margin-top:
 .tbl.summary th { font-weight: 500; }
 .tbl tr.strong th, .tbl tr.strong td { font-weight: 700; font-size: 1.05rem; }
 .tbl td.r { white-space: nowrap; }
+
+/* シミュレーション */
+.sim-panel { margin: 12px 0; }
+.sim-panel > summary { font-weight: 700; }
+.sim-controls, .sim-output { padding-top: 4px; }
+.hero { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+.hero p { margin: 0; }
+.hero-label { font-size: .82rem; color: var(--muted); }
+.hero-num { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tbl.cmp th, .tbl.cmp td { font-size: .85rem; }
+.tbl.cmp thead th { color: var(--muted); font-weight: 600; text-align: right; }
+.wall-list { padding-left: 1.4em; font-size: .88rem; }
+.wall-list li { margin: 8px 0; }
+.chart-wrap { margin: 8px 0 12px; }
+.chart-title { font-weight: 700; margin: 4px 0; font-size: .95rem; }
+svg.chart { width: 100%; height: auto; touch-action: pan-y; }
+.chart text { font: 11px system-ui, sans-serif; fill: var(--muted); }
+.chart .c-axis { font-size: 11px; }
+.chart .c-label { fill: var(--text); font-weight: 600; }
+.chart .c-note { font-size: 10.5px; }
+.chart .c-grid { stroke: var(--line); stroke-width: 1; }
+.chart .c-ref { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .c-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .c-wall { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .c-badge { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+.chart .c-badge-text { fill: var(--text); font-weight: 700; }
+.chart .c-reversal { fill: var(--warn-bg); opacity: .9; }
+.chart .c-cross { stroke: var(--text); stroke-width: 1; }
+.chart-readout { min-height: 2.6em; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--muted); margin: 4px 0; }
+.legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--accent); }
+.legend .sw-ref { border-top: 2px dashed var(--muted); }
+.legend .sw-wall { border-top: 1px dashed var(--muted); }

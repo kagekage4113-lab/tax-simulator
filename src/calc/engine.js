@@ -192,8 +192,12 @@ export function calculate(state, rules) {
       const credit = state.taxCredits.donationCredit.amount;
       const adj = rules.residentTax.adjustment;
       const adjustment = adj ? calcAdjustmentCredit(state, adj, deductions.residentTax, totalIncome, taxableRT.comprehensive) : 0;
-      const incomeLevy = Math.max(0, levy - adjustment - credit);
-      residentTax = { incomeLevy, fxTax: fx, perCapita, credit, adjustment, total: incomeLevy + fx + perCapita };
+      const exemption = calcResidentExemption(state, rules, totalIncome);
+      const incomeLevy = exemption ? 0 : Math.max(0, levy - adjustment - credit);
+      const fxTax = exemption ? 0 : fx;
+      const perCapitaDue = exemption === 'all' ? 0 : perCapita;
+      residentTax = { incomeLevy, fxTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + perCapitaDue };
+      if (exemption) notes.push(exemption === 'all' ? '住民税の非課税の基準に該当するため、住民税を0円としています。' : '住民税の所得割の非課税の基準に該当するため、所得割を0円としています（均等割は課税）。');
       notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（${adj ? '' : '調整控除・'}非課税判定は未反映）。`);
     }
   }
@@ -241,6 +245,34 @@ export function calculate(state, rules) {
     incomeTax, residentTax, businessTax, socialInsurance,
     burden, takeHome,
   };
+}
+
+// 住民税の非課税の基準額（福山市）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
+export function residentNonTaxableLimits(state, rules) {
+  const nt = get(rules, 'residentTax.nonTaxable');
+  if (!nt) return null;
+  const sp = get(rules, 'deductions.residentTax.spouse');
+  const dp = get(rules, 'deductions.residentTax.dependent');
+  const dependents = (state.spouse.exists && sp && state.spouse.income <= sp.spouseIncomeMax ? 1 : 0)
+    + state.dependents.filter((d) => dp && d.income <= dp.incomeMax).length;
+  const n = 1 + dependents;
+  const g = nt.specialGroup;
+  const special = g && (state.self.disability !== 'none' || state.self.age < g.minorUnderAge || state.self.widowSingleParent !== 'none') ? g.incomeMax : null;
+  return {
+    all: nt.perPerson * n + nt.base + (dependents ? nt.addIfDependents.allIncome : 0),
+    levy: nt.perPerson * n + nt.base + (dependents ? nt.addIfDependents.incomeLevy : 0),
+    special,
+  };
+}
+
+// 住民税の非課税判定。'all' = 均等割・所得割とも非課税、'levy' = 所得割のみ非課税、null = 課税。
+function calcResidentExemption(state, rules, totalIncome) {
+  const lim = residentNonTaxableLimits(state, rules);
+  if (!lim || totalIncome === null) return null;
+  if (lim.special !== null && totalIncome <= lim.special) return 'all';
+  if (totalIncome <= lim.all) return 'all';
+  if (totalIncome <= lim.levy) return 'levy';
+  return null;
 }
 
 // 住民税の調整控除（福山市の算式）。人的控除額の差（所得税−住民税）の合計①と合計課税所得金額②から求め、所得割から控除する。

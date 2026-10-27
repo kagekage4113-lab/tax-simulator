@@ -2,7 +2,8 @@ import './style.css';
 import { h } from './ui/dom.js';
 import { createStore } from './core/store.js';
 import { dataSection } from './ui/dataSection.js';
-import { deductionsSection, incomesSection, resultSection, settingsSection, simulationSection } from './ui/sections.js';
+import { deductionsSection, incomesSection, resultSection, settingsSection } from './ui/sections.js';
+import { simulationSection } from './ui/simulation.js';
 
 const store = createStore();
 const app = document.getElementById('app');
@@ -10,6 +11,7 @@ const app = document.getElementById('app');
 const status = h('span', { class: 'save-status', role: 'status' }, '');
 const notice = store.notice ? h('p', { class: 'banner' }, store.notice) : null;
 const result = resultSection();
+const simulation = simulationSection(store);
 
 const dynamic = h('div', { class: 'dynamic' });
 // 構造が変わる操作（追加・削除・選択肢による項目の出し分け）では開閉状態を保ったまま作り直す。
@@ -32,6 +34,7 @@ store.subscribe((state, e) => {
   status.textContent = '保存中…';
   if (e.structural) rebuild();
   result.update(state);
+  simulation.update(state, e);
 });
 
 app.append(
@@ -40,7 +43,7 @@ app.append(
     h('p', {}, '確定申告の代わりではなく、収入が変わったときの目安を知るためのツールです。'),
     status),
   ...(notice ? [notice] : []),
-  h('main', {}, dynamic, result, simulationSection(), dataSection(store)),
+  h('main', {}, dynamic, result, simulation, dataSection(store)),
   h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。'),
 );
 

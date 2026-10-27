@@ -205,7 +205,7 @@ const MISSING_LABEL = {
   'deductions.incomeTax.specificRelative.ageMin': '特定親族の年齢要件',
   medical: '医療費控除の足切り・上限',
 };
-const missingLabel = (key) => {
+export const missingLabel = (key) => {
   const [k, over] = key.split('@');
   const base = missingLabelBase(k);
   return over ? `${base}（${formatYen(Number(over.slice(1)))}円超の区分）` : base;
@@ -287,11 +287,4 @@ export function resultSection(rulesFor = getTaxYear) {
     body.replaceChildren(...kids.filter(Boolean));
   };
   return el;
-}
-
-// ---- 5. シミュレーション（フェーズ3） ----
-export function simulationSection() {
-  return section('収入・経費の変動シミュレーション', 'sec-sim', [
-    h('p', { class: 'note' }, 'フェーズ3で実装予定：「あと50万円稼いだら？」の比較、限界負担率、壁の表示、FXの利確タイミング比較。'),
-  ], { open: false });
 }
