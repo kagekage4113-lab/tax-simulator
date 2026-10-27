@@ -15,6 +15,7 @@ export const SRC = {
   NTA_1900: { id: 'NTA_1900', title: '国税庁 タックスアンサー No.1900 給与所得者で確定申告が必要な人［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm', localFile: 'docs/tax-sources/nta_tax-answer-1900_filing-required-salary_2026-04-01.pdf' },
   NTA_1525: { id: 'NTA_1525', title: '国税庁 タックスアンサー No.1525 暗号資産交換業者から暗号資産に代えて金銭の補償を受けた場合［令和8年4月1日現在法令等］（補償金は総合課税の雑所得、損失は他の雑所得と通算可）', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1525.htm', localFile: 'docs/tax-sources/nta_tax-answer-1525_crypto-compensation_2026-04-01.pdf' },
   FUKUYAMA_KOKUHO: { id: 'FUKUYAMA_KOKUHO', title: '福山市「国民健康保険税について」（2026年7月7日更新。令和8年度＝令和7年中の所得に対する国保税）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/hokennenkin/405324.html', localFile: 'docs/tax-sources/fukuyama_national-health-insurance-tax_updated-2026-07-07.pdf' },
+  SECONDARY_NENKIN_KOKUHO: { id: 'SECONDARY_NENKIN_KOKUHO', title: '【二次情報】国民年金保険料 令和8年度 月額17,920円（付加保険料400円）、国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。日本年金機構・福山市の公式資料は未確認', secondary: true },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -35,6 +36,7 @@ export const INCOME_TAX_BRACKETS = [
   { upTo: 40_000_000, rate: 0.4, deduction: 2_796_000 },
   { upTo: null, rate: 0.45, deduction: 4_796_000 },
 ];
+
 
 export const RECON_RATE = 0.021;
 
@@ -146,6 +148,11 @@ export const FUKUYAMA_ADJUSTMENT = {
   },
 };
 
+const KOKUHO_ADVISORIES = [
+  '個人事業主の国民年金（月17,920円）と国民健康保険税の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（日本年金機構・福山市の公式資料は未確認）。',
+  '個人事業主の国保税は令和8年度（令和7年所得）の福山市の値、国民年金は令和8年度の額を、年分にかかわらず当てはめた概算です（令和9年度の税率・令和7年度の年金額は未入手）。',
+];
+
 // 福山市の国民健康保険税 令和8年度（令和7年中の所得に対する分）。FUKUYAMA_KOKUHO。
 //  ・所得割 =（所得−基礎控除）×税率、均等割 = 加入者1人あたり、平等割 = 1世帯あたり。各区分の合計（100円未満切捨）が課税限度額を超えれば限度額。
 //  ・介護分は40歳以上65歳未満のみ。65歳以上は介護分の課税なし（別途介護保険料）。75歳以上は後期高齢者医療のため国保の対象外。
@@ -154,6 +161,7 @@ export const FUKUYAMA_ADJUSTMENT = {
 // 未登録: 法定軽減（7割・5割・2割）の判定基準、国民年金保険料、特定世帯・特定継続世帯、年度途中加入の月割。
 export const FUKUYAMA_KOKUHO = {
   model: 'fukuyamaKokuho',
+  advisories: KOKUHO_ADVISORIES,
   scope: '福山市（広島県）',
   basicDeduction: FUKUYAMA_RESIDENT_BASIC_R8NENDO, // 合計所得金額による基礎控除（注）：43万円（2,400万円以下）／29万円／15万円／適用なし
   rounding: { rule: 'floor', unit: 100 },
@@ -165,7 +173,12 @@ export const FUKUYAMA_KOKUHO = {
     care: { incomeRate: 0.0279, perPerson: 9_960, perHousehold: 4_800, limit: 170_000, ageMin: 40, ageMax: 64 },
     children: { incomeRate: 0.0029, perPerson: 1_262, perPersonAdult: 79, perHousehold: 802, limit: 30_000, exemptUnderAge: 18 },
   },
-  pension: null, // 国民年金保険料は資料なし → 登録まで個人事業主の社会保険料の概算は確定させない
+  // 国民年金（第1号被保険者）: 令和8年度の月額17,920円。20歳以上60歳未満の本人・配偶者が対象（二次情報。令和7年度の額は未入手のため令和8年度の値で代用）
+  pension: { monthly: 17_920, ageMin: 20, ageMax: 59, secondary: true },
+  // 法定軽減（二次情報）: 世帯の判定用所得（基礎控除前の合計所得）が基準以下なら、均等割・平等割を7割・5割・2割軽減。
+  //   7割: 43万円＋10万円×(給与・年金所得者数−1) / 5割: 7割の基準＋31万円×被保険者数 / 2割: 7割の基準＋57万円×被保険者数
+  //   給与・年金所得者＝給与収入55万円超など。扶養者側の給与・年金の有無は入力がないため、本人の給与収入のみで数える。
+  reduction: { base: 430_000, perSalaryOrPensionEarner: 100_000, salaryRevenueMin: 550_000, tiers: [{ rate: 0.7, perInsured: 0 }, { rate: 0.5, perInsured: 310_000 }, { rate: 0.2, perInsured: 570_000 }], secondary: true },
 };
 
 export const FUKUYAMA_RESIDENT = {

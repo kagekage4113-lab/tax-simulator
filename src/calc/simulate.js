@@ -84,7 +84,7 @@ export function sweepIncome(state, rules, { target, max, step }) {
       add,
       burden: r.burden,
       takeHome: r.takeHome,
-      metrics: { totalIncome: r.income.total, taxableIT: r.taxable.incomeTax?.comprehensive ?? null, taxableRT: r.taxable.residentTax?.comprehensive ?? null, businessNet: typedBusiness, sideIncome: r.filing ? r.filing.sideIncome : null },
+      metrics: { totalIncome: r.income.total, taxableIT: r.taxable.incomeTax?.comprehensive ?? null, taxableRT: r.taxable.residentTax?.comprehensive ?? null, businessNet: typedBusiness, sideIncome: r.filing ? r.filing.sideIncome : null, householdIncome: r.socialInsurance.kokuho ? r.socialInsurance.kokuho.householdIncome : null },
     });
   }
   const ok = points.every((p) => p.takeHome !== null);

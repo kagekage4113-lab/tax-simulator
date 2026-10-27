@@ -803,10 +803,10 @@ describe('社会保険料の概算（協会けんぽ・月ごとの料率）', (
   it('実額を入力すれば概算より優先', () => {
     expect(si(2026, 4_800_000, { ...at('広島県'), insurance: { type: 'employee', actualAnnual: 500_000 } }).socialInsurance).toEqual({ total: 500_000, mode: 'actual' });
   });
-  it('個人事業主は国保税を概算できるが、国民年金の保険料額が未登録のため合計は確定させない', () => {
+  it('個人事業主は国保税と国民年金で概算できる（二次情報の注意書き付き）', () => {
     const r = calculate(mk([inc('business', 5_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R8);
-    expect(r.socialInsurance.total).toBeNull();
-    expect(r.missing).toContain('socialInsurance.estimate.national.pension');
+    expect(r.socialInsurance.total).toBeGreaterThan(215_040); // 国民年金（月17,920円×12）＋国保税
+    expect(r.notes.join()).toMatch(/二次情報/);
   });
   it('会社員でも給与がなければ0円', () => {
     expect(si(2026, 0).socialInsurance.total).toBe(0);
@@ -1007,8 +1007,8 @@ describe('国民健康保険税の概算（福山市）', () => {
     // 支援 ×3.15%=80,955 + 10,680 + 6,480 = 98,115 → 98,100 / 介護 ×2.79%=71,703 + 9,960 + 4,800 = 86,463 → 86,400
     // 子ども ×0.29%=7,453 + 均等割1,262+18歳以上79=1,341 + 平等割802 = 9,596 → 9,500 → 合計474,200
     const r = kk(me(45));
-    expect(r.socialInsurance).toEqual({ total: 474_200, mode: 'estimate' });
-    expect(r.notes.join()).toMatch(/法定軽減.*反映していない/);
+    expect(r.socialInsurance).toMatchObject({ total: 474_200, mode: 'estimate' });
+    expect(r.notes.join()).toMatch(/法定軽減.*適用していません/); // 世帯所得が基準を超えるため
   });
   it('介護分は40〜64歳のみ（39歳・65歳は介護分なし＝387,800円、40歳・64歳は474,200円）', () => {
     expect(kk(me(39)).socialInsurance.total).toBe(387_800);
@@ -1047,8 +1047,9 @@ describe('国民健康保険税の概算（福山市）', () => {
     expect(kk({ ...me(45), ...spouse({ age: 60 }) }, 10_000).socialInsurance.total).toBe(525_700 + 120_000); // 60歳以上は第1号の対象外
     expect(kk(me(60), 10_000).socialInsurance.total - kk(me(60), 0).socialInsurance.total).toBe(0);
   });
-  it('国民年金の保険料額が未登録の間は確定させない（登録されたデータ）', () => {
-    const r = calculate(mk([inc('business', 3_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R7);
+  it('国民年金の保険料額が未登録のデータでは確定させない', () => {
+    const noPension = { ...R7, socialInsurance: { estimate: { national: { ...R7.socialInsurance.estimate.national, pension: null } } } };
+    const r = calculate(mk([inc('business', 3_000_000)], { insurance: { type: 'national', actualAnnual: null } }), noPension);
     expect(r.socialInsurance.total).toBeNull();
     expect(r.missing).toContain('socialInsurance.estimate.national.pension');
     expect(r.takeHome).toBeNull();
@@ -1057,5 +1058,65 @@ describe('国民健康保険税の概算（福山市）', () => {
     const r = calculate(mk([inc('business', 3_000_000)], { insurance: { type: 'national', actualAnnual: 600_000 } }), R7);
     expect(r.socialInsurance).toEqual({ total: 600_000, mode: 'actual' });
     expect(r.takeHome).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 国民年金（月17,920円・二次情報）と国保税の法定軽減（7・5・2割・二次情報）
+// ---------------------------------------------------------------------------
+describe('国民年金と国保税の法定軽減（二次情報）', () => {
+  const nat = (income, patch = {}) => calculate(mk([inc('business', income)], { insurance: { type: 'national', actualAnnual: null }, self: { ...defaultState().self, age: 45 }, ...patch }), R7);
+  const PENSION = 17_920 * 12; // 215,040円
+
+  it('国民年金は月17,920円×12か月（20〜59歳の本人）', () => {
+    // 所得300万円: 国保税474,200円（軽減なし）+ 国民年金215,040円
+    expect(nat(3_000_000).socialInsurance.total).toBe(474_200 + PENSION);
+    // 60歳以上は国民年金の第1号の対象外
+    expect(nat(3_000_000, { self: { ...defaultState().self, age: 60 } }).socialInsurance.total).toBe(474_200); // 60歳も介護分(40〜64歳)の対象。国民年金だけ第1号の対象外で0円
+  });
+  it('7割軽減: 世帯の判定用所得が43万円以下（本人のみ）', () => {
+    // 所得割0（所得40万円は基礎控除43万円以下）。均等割・平等割を30%に: 医療(29,520+19,680)×0.3=14,760→14,700 / 支援(10,680+6,480)×0.3=5,148→5,100
+    // 介護(9,960+4,800)×0.3=4,428→4,400 / 子ども(1,341+802)×0.3=642.9→600 → 24,800
+    const r = nat(400_000);
+    expect(r.socialInsurance.total).toBe(24_800 + PENSION);
+    expect(r.socialInsurance.kokuho.rate).toBe(0.7);
+  });
+  it('5割軽減: 43万円超〜74万円（43万円+31万円×1人）以下', () => {
+    // 所得70万円: 基礎控除後270,000円 / 医療 24,273+(49,200×0.5=24,600)=48,873→48,800 / 支援 8,505+8,580=17,085→17,000
+    // 介護 7,533+7,380=14,913→14,900 / 子ども 783+1,071.5=1,854.5→1,800 → 82,500
+    expect(nat(700_000).socialInsurance.total).toBe(82_500 + PENSION);
+    expect(nat(740_000).socialInsurance.kokuho.rate).toBe(0.5);
+    expect(nat(740_001).socialInsurance.kokuho.rate).toBe(0.2);
+  });
+  it('2割軽減: 〜100万円（43万円+57万円×1人）以下。境界の1円差で保険税が段差的に増える', () => {
+    // 所得100万円: 基礎控除後570,000円 / 医療 51,243+39,360=90,603→90,600 / 支援 17,955+13,728=31,683→31,600 / 介護 15,903+11,808=27,711→27,700 / 子ども 1,653+1,714.4=3,367.4→3,300 → 153,200
+    // 所得1,000,001円: 軽減なし / 医療 51,243.09+49,200=100,443→100,400 / 支援 35,100 / 介護 30,600 / 子ども 3,700 → 169,800
+    expect(nat(1_000_000).socialInsurance.total).toBe(153_200 + PENSION);
+    expect(nat(1_000_000).socialInsurance.kokuho.rate).toBe(0.2);
+    expect(nat(1_000_001).socialInsurance.total).toBe(169_800 + PENSION);
+    expect(nat(1_000_001).socialInsurance.kokuho.rate).toBeNull();
+  });
+  it('世帯の所得で判定する: 配偶者の所得も合算し、被保険者数が増えると基準額も増える', () => {
+    // 本人45歳(所得50万円)+配偶者43歳(所得30万円)=80万円 / 被保険者2人: 5割=43万+31万×2=105万円 → 5割軽減
+    const r = nat(500_000, { spouse: { exists: true, age: 43, income: 300_000, disability: 'none', cohabiting: true } });
+    expect(r.socialInsurance.kokuho).toMatchObject({ householdIncome: 800_000, rate: 0.5 });
+    // 7割は43万円(+10万円×(給与・年金所得者数−1))。本人が給与収入55万円超なら1人でも加算なし（人数−1=0）
+    expect(r.socialInsurance.kokuho.limits[0].limit).toBe(430_000);
+    expect(r.socialInsurance.kokuho.limits[1].limit).toBe(430_000 + 310_000 * 2);
+  });
+  it('未就学児の均等割5割軽減は法定軽減の後の額に適用される', () => {
+    // 所得40万円(7割軽減)・本人45歳・3歳の子: 世帯所得40万円 ≦ 43万円。被保険者2人
+    // 医療: 所得割0 + 平等割19,680×0.3=5,904 + 本人均等割29,520×0.3=8,856 + 3歳均等割29,520×0.3×0.5=4,428 = 19,188 → 19,100
+    // 支援: 6,480×0.3=1,944 + 10,680×0.3=3,204 + 10,680×0.3×0.5=1,602 = 6,750 → 6,700
+    // 介護(本人のみ): 4,800×0.3=1,440 + 9,960×0.3=2,988 = 4,428 → 4,400 / 子ども: 平等802×0.3=240.6 + 本人(1,262+79)×0.3=402.3 + 3歳(18歳未満は全額軽減)0 = 642.9 → 600
+    const r = nat(400_000, { dependents: [person({ age: 3 })] });
+    expect(r.socialInsurance.total).toBe(19_100 + 6_700 + 4_400 + 600 + PENSION);
+  });
+  it('75歳以上は後期高齢者医療のため被保険者に数えない（基準額・保険税とも）', () => {
+    const r = nat(400_000, { self: { ...defaultState().self, age: 76 } });
+    expect(r.socialInsurance.total).toBe(0);
+  });
+  it('二次情報であることを注意書きに出す', () => {
+    expect(nat(3_000_000).notes.join()).toMatch(/二次情報/);
   });
 });

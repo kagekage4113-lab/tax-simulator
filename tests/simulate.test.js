@@ -152,6 +152,30 @@ describe('壁と逆転（6.4）', () => {
   });
 });
 
+describe('国保税の法定軽減の壁（個人事業主・二次情報）', () => {
+  // 事業所得70万円・本人のみ（45歳）: 軽減の基準額は 7割=43万円 / 5割=74万円 / 2割=100万円（世帯の判定用所得）
+  const st = () => mk([inc('business', 700_000)], { insurance: { type: 'national', actualAnnual: null }, self: { ...defaultState().self, age: 45 } });
+  it('壁は税制データと世帯構成から作る（被保険者の人数で基準額が変わる）', () => {
+    const ws = wallDefinitions(st(), R7).filter((w) => w.id.startsWith('kokuhoReduction'));
+    expect(ws.map((w) => w.threshold)).toEqual([430_000, 740_000, 1_000_000]);
+    expect(ws.map((w) => w.label)).toEqual(['国保税の法定軽減が7割から5割に下がる', '国保税の法定軽減が5割から2割に下がる', '国保税の法定軽減が2割からなしに下がる']);
+    const two = { ...st(), spouse: { exists: true, age: 43, income: 0, disability: 'none', cohabiting: true } };
+    expect(wallDefinitions(two, R7).filter((w) => w.id.startsWith('kokuhoReduction')).map((w) => w.threshold)).toEqual([430_000, 430_000 + 310_000 * 2, 430_000 + 570_000 * 2]);
+  });
+  it('実額入力のときは国保の壁を出さない（保険料が変わらないため）', () => {
+    expect(wallDefinitions({ ...st(), insurance: { type: 'national', actualAnnual: 300_000 } }, R7).some((w) => w.id.startsWith('kokuhoReduction'))).toBe(false);
+  });
+  it('所得が増えると、5割→2割（+5万円）、2割→なし（+31万円）で段差が出て、後者は手取りが逆転する', () => {
+    const s = st();
+    const sw = sweepIncome(s, R7, { target: { id: s.incomes[0].id }, max: 400_000, step: 10_000 });
+    expect(sw.walls.find((w) => w.label.includes('5割から2割')).add).toBe(50_000);
+    const last = sw.walls.find((w) => w.label.includes('2割からなし'));
+    expect(last.add).toBe(310_000);
+    expect(last.jump).toBeGreaterThan(10_000); // 1,000,000円→1,010,000円で保険税が約1.7万円増える
+    expect(sw.reversals.some((r) => r.from === 300_000 && r.to === 310_000)).toBe(true);
+  });
+});
+
 describe('FXの利確タイミング比較（6.5）', () => {
   // FXのみ（他の所得なし）。来年は「今年と同じ収入・同じ税制」の仮定。令和7年分の実データ。
   const base = () => mk([]);

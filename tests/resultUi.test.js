@@ -47,15 +47,17 @@ describe('結果画面', () => {
     expect(cells(el)['年間手取り']).not.toBe('—');
     expect(el.textContent).toMatch(/協会けんぽ/);
   });
-  it('国保（個人事業主）は国民年金の額が未登録のため、実額未入力だと手取りは「—」', () => {
+  it('国保（個人事業主）は国保税＋国民年金で概算し、二次情報の注意書きを出す', () => {
     const s = defaultState();
     s.taxYear = 2025;
     s.insurance = { type: 'national', actualAnnual: null };
     s.incomes = [{ ...newIncome('business'), amount: 3_000_000 }];
     const el = resultSection();
     el.update(s);
-    expect(el.textContent).toMatch(/国民年金の保険料額/);
-    expect(cells(el)['年間手取り']).toBe('—');
+    expect(cells(el)['社会保険料']).toMatch(/円$/);
+    expect(cells(el)['年間手取り']).not.toBe('—');
+    expect(el.textContent).toMatch(/二次情報/);
+    expect(el.textContent).toMatch(/国民年金/);
   });
   it('給与所得者の確定申告の要否（参考）を表示する', () => {
     const s = defaultState();

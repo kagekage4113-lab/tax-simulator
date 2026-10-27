@@ -1,7 +1,7 @@
 // 「壁」（条件が変わる境界）の定義。しきい値は年度別税制データ（rules）と入力から求め、手書きの値は持たない。
 // metric: 追加収入のシミュレーション中に参照する指標。threshold を「超える」と条件が変わる。
 //   totalIncome=本人の合計所得金額 / taxableIT=所得税の課税所得(総合) / taxableRT=住民税の課税所得(総合) / businessNet=個人事業税の対象事業の所得
-import { residentNonTaxableLimits } from './engine.js';
+import { kokuhoReductionLimits, residentNonTaxableLimits } from './engine.js';
 
 const man = (n) => `${Math.round(n / 10_000).toLocaleString('ja-JP')}万円`;
 const pct = (r) => `${Math.round(r * 1000) / 10}%`;
@@ -53,6 +53,14 @@ export function wallDefinitions(state, rules) {
   const wsp = get(rules, 'deductions.incomeTax.widowSingleParentIncomeMax');
   if (state.self.widowSingleParent !== 'none' && wsp) add({ id: 'widowSingleParent', metric: 'totalIncome', threshold: wsp, label: '寡婦控除・ひとり親控除がなくなる', detail: `合計所得金額が${wsp.toLocaleString('ja-JP')}円を超えると`, source: '福山市 所得控除の種類' });
 
+  const nat = get(rules, 'socialInsurance.estimate.national');
+  if (state.insurance.type === 'national' && state.insurance.actualAnnual == null && nat && nat.reduction) {
+    const lim = kokuhoReductionLimits(state, nat);
+    lim.tiers.forEach((t, i) => {
+      const next = lim.tiers[i + 1];
+      add({ id: `kokuhoReduction${i}`, metric: 'householdIncome', threshold: t.limit, label: `国保税の法定軽減が${Math.round(t.rate * 10)}割から${next ? `${Math.round(next.rate * 10)}割` : 'なし'}に下がる`, detail: `世帯の判定用所得（基礎控除前の合計所得）が${t.limit.toLocaleString('ja-JP')}円を超えると（被保険者${lim.insured}人）`, source: '二次情報（福山市の公式資料は未確認）' });
+    });
+  }
   const fl = get(rules, 'filing.salaryEarner');
   if (fl && state.incomes.filter((i) => i.category === 'salary').length === 1) {
     add({ id: 'filingRequired', metric: 'sideIncome', threshold: fl.sideIncomeMax, label: '所得税の確定申告が必要になる可能性（給与以外の所得が20万円超）', detail: `給与以外の所得の合計が${fl.sideIncomeMax.toLocaleString('ja-JP')}円を超えると（給与1か所の場合。住民税の申告は別に必要な場合があります）`, source: '国税庁 No.1900', noTaxEffect: true });

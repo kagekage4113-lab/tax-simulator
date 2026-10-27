@@ -373,7 +373,7 @@ function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes })
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
   if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };
-  if (e.model === 'fukuyamaKokuho') return { total: totalIncome === null ? null : fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate' };
+  if (e.model === 'fukuyamaKokuho') return { total: totalIncome === null ? null : fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate', kokuho: totalIncome === null ? null : kokuhoReduction(state, e, totalIncome) };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
   return { total: mulFloor(baseVal, e.rate ?? 0) + (e.fixed ?? 0), mode: 'estimate' };
@@ -394,25 +394,48 @@ function fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes) {
   for (const d of state.dependents) members.push({ age: d.age, income: d.income });
   const insured = members.filter((m) => m.age < e.retireAge);
   let tax = 0;
+  const kokuho = kokuhoReduction(state, e, totalIncome);
   if (insured.length > 0) {
     for (const c of Object.values(e.components)) {
       const eligible = insured.filter((m) => c.ageMin == null || (m.age >= c.ageMin && m.age <= c.ageMax));
       if (eligible.length === 0) continue;
-      let amount = eligible.reduce((a, m) => a + Math.max(0, m.income - lookupStep(m.income, e.basicDeduction)), 0) * c.incomeRate + c.perHousehold;
+      const keep = 1 - (kokuho.rate ?? 0); // 法定軽減（均等割・平等割）
+      let amount = eligible.reduce((a, m) => a + Math.max(0, m.income - lookupStep(m.income, e.basicDeduction)), 0) * c.incomeRate + c.perHousehold * keep;
       for (const m of eligible) {
         let per = c.perPerson;
         if (c.exemptUnderAge != null && m.age < c.exemptUnderAge) per = 0; // 子ども分：18歳未満は全額軽減
         else if (c.perPersonAdult != null && m.age >= 18) per += c.perPersonAdult;
-        if (m.age < e.preschool.underAge) per *= 1 - e.preschool.reduction; // 未就学児の均等割5割軽減
+        per *= keep;
+        if (m.age < e.preschool.underAge) per *= 1 - e.preschool.reduction; // 未就学児の均等割5割軽減（法定軽減後の額から）
         amount += per;
       }
       tax += Math.min(c.limit, applyRounding(amount + 1e-6, e.rounding));
     }
   }
+  (e.advisories || []).forEach((a) => notes.push(a));
   const pensionMembers = [state.self, ...(state.spouse.exists ? [state.spouse] : [])].filter((m) => m.age >= e.pension.ageMin && m.age <= e.pension.ageMax);
-  notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険税（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。法定軽減（7・5・2割）は反映していないため、所得が低い世帯では実際より高く出ます。`);
+  notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険税（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。${e.reduction ? (kokuho.rate ? `世帯の判定用所得が基準以下のため、均等割・平等割の${Math.round(kokuho.rate * 10)}割軽減を反映しています（給与・年金所得者は本人の給与収入のみで数えています）。` : '法定軽減（7・5・2割）は、世帯の判定用所得が基準を超えるため適用していません。') : '法定軽減（7・5・2割）は反映していません。'}`);
   if (members.length !== insured.length) notes.push('75歳以上の方は後期高齢者医療制度のため、国民健康保険税の対象から除いています。');
   return tax + pensionMembers.length * e.pension.monthly * 12;
+}
+
+// 国保税の法定軽減の基準額（二次情報）。世帯の判定用所得＝被保険者全員の基礎控除前の合計所得金額。
+export function kokuhoReductionLimits(state, e) {
+  const r = e && e.reduction;
+  if (!r) return null;
+  const members = [{ age: state.self.age }, ...(state.spouse.exists ? [{ age: state.spouse.age }] : []), ...state.dependents.map((d) => ({ age: d.age }))].filter((m) => m.age < e.retireAge);
+  const earners = state.incomes.filter((i) => i.category === 'salary').reduce((a, i) => a + i.amount, 0) > r.salaryRevenueMin ? 1 : 0;
+  const base = r.base + r.perSalaryOrPensionEarner * Math.max(0, earners - 1);
+  return { insured: members.length, tiers: r.tiers.map((t) => ({ rate: t.rate, limit: base + t.perInsured * members.length })) };
+}
+
+function kokuhoReduction(state, e, totalIncome) {
+  const lim = kokuhoReductionLimits(state, e);
+  if (!lim) return { rate: null, householdIncome: null };
+  const householdIncome = totalIncome + (state.spouse.exists && state.spouse.age < e.retireAge ? state.spouse.income : 0)
+    + state.dependents.filter((d) => d.age < e.retireAge).reduce((a, d) => a + d.income, 0);
+  const hit = lim.tiers.find((t) => householdIncome <= t.limit);
+  return { rate: hit ? hit.rate : null, householdIncome, limits: lim.tiers };
 }
 
 // 協会けんぽ（会社員）の概算: 給与収入を12か月均等の報酬月額とみなし、標準報酬月額の等級から
