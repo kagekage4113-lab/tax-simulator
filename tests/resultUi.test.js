@@ -59,6 +59,17 @@ describe('結果画面', () => {
     expect(el.textContent).toMatch(/二次情報/);
     expect(el.textContent).toMatch(/国民年金/);
   });
+  it('ふるさと納税の寄附上限額（目安）を表示する（令和7年分・給与500万円・社保70万円 → 62,283円）', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'employee', actualAnnual: 700_000 };
+    s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }];
+    const el = resultSection();
+    el.update(s);
+    expect(el.textContent).toMatch(/ふるさと納税の寄附上限額（目安）/);
+    expect(el.textContent).toMatch(/62,283円/);
+    expect(el.textContent).toMatch(/二次情報/);
+  });
   it('給与所得者の確定申告の要否（参考）を表示する', () => {
     const s = defaultState();
     s.taxYear = 2025;

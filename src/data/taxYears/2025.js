@@ -1,7 +1,7 @@
 // 令和7年分（2025年）。docs/tax-sources/ の資料で確認できた値のみ登録している。共通の値は local.js。
 // 住民税は「令和7年中の所得に対する令和8年度分」で、福山市の令和8年度の控除額（FUKUYAMA_DED）を使う。
 import {
-  FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FX, HIROSHIMA_BUSINESS_TAX, MEDICAL,
+  FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FURUSATO, FX, HIROSHIMA_BUSINESS_TAX, INSURANCE_IT_2025, INSURANCE_RT, MEDICAL,
   INCOME_TAX_BRACKETS, OWNER_COLUMNS, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
 } from './local.js';
 import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1900, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -55,6 +55,7 @@ export const taxYear2025 = {
   fx: FX, // NTA_1521
   filing: { salaryEarner: FILING_SALARY_EARNER }, // NTA_1900
   crypto: CRYPTO, // NTA_CRYPTO_FAQ
+  furusato: FURUSATO, // 二次情報
   deductions: {
     incomeTax: {
       spouse: {
@@ -82,9 +83,10 @@ export const taxYear2025 = {
       widow: 270_000,
       singleParent: 350_000,
       widowSingleParentIncomeMax: 5_000_000, // 福山市の資料の要件。所得税側は国税庁の資料で未確認
+      insurance: INSURANCE_IT_2025, // NTA_INSURANCE
       workingStudent: { amount: 270_000, incomeMax: 850_000 }, // NTA_R8_P3 p.4「改正前」列
     },
-    residentTax: FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO,
+    residentTax: { ...FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, insurance: INSURANCE_RT },
   },
   walls: [],
   unverified: [
@@ -97,6 +99,9 @@ export const taxYear2025 = {
     '所得税の勤労学生控除・扶養親族等の所得要件は、令和8年分資料の「改正前」列から令和7年分に適用',
     '個人事業税の端数処理・月割適用・事業の種類ごとの業種一覧・損失繰越',
     '住民税の非課税判定、国外居住親族・16歳未満の扱い',
+    '保険料控除：控除額の1円未満の端数は切上げで計算（国税庁の資料に端数処理の記載なし）。23歳未満の扶養親族の特例は所得税のみ（住民税側の資料なし）',
+    'ふるさと納税：上限額は一般的な算式による目安（二次情報）。総務省の公式資料は未確認。住宅ローン控除（住民税側）・セルフメディケーション税制・分離課税は考慮しない',
+    '住宅ローン控除：自動計算は未対応（借入限度額・控除率の表が未入手。手入力の税額控除を使用）。雑損控除・株式等（特定口座・配当控除）も未対応',
     'FX・先物：繰越控除の要件（連続した付表付き確定申告）は注記のみで、実際に満たしているかは確認しない。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
     '暗号資産：根拠のFAQは令和4年12月現在の法令等。その後の改正の有無は未確認。取得価額の計算（総平均法・移動平均法）・事業所得への区分は入力側で行う（損益は経費控除後の実額を入力）',
     '社会保険料：国保の法定軽減の公的資料（二次情報で登録）、令和7年度の国民年金額、雇用保険、協会けんぽの他支部（資料のない都道府県は登録済み支部の平均で概算）、賞与',

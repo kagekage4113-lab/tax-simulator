@@ -48,7 +48,7 @@ describe('設定データの構造', () => {
     expect(nat.advisories.join()).toMatch(/法定軽減.*二次情報/);
     // 令和8年分の住民税の控除額（令和9年度）は資料がなく、令和8年度の値を代用している旨を注意書きに残す
     expect(getTaxYear(2026).advisories.join()).toMatch(/令和9年度/);
-    expect(getTaxYear(2026).deductions.residentTax).toBe(getTaxYear(2025).deductions.residentTax);
+    expect(getTaxYear(2026).deductions.residentTax).toEqual(getTaxYear(2025).deductions.residentTax);
   });
 });
 

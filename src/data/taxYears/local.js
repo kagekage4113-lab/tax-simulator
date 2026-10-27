@@ -18,6 +18,9 @@ export const SRC = {
   NENKIN_PREMIUM: { id: 'NENKIN_PREMIUM', title: '日本年金機構「国民年金保険料」（更新日2026年4月1日）：令和8年度の保険料は1か月17,920円（付加保険料400円）', url: 'https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html', localFile: 'docs/tax-sources/nenkin-kikou_national-pension-premium_updated-2026-04-01.pdf' },
   SECONDARY_KOKUHO_REDUCTION: { id: 'SECONDARY_KOKUHO_REDUCTION', title: '【二次情報】国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。福山市の公式資料は未確認', secondary: true },
   NTA_CRYPTO_FAQ: { id: 'NTA_CRYPTO_FAQ', title: '国税庁「暗号資産に関する税務上の取扱いについて（FAQ）」平成30年11月（令和4年12月最終改定。令和4年12月1日現在の法令等）', localFile: 'docs/tax-sources/nta_crypto-faq_2022-12.pdf' },
+  NTA_INSURANCE: { id: 'NTA_INSURANCE', title: '国税庁 パンフレット「暮らしの税情報」（令和8年度版）保険と税（生命保険料控除・地震保険料控除）', url: 'https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm', localFile: 'docs/tax-sources/nta_pamphlet-2026_insurance-and-tax.pdf' },
+  SECONDARY_FURUSATO: { id: 'SECONDARY_FURUSATO', title: '【二次情報】ふるさと納税の控除上限額：ふるさと納税サイト「さとふる」の早見表・シミュレーション（税理士監修・2026年4月現在の制度）と一般的な算式。総務省の公式資料は未確認', url: 'https://www.satofull.jp/static/calculation01.php', localFile: 'docs/tax-sources/satofull_furusato-limit-table_2026-04.pdf', secondary: true },
+  NTA_1535: { id: 'NTA_1535', title: '国税庁 タックスアンサー No.1535 NISA制度［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1535.htm', localFile: 'docs/tax-sources/nta_tax-answer-1535_nisa_2026-04-01.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -201,6 +204,50 @@ export const HIROSHIMA_BUSINESS_TAX = {
   blueDeductionApplies: false,
   rates: { type1: 0.05, type2: 0.04, type3: 0.05, type3b: 0.03 },
 };
+
+// 生命保険料控除・地震保険料控除の表。表は [{ upTo, rate, add }]（控除額 = 支払保険料×rate + add）。
+// 所得税: 国税庁「暮らしの税情報（令和8年度版）保険と税」（NTA_INSURANCE）。23歳未満の扶養親族がいる場合の新生命保険料の特例は令和8年分・令和9年分のみ。
+const T = (...rows) => rows.map(([upTo, rate, add]) => ({ upTo, rate, add }));
+const INSURANCE_IT_BASE = {
+  life: {
+    newTable: T([20_000, 1, 0], [40_000, 0.5, 10_000], [80_000, 0.25, 20_000], [null, 0, 40_000]),
+    oldTable: T([25_000, 1, 0], [50_000, 0.5, 12_500], [100_000, 0.25, 25_000], [null, 0, 50_000]),
+    bothRule: { oldBasis: 'premium', oldOver: 60_000 }, // 旧契約の支払保険料が6万円を超える場合は旧契約のみ（最高5万円）
+    oldOnlyMax: 50_000,
+    bothSumMax: 40_000, // 旧契約が6万円以下で新旧両方ある場合の合計の最高額
+    totalMax: 120_000, // 生命保険料・個人年金保険料・介護医療保険料の合計の最高額
+  },
+  earthquake: {
+    quakeTable: T([50_000, 1, 0], [null, 0, 50_000]),
+    oldLongTable: T([10_000, 1, 0], [20_000, 0.5, 5_000], [null, 0, 15_000]),
+    totalMax: 50_000,
+  },
+};
+export const INSURANCE_IT_2025 = INSURANCE_IT_BASE;
+export const INSURANCE_IT_2026 = {
+  ...INSURANCE_IT_BASE,
+  life: { ...INSURANCE_IT_BASE.life, newLifeUnder23: { table: T([30_000, 1, 0], [60_000, 0.5, 15_000], [120_000, 0.25, 30_000], [null, 0, 60_000]), bothSumMax: 60_000 } },
+};
+// 住民税: 福山市「所得控除の種類」別表1・2（FUKUYAMA_DED）。旧契約の控除額が28,000円を超える場合は旧契約のみ（上限35,000円）。
+export const INSURANCE_RT = {
+  life: {
+    newTable: T([12_000, 1, 0], [32_000, 0.5, 6_000], [56_000, 0.25, 14_000], [null, 0, 28_000]),
+    oldTable: T([15_000, 1, 0], [40_000, 0.5, 7_500], [70_000, 0.25, 17_500], [null, 0, 35_000]),
+    bothRule: { oldBasis: 'deduction', oldOver: 28_000 },
+    oldOnlyMax: 35_000,
+    bothSumMax: 28_000,
+    totalMax: 70_000,
+  },
+  earthquake: {
+    quakeTable: T([50_000, 0.5, 0], [null, 0, 25_000]),
+    oldLongTable: T([5_000, 1, 0], [15_000, 0.5, 2_500], [null, 0, 10_000]),
+    totalMax: 25_000,
+  },
+};
+
+// ふるさと納税の上限額の目安（一般的な算式。民間サイトの早見表と整合。二次情報）:
+//   上限 = 住民税所得割額（調整控除後）×20% ÷（90% − 所得税の限界税率×(1+復興税率)）+ 自己負担2,000円
+export const FURUSATO = { specialLimitRate: 0.2, basicRate: 0.1, selfBurden: 2_000 };
 
 // 給与所得者の確定申告の要否（NTA_1900）: 給与の年間収入が2,000万円超、または給与以外の所得（給与・退職を除く）の合計が20万円超（給与1か所の場合）。
 // 暗号資産（NTA_CRYPTO_FAQ）。売却・交換・商品購入の利益は原則として雑所得（その他雑所得）。

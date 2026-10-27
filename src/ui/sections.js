@@ -121,6 +121,7 @@ export function incomesSection(store) {
       ...(inc.category === 'business' ? [
         field('事業の業種区分（個人事業税の判定用）', select(BUSINESS_TYPES, inc.businessType, (v) => upd('businessType', v)), { hint: '不明・対象外の場合、個人事業税は0円として扱います。' }),
       ] : []),
+      cat.id === 'securities' ? h('p', { class: 'note' }, '株式等は簡易扱いです。NISA口座内の売却益・配当は非課税なので入力しないでください（NISAの損失は損益通算・繰越控除できません。国税庁No.1535）。特定口座（源泉徴収あり）で確定申告をしないことを選んだ分も入力は不要です（国税庁No.1900）。申告する場合の所得は、課税方式を選んで直接入力してください（分離課税の税額は計算に含めません）。') : null,
       inc.category === 'fx' ? h('p', { class: 'note' }, '先物取引に係る雑所得等（国内のFX、商品先物、株価指数先物・オプションなど）が対象で、所得税15%・住民税5%の申告分離課税です。損失は同じ区分の中でだけ通算できます。海外業者のFXや、暗号資産のレバレッジ取引・デリバティブは対象外（総合課税の雑所得）なので、「雑所得」や「暗号資産」に入力してください。年間損益は業者の年間取引報告書の実額（経費控除後）を入力してください。') : null,
       inc.category === 'crypto' ? h('p', { class: 'note' }, '暗号資産の売却・暗号資産同士の交換・商品購入の利益は、原則として雑所得（総合課税）です。収入には売却額、経費には譲渡原価と手数料などを入力します（取得価額は総平均法または移動平均法で計算した額）。赤字は他の所得と通算できません。証拠金取引（レバレッジ取引）も総合課税です。年間の収入が300万円を超えると、帳簿書類の保存の有無で区分が変わります（国税庁FAQ）。') : null,
       inc.category === 'salary' ? h('p', { class: 'note' }, '給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
@@ -168,7 +169,7 @@ export function deductionsSection(store) {
         value: box[f.key], max: 1_000_000,
         onChange: (v) => set((x) => { x[group][def.id][f.key] = v; }),
       })),
-      h('span', {}, badge('手入力値')));
+      h('span', {}, badge(def.inputMode === 'manual' ? '手入力値' : '保険料などから自動計算')));
   };
 
   const statusRow = (d) => h('li', {},
@@ -270,6 +271,11 @@ export function resultSection(rulesFor = getTaxYear) {
       det.push(h('h3', {}, '確定申告の要否（参考）'));
       det.push(h('p', { class: r.filing.status === 'likelyNotRequired' ? 'note' : 'warn' }, r.filing.reason));
       det.push(h('p', { class: 'hint' }, '参考表示で、申告の要否を断定するものではありません。医療費控除・寄附金控除などで還付を受ける場合や、住民税の申告は別に必要になることがあります。FX・先物の所得も含めて判定しています（国税庁 No.1900）。'));
+    }
+    if (r.furusato) {
+      det.push(h('h3', {}, 'ふるさと納税の寄附上限額（目安）'));
+      det.push(h('p', {}, h('strong', {}, yen(r.furusato.limit)), '（自己負担2,000円を含む額。この金額以内なら、自己負担は実質2,000円です）'));
+      det.push(h('p', { class: 'hint' }, `住民税の所得割額（調整控除後）${yen(r.furusato.levyBase)}と、所得税の限界税率${Math.round(r.furusato.marginalRate * 1000) / 10}%から逆算した目安です（二次情報。民間サイトの早見表と整合）。分離課税（FX等）の所得、住宅ローン控除（住民税側）、セルフメディケーション税制は考慮していません。住民税が非課税なら控除は受けられません。実際の上限は市区町村の通知で確認してください。`));
     }
     det.push(h('h3', {}, '税額の内訳'));
     det.push(h('table', { class: 'tbl' }, h('tbody', {},

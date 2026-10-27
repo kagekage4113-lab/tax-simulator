@@ -20,6 +20,7 @@ import { mulFloor } from '../core/money.js';
 import { applyRounding } from './rounding.js';
 import { calcProgressive, lookupStep } from './progressive.js';
 import { autoPersonalDeductions, declaredAutoIds } from './autoDeductions.js';
+import { earthquakeDeduction, lifeInsuranceDeduction } from './insuranceDeductions.js';
 import { getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS } from '../data/deductions.js';
 
@@ -182,6 +183,7 @@ export function calculate(state, rules) {
 
   // ---- 12. 住民税 ----
   let residentTax = null;
+  let furusato = null;
   if (taxableRT) {
     const rate = need('residentTax.incomeRate');
     const perCapita = need('residentTax.perCapita');
@@ -196,6 +198,7 @@ export function calculate(state, rules) {
       const incomeLevy = exemption ? 0 : Math.max(0, levy - adjustment - credit);
       const fxTax = exemption ? 0 : fx;
       const perCapitaDue = exemption === 'all' ? 0 : perCapita;
+      furusato = calcFurusatoLimit(rules, taxableIT, exemption ? 0 : Math.max(0, levy - adjustment));
       residentTax = { incomeLevy, fxTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + perCapitaDue };
       if (exemption) notes.push(exemption === 'all' ? '住民税の非課税の基準に該当するため、住民税を0円としています。' : '住民税の所得割の非課税の基準に該当するため、所得割を0円としています（均等割は課税）。');
       notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（${adj ? '' : '調整控除・'}非課税判定は未反映）。`);
@@ -248,9 +251,23 @@ export function calculate(state, rules) {
     deductions,
     taxable: { incomeTax: taxableIT, residentTax: taxableRT },
     incomeTax, residentTax, businessTax, socialInsurance,
-    filing,
+    filing, furusato,
     burden, takeHome,
   };
+}
+
+// ふるさと納税の寄附上限額の目安（自己負担2,000円で収まる額）。住民税の特例分の上限（所得割額の20%）から逆算する一般的な算式。
+//   上限 = 住民税所得割額（調整控除後）×20% ÷（90% − 所得税の限界税率×(1+復興税率)）+ 2,000円
+// 住民税が非課税なら0。分離課税(FX等)・住宅ローン控除（住民税側）・医療費控除のセルフメディケーションは考慮しない目安。
+function calcFurusatoLimit(rules, taxableIT, levyBase) {
+  const fu = get(rules, 'furusato');
+  const brackets = get(rules, 'incomeTax.brackets');
+  if (!fu || !brackets || !taxableIT) return null;
+  const b = taxableIT.comprehensive > 0 ? brackets.find((x) => x.upTo == null || taxableIT.comprehensive <= x.upTo) : null;
+  const marginalRate = b ? b.rate : 0;
+  const denom = 1 - fu.basicRate - marginalRate * (1 + (get(rules, 'incomeTax.reconstructionRate') ?? 0));
+  if (levyBase <= 0 || denom <= 0) return { limit: 0, levyBase, marginalRate };
+  return { limit: Math.floor((levyBase * fu.specialLimitRate) / denom + 1e-6) + fu.selfBurden, levyBase, marginalRate };
 }
 
 // 所得税の確定申告が必要か（給与所得者）の参考表示。国税庁 No.1900。断定せず「可能性」として示す。
@@ -338,6 +355,22 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
         else {
           const threshold = Math.min(m.thresholdFixed, mulFloor(totalIncome, m.thresholdRate));
           amount = Math.min(m.cap, Math.max(0, box.paid - box.reimbursed - threshold));
+        }
+      } else if (id === 'lifeInsurance' || id === 'earthquakeInsurance') {
+        // 控除額の直接入力があればそれを優先（手入力値）。なければ支払保険料から自動計算
+        const premiums = Object.entries(box).filter(([k]) => k !== 'amount');
+        if (box.amount > 0) amount = box.amount;
+        else if (!premiums.some(([, v]) => v > 0)) amount = 0;
+        else {
+          const cfg = get(rules, `deductions.${kind}.insurance.${id === 'lifeInsurance' ? 'life' : 'earthquake'}`);
+          if (!cfg) { need(`deductions.${kind}.insurance`); amount = null; }
+          else if (id === 'lifeInsurance') {
+            const dp = get(rules, 'deductions.incomeTax.dependent');
+            const under23 = kind === 'incomeTax' && !!dp && state.dependents.some((d) => d.age < 23 && d.income <= dp.incomeMax);
+            amount = lifeInsuranceDeduction(box, cfg, { under23 });
+          } else amount = earthquakeDeduction(box, cfg);
+          push(kind, { id, label: def.label, amount, mode: 'auto' });
+          continue;
         }
       } else amount = box.amount;
       if (amount !== 0 || id !== 'medical') push(kind, { id, label: def.label, amount, mode: 'manual' });
