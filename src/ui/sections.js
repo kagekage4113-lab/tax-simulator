@@ -8,6 +8,7 @@ import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/
 import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
 import { SUPPORTED_YEARS, getTaxYear, yearLabel } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
+import { calculate } from '../calc/engine.js';
 
 const PREFECTURES = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
 
@@ -126,6 +127,7 @@ export function incomesSection(store) {
   return section('現在の収入と経費', 'sec-incomes', [
     s.incomes.length === 0 ? h('p', { class: 'note' }, '収入がまだ登録されていません。') : null,
     ...cards,
+    s.incomes.some((x) => x.category === 'fx') ? gaugeField({ label: 'FX・先物の繰越損失（前年までの繰越額）', value: s.fxCarryForward, max: 5_000_000, onChange: (v) => set((x) => { x.fxCarryForward = v; }), hint: '最長3年繰り越せます。繰越の年数チェックは未対応のため、残っている額だけを入力してください。' }) : null,
     h('button', { type: 'button', class: 'btn primary', onClick: () => set((x) => { x.incomes.push(newIncome('business')); }, true) }, '＋ 収入を追加'),
   ]);
 }
@@ -164,26 +166,93 @@ export function deductionsSection(store) {
   ], { open: false });
 }
 
-// ---- 4. 結果（フェーズ1は入力サマリーのみ） ----
-export function resultSection() {
+// ---- 4. 結果 ----
+const MISSING_LABEL = {
+  'incomeTax.brackets': '所得税の税率表（速算表）',
+  'incomeTax.reconstructionRate': '復興特別所得税の率',
+  'residentTax.incomeRate': '住民税の所得割率',
+  'residentTax.perCapita': '住民税の均等割',
+  'basicDeduction.incomeTax': '基礎控除（所得税）',
+  'basicDeduction.residentTax': '基礎控除（住民税）',
+  'salaryDeduction.brackets': '給与所得控除',
+  'fx.incomeTaxRate': 'FXの所得税率',
+  'fx.residentTaxRate': 'FXの住民税率',
+  'businessTax.rate': '個人事業税の税率',
+  'businessTax.mainDeduction': '個人事業税の事業主控除',
+  medical: '医療費控除の足切り・上限',
+};
+const missingLabel = (k) => MISSING_LABEL[k] || (k.startsWith('rounding.') ? `端数処理（${k.slice(9)}）` : k.startsWith('socialInsurance.estimate') ? '社会保険料の概算率' : k);
+const MODE_LABEL = { auto: '自動', manual: '手入力値', actual: '実額', estimate: '概算', pending: '未対応（0円）' };
+
+export function resultSection(rulesFor = getTaxYear) {
   const body = h('div', {});
-  const el = section('税金と手取りの結果', 'sec-result', [
-    h('p', { class: 'warn' }, '税額・手取りの計算はフェーズ2で実装します。現在は入力内容の集計のみを表示しています（税額ではありません）。'),
-    body,
-  ]);
+  const el = section('税金と手取りの結果', 'sec-result', [body]);
+  const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
+  const row = (label, value, opts = {}) => h('tr', { class: opts.strong ? 'strong' : '' }, h('th', {}, label, opts.tag ? [' ', badge(opts.tag)] : null), h('td', { class: 'r' }, value));
+
   el.update = (s) => {
-    const rows = s.incomes.map((i) => {
-      const c = getIncomeCategory(i.category);
-      return [i.name || c.label, formatYen(i.amount), c.hasExpenses ? formatYen(i.expenses) : '—'];
-    });
-    const total = s.incomes.reduce((a, i) => a + i.amount, 0);
-    body.replaceChildren(
-      h('table', { class: 'tbl' },
-        h('thead', {}, h('tr', {}, h('th', {}, '収入'), h('th', {}, '金額'), h('th', {}, '経費'))),
-        h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', { class: 'r' }, r[1]), h('td', { class: 'r' }, r[2])))),
-        h('tfoot', {}, h('tr', {}, h('th', {}, '入力した金額の合計'), h('th', { class: 'r' }, formatYen(total)), h('th', {}, '')))),
-      h('p', { class: 'hint' }, `対象年：${yearLabel(s.taxYear)} ／ 扶養親族 ${s.dependents.length}人 ／ 配偶者 ${s.spouse.exists ? 'あり' : 'なし'}`),
-    );
+    const r = calculate(s, rulesFor(s.taxYear));
+    const i = r.income;
+    const hasBusinessTax = s.incomes.some((x) => x.category === 'business' && x.businessType === 'general');
+    const kids = [];
+
+    if (r.missing.length) {
+      kids.push(h('p', { class: 'warn' },
+        `${yearLabel(s.taxYear)}の次の税制データが未登録のため、税額・手取りは計算できません：`,
+        h('br'), [...new Set(r.missing.map(missingLabel))].join('、')));
+    }
+    kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},
+      row('年間収入', yen(i.revenueTotal + i.fx.profit)),
+      row('所得（合計）', yen(i.total), { tag: i.total == null ? null : '概算' }),
+      row('所得税（復興税含む）', yen(r.incomeTax?.total)),
+      row('住民税（翌年度分）', yen(r.residentTax?.total), { tag: '概算' }),
+      hasBusinessTax ? row('個人事業税（翌年納付）', yen(r.businessTax.total)) : null,
+      row('社会保険料', yen(r.socialInsurance.total), { tag: MODE_LABEL[r.socialInsurance.mode] }),
+      row('年間負担合計', yen(r.burden), { strong: true }),
+      row('年間手取り', yen(r.takeHome), { strong: true }))));
+    kids.push(h('p', { class: 'hint' }, '住民税・個人事業税は翌年支払いですが、当年所得に対する負担として計上しています。金額はあくまで目安です。'));
+
+    // 詳細（計算根拠）
+    const det = [];
+    det.push(h('h3', {}, '所得の計算'));
+    det.push(h('table', { class: 'tbl' }, h('tbody', {},
+      s.incomes.some((x) => x.category === 'salary') ? row(`給与所得（収入${formatYen(i.salaryRevenue)} − 給与所得控除${formatYen(i.salaryDeduction)}）`, yen(i.salaryIncome)) : null,
+      s.incomes.some((x) => x.category === 'business') ? row(`事業所得（青色特別控除 ${formatYen(i.blueDeductionApplied)}円を適用）`, yen(i.businessIncome)) : null,
+      s.incomes.some((x) => x.category === 'realEstate') ? row('不動産所得', yen(i.realEstateNet)) : null,
+      s.incomes.some((x) => x.category === 'misc') ? row('雑所得（赤字は通算しない）', yen(i.miscIncome)) : null,
+      i.simpleComp ? row('その他（直接入力・簡易扱い）', yen(i.simpleComp), { tag: '簡易' }) : null,
+      row('総合課税の所得（損益通算後）', yen(i.comprehensive), { strong: true }),
+      i.lossOffset ? row('通算しきれない赤字', yen(i.lossOffset)) : null,
+      s.incomes.some((x) => x.category === 'fx') ? row(`FX所得（損益${formatYen(i.fx.profit)} − 繰越控除${formatYen(i.fx.carryUsed)}）`, yen(i.fx.income), { tag: '分離課税' }) : null,
+      s.incomes.some((x) => x.category === 'fx') ? row('翌年への繰越損失', yen(i.fx.carryRemaining)) : null)));
+
+    det.push(h('h3', {}, '所得控除'));
+    for (const [kind, title] of [['incomeTax', '所得税'], ['residentTax', '住民税']]) {
+      const d = r.deductions[kind];
+      det.push(h('details', { class: 'sub' }, h('summary', {}, `${title}の所得控除 計 ${yen(d.total)}`),
+        h('table', { class: 'tbl' }, h('tbody', {}, d.items.map((x) => row(x.label, yen(x.amount), { tag: MODE_LABEL[x.mode] }))))));
+    }
+    const t = r.taxable.incomeTax;
+    if (t) det.push(h('p', { class: 'hint' }, `所得税の課税所得：総合 ${formatYen(t.comprehensive)}円${i.fx.income ? ` ／ FX ${formatYen(t.fx)}円（総合で引ききれない控除 ${formatYen(t.spillToFx)}円をFXから差引）` : ''}${t.unusedDeduction ? ` ／ 使い切れない控除 ${formatYen(t.unusedDeduction)}円` : ''}`));
+
+    det.push(h('h3', {}, '税額の内訳'));
+    det.push(h('table', { class: 'tbl' }, h('tbody', {},
+      r.incomeTax ? [
+        row('総合課税分の所得税', yen(r.incomeTax.comprehensiveTax)),
+        i.fx.income ? row('FX分の所得税（分離課税）', yen(r.incomeTax.fxTax)) : null,
+        r.incomeTax.credit ? row('税額控除（住宅ローン控除など）', `−${formatYen(r.incomeTax.credit)}円`, { tag: '手入力値' }) : null,
+        row('復興特別所得税', yen(r.incomeTax.reconstruction)),
+      ] : null,
+      r.residentTax ? [
+        row('住民税 所得割', yen(r.residentTax.incomeLevy)),
+        r.residentTax.credit ? row('寄附金税額控除など', `−${formatYen(r.residentTax.credit)}円`, { tag: '手入力値' }) : null,
+        i.fx.income ? row('FX分の住民税（分離課税）', yen(r.residentTax.fxTax)) : null,
+        row('住民税 均等割', yen(r.residentTax.perCapita)),
+      ] : null)));
+    if (r.businessTax.note) det.push(h('p', { class: 'hint' }, `個人事業税：${r.businessTax.note}`));
+    if (r.notes.length) det.push(h('ul', { class: 'status-list' }, r.notes.map((n) => h('li', {}, n))));
+    kids.push(h('details', { class: 'sub' }, h('summary', {}, '計算の詳細・前提'), ...det));
+    body.replaceChildren(...kids.filter(Boolean));
   };
   return el;
 }

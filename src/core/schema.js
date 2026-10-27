@@ -73,6 +73,7 @@ export function defaultState() {
     insurance: { type: 'employee', actualAnnual: null }, // actualAnnual: 実額（円）。null=概算を使う
     filing: { type: 'white', blueDeduction: 65 },
     incomes: [newIncome('salary')],
+    fxCarryForward: 0, // FX・先物の繰越損失（円・正の値）
     deductions,
     taxCredits: credits,
   };
@@ -179,6 +180,8 @@ export function validateState(input) {
       };
     });
   } else err('incomes', '配列ではありません');
+
+  s.fxCarryForward = yen(input.fxCarryForward ?? 0, 'fxCarryForward');
 
   const ded = isObj(input.deductions) ? input.deductions : (err('deductions', '不正です'), {});
   for (const d of MANUAL_DEDUCTIONS) {

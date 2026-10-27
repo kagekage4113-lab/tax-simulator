@@ -54,3 +54,7 @@ fieldset.chips { border: 0; padding: 0; margin: 12px 0; }
 .tbl .r, .tbl tfoot th.r { text-align: right; font-variant-numeric: tabular-nums; }
 .status-list { padding-left: 1.2em; font-size: .85rem; }
 footer { color: var(--muted); font-size: .78rem; text-align: center; margin-top: 24px; }
+
+.tbl.summary th { font-weight: 500; }
+.tbl tr.strong th, .tbl tr.strong td { font-weight: 700; font-size: 1.05rem; }
+.tbl td.r { white-space: nowrap; }

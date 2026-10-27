@@ -6,15 +6,17 @@ export const taxYear2025 = {
   status: 'skeleton', // skeleton | partial | confirmed
   sources: [],
   // 端数処理の根拠は税目ごとにここへ記録する（2.3）。
-  rounding: {
-    // 例: incomeTax: { rule: 'floor', unit: 100, source: '' }
-  },
+  // 形は src/calc/engine.js 冒頭を参照。例: taxableIncome: { rule: 'floor', unit: 1000 }（出典を併記して登録）
+  rounding: {},
   incomeTax: { brackets: null, reconstructionRate: null },
-  residentTax: { rate: null, perCapita: null },
+  residentTax: { incomeRate: null, perCapita: null },
   salaryDeduction: null,
+  basicDeduction: null,
+  medical: null,
+  socialInsurance: null,
   deductions: {}, // deductionId -> 年度別の金額・条件
   businessTax: null,
-  fx: { rate: null, carryForwardYears: null },
+  fx: { incomeTaxRate: null, residentTaxRate: null, carryForwardYears: null },
   walls: [], // 6.4 の「壁」: { id, label, threshold, source, condition }
   unverified: [
     '所得税の税率区分・速算表',
