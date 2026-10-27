@@ -17,6 +17,7 @@ export const SRC = {
   FUKUYAMA_KOKUHO: { id: 'FUKUYAMA_KOKUHO', title: '福山市「国民健康保険税について」（2026年7月7日更新。令和8年度＝令和7年中の所得に対する国保税）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/hokennenkin/405324.html', localFile: 'docs/tax-sources/fukuyama_national-health-insurance-tax_updated-2026-07-07.pdf' },
   NENKIN_PREMIUM: { id: 'NENKIN_PREMIUM', title: '日本年金機構「国民年金保険料」（更新日2026年4月1日）：令和8年度の保険料は1か月17,920円（付加保険料400円）', url: 'https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html', localFile: 'docs/tax-sources/nenkin-kikou_national-pension-premium_updated-2026-04-01.pdf' },
   SECONDARY_KOKUHO_REDUCTION: { id: 'SECONDARY_KOKUHO_REDUCTION', title: '【二次情報】国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。福山市の公式資料は未確認', secondary: true },
+  NTA_CRYPTO_FAQ: { id: 'NTA_CRYPTO_FAQ', title: '国税庁「暗号資産に関する税務上の取扱いについて（FAQ）」平成30年11月（令和4年12月最終改定。令和4年12月1日現在の法令等）', localFile: 'docs/tax-sources/nta_crypto-faq_2022-12.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -202,6 +203,12 @@ export const HIROSHIMA_BUSINESS_TAX = {
 };
 
 // 給与所得者の確定申告の要否（NTA_1900）: 給与の年間収入が2,000万円超、または給与以外の所得（給与・退職を除く）の合計が20万円超（給与1か所の場合）。
+// 暗号資産（NTA_CRYPTO_FAQ）。売却・交換・商品購入の利益は原則として雑所得（その他雑所得）。
+//  ・年間の収入金額が300万円を超える場合: 帳簿書類の保存あり→原則事業所得、保存なし→雑所得（業務に係る雑所得）（FAQ 2-2）
+//  ・雑所得の損失は給与所得など他の所得と通算できない（FAQ 2-11）。暗号資産の証拠金取引は申告分離課税の対象外で総合課税（FAQ 2-12）
+//  ・必要経費は譲渡原価と売却時の手数料など（FAQ 2-3）。マイニング・ステーキング等で取得した暗号資産は取得時の時価が収入（FAQ 1-6）
+export const CRYPTO = { businessRevenueThreshold: 3_000_000 };
+
 export const FILING_SALARY_EARNER = { salaryRevenueMax: 20_000_000, sideIncomeMax: 200_000 };
 
 export const MEDICAL = {

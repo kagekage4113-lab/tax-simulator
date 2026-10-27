@@ -1,7 +1,7 @@
 // 令和7年分（2025年）。docs/tax-sources/ の資料で確認できた値のみ登録している。共通の値は local.js。
 // 住民税は「令和7年中の所得に対する令和8年度分」で、福山市の令和8年度の控除額（FUKUYAMA_DED）を使う。
 import {
-  FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FX, HIROSHIMA_BUSINESS_TAX, MEDICAL,
+  FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FX, HIROSHIMA_BUSINESS_TAX, MEDICAL,
   INCOME_TAX_BRACKETS, OWNER_COLUMNS, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
 } from './local.js';
 import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_1900, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1900, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -54,6 +54,7 @@ export const taxYear2025 = {
   businessTax: HIROSHIMA_BUSINESS_TAX,
   fx: FX, // NTA_1521
   filing: { salaryEarner: FILING_SALARY_EARNER }, // NTA_1900
+  crypto: CRYPTO, // NTA_CRYPTO_FAQ
   deductions: {
     incomeTax: {
       spouse: {
@@ -97,7 +98,7 @@ export const taxYear2025 = {
     '個人事業税の端数処理・月割適用・事業の種類ごとの業種一覧・損失繰越',
     '住民税の非課税判定、国外居住親族・16歳未満の扱い',
     'FX・先物：繰越控除の要件（連続した付表付き確定申告）は注記のみで、実際に満たしているかは確認しない。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
-    '暗号資産：売買損益を雑所得（総合課税）として扱う前提。国税庁No.1525は補償金の場合のみで、売買の取扱い（No.1524）は未入手',
+    '暗号資産：根拠のFAQは令和4年12月現在の法令等。その後の改正の有無は未確認。取得価額の計算（総平均法・移動平均法）・事業所得への区分は入力側で行う（損益は経費控除後の実額を入力）',
     '社会保険料：国保の法定軽減の公的資料（二次情報で登録）、令和7年度の国民年金額、雇用保険、協会けんぽの他支部（資料のない都道府県は登録済み支部の平均で概算）、賞与',
     '住民税の調整控除：ひとり親は性別の入力がないため男性の差額（1万円）で計算。非課税判定は未反映',
   ],

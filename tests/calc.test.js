@@ -1120,3 +1120,22 @@ describe('国民年金（日本年金機構）と国保税の法定軽減（二�
     expect(nat(3_000_000).notes.join()).toMatch(/二次情報/);
   });
 });
+
+describe('暗号資産（国税庁FAQ 令和4年12月）', () => {
+  const c = (revenue) => calculate(mk([inc('crypto', revenue, 100_000)]), R7);
+  it('年間収入が300万円を超えると、事業所得・業務に係る雑所得になりうる旨を注記する（境界）', () => {
+    expect(c(3_000_000).notes.join()).not.toMatch(/暗号資産の年間収入/);
+    expect(c(3_000_001).notes.join()).toMatch(/暗号資産の年間収入が3,000,000円を超えています.*事業所得/);
+  });
+  it('雑所得として収入−経費（譲渡原価・手数料など）で所得を計算し、総合課税に合算される', () => {
+    expect(c(1_000_000).income.comprehensive).toBe(900_000);
+  });
+  it('赤字は他の所得と通算しない（FAQ 2-11）', () => {
+    const r = calculate(mk([inc('salary', 3_000_000), inc('crypto', 100_000, 600_000)]), R7);
+    expect(r.income.miscLossIgnored).toBe(500_000);
+  });
+  it('出典として国税庁FAQを登録している', () => {
+    expect(R7.sources.some((s) => s.id === 'NTA_CRYPTO_FAQ')).toBe(true);
+    expect(R7.crypto.businessRevenueThreshold).toBe(3_000_000);
+  });
+});

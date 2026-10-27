@@ -215,6 +215,9 @@ export function calculate(state, rules) {
 
   if (softMissing.size) notes.push(`端数処理の根拠が未登録のため、端数処理を行っていない項目があります（概算）：${[...softMissing].map((k) => ROUNDING_LABEL[k] || k).join('、')}`);
 
+  const cryptoRevenue = sum('crypto', (i) => i.amount);
+  const cth = get(rules, 'crypto.businessRevenueThreshold');
+  if (cth != null && cryptoRevenue > cth) notes.push(`暗号資産の年間収入が${formatYenText(cth)}円を超えています。帳簿書類を保存している場合は原則として事業所得、保存がない場合は雑所得（業務に係る雑所得）に区分されます（国税庁FAQ 2-2）。事業所得として申告する場合は「事業収入」に入力してください。`);
   const filing = filingGuide(state, rules, { salaryRevenue, businessIncome, realEstateNet, miscIncome, simpleComp, fxProfit });
 
   // 途中で計算を打ち切っても、この入力で必要な未登録データを漏れなく列挙する。
