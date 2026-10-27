@@ -4,6 +4,8 @@ import { INCOME_CATEGORIES, getIncomeCategory } from '../data/incomeCategories.j
 import { MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS } from '../data/deductions.js';
 import { SUPPORTED_YEARS, DEFAULT_YEAR } from '../data/taxYears/index.js';
 import { MAX_YEN } from './money.js';
+import { newId } from './ids.js';
+import { defaultHousehold, validateHousehold } from './household.js';
 
 export const DATA_VERSION = 1;
 export const APP_ID = 'tax-simulator';
@@ -34,8 +36,7 @@ export const BUSINESS_TYPES = {
   type3b: '第3種事業のうち、あん摩・マッサージ・柔道整復など／装蹄師業',
 };
 
-export const newId = () =>
-  (globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+export { newId };
 
 export function newIncome(category = 'salary') {
   const cat = getIncomeCategory(category);
@@ -83,6 +84,7 @@ export function defaultState() {
     fxCarryLosses: [], // FX・先物の繰越損失 [{ year: 損失が生じた年, amount: 円(正の値) }]。損失の年の翌年以後3年間繰越控除できる（No.1523）
     deductions,
     taxCredits: credits,
+    household: defaultHousehold(), // かんたん入力（世帯）。enabled のとき self/spouse/dependents はここから導かれる
   };
 }
 
@@ -214,6 +216,8 @@ export function validateState(input) {
     const src = isObj(cr[c.id]) ? cr[c.id] : {};
     s.taxCredits[c.id] = { amount: yen(src.amount ?? 0, `taxCredits.${c.id}.amount`) };
   }
+
+  s.household = validateHousehold(input.household, { err, yen, oneOf, bool, str });
 
   return { ok: errors.length === 0, errors, state: s };
 }

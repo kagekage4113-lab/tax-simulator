@@ -63,7 +63,9 @@ export function settingsSection(store) {
     ...(s.insurance.actualAnnual != null ? [
       gaugeField({ label: '年間の社会保険料（実額）', value: s.insurance.actualAnnual, max: 3_000_000, onChange: (v) => set((x) => { x.insurance.actualAnnual = v; }) }),
     ] : []),
-    h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal),
+    s.household.enabled
+      ? h('p', { class: 'note' }, '本人・配偶者・扶養親族は、上の「世帯・家族（かんたん入力）」の回答から計算しています。')
+      : h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal),
   ]);
 }
 

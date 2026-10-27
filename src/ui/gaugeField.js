@@ -13,8 +13,9 @@ import { formatYen, parseYen } from '../core/money.js';
  * @param {(v:number)=>void} o.onChange
  * @param {string} [o.hint]
  * @param {string} [o.unit='円']
+ * @param {boolean} [o.compact=false] true ならゲージを出さず数値入力だけにする（欄が多い画面用）
  */
-export function gaugeField({ label, value, max, step = 10000, allowNegative = false, onChange, hint, unit = '円' }) {
+export function gaugeField({ label, value, max, step = 10000, allowNegative = false, onChange, hint, unit = '円', compact = false }) {
   const id = nextId('g');
   const min = allowNegative ? -max : 0;
   let current = value;
@@ -68,7 +69,7 @@ export function gaugeField({ label, value, max, step = 10000, allowNegative = fa
   return h('div', { class: 'field gauge-field' },
     h('label', { for: id }, label),
     h('div', { class: 'num-wrap' }, text, h('span', { class: 'unit' }, unit)),
-    range,
+    compact ? null : range,
     msg,
     hint ? h('p', { class: 'hint' }, hint) : null,
   );

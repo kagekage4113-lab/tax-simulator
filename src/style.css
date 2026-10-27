@@ -118,3 +118,24 @@ svg.chart { width: 100%; height: auto; touch-action: pan-y; }
   main > #sec-result { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; margin-top: 0; }
   #app { padding-bottom: 32px; }
 }
+
+/* 世帯（かんたん入力） */
+.seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { flex: 1; font: inherit; min-height: 44px; border: 0; border-right: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; padding: 6px 8px; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+.field > .lbl { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
+.verdicts { margin-top: 12px; display: grid; gap: 8px; }
+.verdict { border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 8px 12px; background: var(--bg); }
+.verdict.v-applies { border-left-color: var(--ok); }
+.verdict.v-maybe { border-left-color: var(--warn-text); }
+.verdict.v-no { border-left-color: var(--line); opacity: .85; }
+.v-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.v-amount { margin: 4px 0; font-size: .9rem; }
+.v-conds { list-style: none; padding: 0; margin: 4px 0 0; font-size: .82rem; color: var(--muted); }
+.v-conds li { margin: 2px 0; padding-left: 1.4em; text-indent: -1.4em; }
+.c-ok { color: var(--ok); } .c-ng { color: var(--danger); } .c-unknown { color: var(--warn-text); }
+.hh-box { margin-top: 12px; }
+.hh-box h3 { margin-top: 4px; }
+.edit { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.edit > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }

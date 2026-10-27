@@ -4,6 +4,9 @@ import { createStore } from './core/store.js';
 import { dataSection } from './ui/dataSection.js';
 import { deductionsSection, incomesSection, resultSection, settingsSection } from './ui/sections.js';
 import { simulationSection } from './ui/simulation.js';
+import { householdSection } from './ui/household.js';
+import { applyHousehold } from './interview/assess.js';
+import { getTaxYear } from './data/taxYears/index.js';
 
 const store = createStore();
 const app = document.getElementById('app');
@@ -32,11 +35,13 @@ if ('IntersectionObserver' in window) {
 } else bar.hidden = false;
 
 const dynamic = h('div', { class: 'dynamic' });
+let household = null;
 // 構造が変わる操作（追加・削除・選択肢による項目の出し分け）では開閉状態を保ったまま作り直す。
 function rebuild() {
   const open = new Map([...document.querySelectorAll('details[id], details.sub')].map((d, i) => [d.id || `sub-${i}`, d.open]));
   const subOpen = [...document.querySelectorAll('details.sub')].map((d) => d.open);
-  dynamic.replaceChildren(settingsSection(store), incomesSection(store), deductionsSection(store));
+  household = householdSection(store);
+  dynamic.replaceChildren(household, settingsSection(store), incomesSection(store), deductionsSection(store));
   dynamic.querySelectorAll('details[id]').forEach((d) => { if (open.has(d.id)) d.open = open.get(d.id); });
   dynamic.querySelectorAll('details.sub').forEach((d, i) => { if (subOpen[i] !== undefined) d.open = subOpen[i]; });
 }
@@ -50,7 +55,10 @@ store.subscribe((state, e) => {
     return;
   }
   status.textContent = '保存中…';
+  // かんたん入力（世帯）が有効なら、年度や収入の変更にも追随して、本人・配偶者・扶養親族を導き直す
+  if (state.household.enabled) applyHousehold(state, getTaxYear(state.taxYear));
   if (e.structural) rebuild();
+  else if (household) household.refresh(state);
   result.update(state);
   simulation.update(state, e);
 });
