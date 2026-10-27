@@ -7,6 +7,11 @@ export const SRC = {
   FUKUYAMA_RATE: { id: 'FUKUYAMA_RATE', title: '福山市「個人市民税の納税義務者と税額の計算方法・税率等について」（ページ掲載日2024年6月10日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2179.html', localFile: 'docs/tax-sources/fukuyama_resident-tax_printed-2026-10-27.pdf' },
   FUKUYAMA_DED: { id: 'FUKUYAMA_DED', title: '福山市「所得控除の種類」（2026年5月22日更新。令和8年度＝令和7年中の所得に対する住民税の控除額）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2180.html', localFile: 'docs/tax-sources/fukuyama_resident-deductions_updated-2026-05-22.pdf' },
   HIROSHIMA: { id: 'HIROSHIMA', title: '広島県「個人事業税について」（掲載日2025年4月1日）', url: 'https://www.pref.hiroshima.lg.jp/site/zei/1170306367409.html', localFile: 'docs/tax-sources/hiroshima_business-tax_printed-2026-10-27.pdf' },
+  NTA_2260: { id: 'NTA_2260', title: '国税庁 タックスアンサー No.2260 所得税の税率［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm', localFile: 'docs/tax-sources/nta_tax-answer-2260_income-tax-rate_2026-04-01.pdf' },
+  FUKUYAMA_DIFF: { id: 'FUKUYAMA_DIFF', title: '福山市「人的控除額の差額一覧表」（2026年5月22日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2181.html', localFile: 'docs/tax-sources/fukuyama_personal-deduction-diff_updated-2026-05-22.pdf' },
+  KYOKAI_R7_HIROSHIMA: { id: 'KYOKAI_R7_HIROSHIMA', title: '協会けんぽ 広島支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_hiroshima.pdf' },
+  KYOKAI_R7_TOKYO: { id: 'KYOKAI_R7_TOKYO', title: '協会けんぽ 東京支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_tokyo.pdf' },
+  KYOKAI_R7_OSAKA: { id: 'KYOKAI_R7_OSAKA', title: '協会けんぽ 大阪支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_osaka.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   KYOKAI_HIROSHIMA: { id: 'KYOKAI_HIROSHIMA', title: '協会けんぽ 広島支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_hiroshima.pdf' },
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
@@ -14,17 +19,18 @@ export const SRC = {
   FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
 };
 
-// 年末調整用の速算表（令和7年分・令和8年分とも同じ値。課税給与所得金額18,050,000円まで）
-export const NENCHO_BRACKETS = [
+// 所得税の速算表（NTA_2260）。課税される所得金額（1,000円未満切捨後）に対する税額 = 所得金額×税率−控除額。
+// 基準所得金額が3億3,000万円を超える場合の特例（令和7年分から・NTA_2260 ※1）は対象外。
+export const INCOME_TAX_BRACKETS = [
   { upTo: 1_950_000, rate: 0.05, deduction: 0 },
   { upTo: 3_300_000, rate: 0.1, deduction: 97_500 },
   { upTo: 6_950_000, rate: 0.2, deduction: 427_500 },
   { upTo: 9_000_000, rate: 0.23, deduction: 636_000 },
   { upTo: 18_000_000, rate: 0.33, deduction: 1_536_000 },
-  { upTo: 18_050_000, rate: 0.4, deduction: 2_796_000 },
+  { upTo: 40_000_000, rate: 0.4, deduction: 2_796_000 },
+  { upTo: null, rate: 0.45, deduction: 4_796_000 },
 ];
 
-// 復興特別所得税：平成25年〜令和29年の各年分で基準所得税額の2.1%（NTA_1521）。令和9年1月1日以後に生ずる所得は1.1%＋防衛特別所得税に変わる（対象外）。
 export const RECON_RATE = 0.021;
 
 // FX・先物取引（NTA_1521）: 所得税15%＋地方税5%の申告分離課税。損失は翌年以後3年内の「先物取引に係る雑所得等」から控除できる。
@@ -104,10 +110,41 @@ export const FUKUYAMA_RESIDENT_BASIC_R8NENDO = [
   { upTo: null, amount: 0 },
 ];
 
+// 調整控除（FUKUYAMA_ADJ の算式 / FUKUYAMA_DIFF の差額）。人的控除額の差（所得税−住民税）の合計に基づき所得割から控除する。
+// 資格要件（所得要件・年齢）は住民税の人的控除と同じ。差額を金額とした「人的控除データ」として表現する。
+// ※ひとり親は、差額は5万円だが調整控除の計算では男性1万円（女性5万円）。性別の入力がないため1万円（少なめ）で計算する。
+// ※特定親族特別控除・配偶者特別控除は差額なし（令和8年度から）。基礎控除は合計所得金額に関わらず一律5万円。
+const zeroSteps = (steps) => steps.map((x) => ({ ...x, amounts: [0, 0, 0] }));
+const zeroSteps1 = (steps) => steps.map((x) => ({ ...x, amount: 0 }));
+const R = FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO;
+export const FUKUYAMA_ADJUSTMENT = {
+  rate: 0.05, // 市民税3%＋県民税2%
+  threshold: 2_000_000, // 合計課税所得金額200万円
+  upperLimit: 25_000_000, // 2,500万円超は適用なし
+  minAfter: 50_000, // 200万円超では (①−(②−200万)) が5万円を下回る場合は5万円
+  basicDiff: 50_000,
+  diffDeductions: {
+    spouse: { ...R.spouse, general: [50_000, 40_000, 20_000], elder: [100_000, 60_000, 30_000], specialSteps: zeroSteps(R.spouse.specialSteps) },
+    dependent: {
+      ...R.dependent,
+      general: { ...R.dependent.general, amount: 50_000 },
+      specific: { ...R.dependent.specific, amount: 180_000 },
+      elder: { ...R.dependent.elder, other: 100_000, cohabitingParent: 130_000 },
+    },
+    specificRelative: { ...R.specificRelative, steps: zeroSteps1(R.specificRelative.steps) },
+    disability: { general: 10_000, special: 100_000, specialCohabiting: 220_000 },
+    widow: 10_000,
+    singleParent: 10_000,
+    widowSingleParentIncomeMax: R.widowSingleParentIncomeMax,
+    workingStudent: { ...R.workingStudent, amount: 10_000 },
+  },
+};
+
 export const FUKUYAMA_RESIDENT = {
   scope: '福山市（広島県）',
   incomeRate: 0.1, // 所得割：市民税6%＋県民税4%
   perCapita: 5_500, // 均等割4,500円（市3,000＋県1,500、ひろしまの森づくり県民税500円を含む）＋森林環境税1,000円
+  adjustment: FUKUYAMA_ADJUSTMENT,
   nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 } },
 };
 

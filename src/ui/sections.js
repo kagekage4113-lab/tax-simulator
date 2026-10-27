@@ -258,6 +258,7 @@ export function resultSection(rulesFor = getTaxYear) {
       ] : null,
       r.residentTax ? [
         row('住民税 所得割', yen(r.residentTax.incomeLevy)),
+        r.residentTax.adjustment ? row('調整控除（住民税）', `−${formatYen(r.residentTax.adjustment)}円`) : null,
         r.residentTax.credit ? row('寄附金税額控除など', `−${formatYen(r.residentTax.credit)}円`, { tag: '手入力値' }) : null,
         i.fx.income ? row('FX分の住民税（分離課税）', yen(r.residentTax.fxTax)) : null,
         row('住民税 均等割', yen(r.residentTax.perCapita)),

@@ -57,16 +57,35 @@ export const KYOKAI_KENPO_GRADES = [
 // 厚生年金の標準報酬月額は 88,000円（健保の4等級）〜650,000円（健保の35等級）。
 export const KYOKAI_KENPO_PENSION_RANGE = { min: 88_000, max: 650_000 };
 
-export const KYOKAI_KENPO_2026 = {
+// 令和7年3月分（4月納付分）からの料率（広島・東京・大阪のリーフレット）。介護保険料率は 11.56%−9.97% = 1.59%（3支部とも同じ）。子ども・子育て支援金はなし。
+const HEALTH_R7 = { '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024 };
+// 令和8年3月分（4月納付分）からの料率（広島・福岡・大阪の保険料額表）。介護保険料率1.62%、子ども・子育て支援金0.23%（令和8年4月分〜）。
+const HEALTH_R8 = { '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013 };
+
+const COMMON = {
   model: 'kyokaiKenpo',
-  appliesFrom: '令和8年3月分',
   grades: KYOKAI_KENPO_GRADES,
   pension: { range: KYOKAI_KENPO_PENSION_RANGE, rate: 0.183 }, // 18.300%（全額）。平成29年9月分〜
-  childSupportRate: 0.0023, // 子ども・子育て支援金率 0.23%（全額）。令和8年4月分（5月納付分）〜
-  care: { rate: 0.0162, ageMin: 40, ageMax: 64 }, // 介護保険料率 1.62%（介護保険第2号被保険者：40歳から64歳）
-  // 健康保険料率（全額）。支部（都道府県）ごと。
-  healthRateByPrefecture: { '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013 },
+  careAge: { min: 40, max: 64 }, // 介護保険第2号被保険者
   employeeShare: 0.5, // 折半
   // 保険料額表の注：事業主が給与から控除する被保険者負担分の端数は、50銭以下切り捨て・50銭超切り上げ（特約があれば別）。
   employeeRounding: 'halfDown',
+};
+
+// 年間の保険料は、月ごとの料率スケジュールで計算する（months 合計 = 12）。
+export const KYOKAI_KENPO_2025 = {
+  ...COMMON,
+  schedule: [
+    // 令和7年1〜2月分は令和6年度の料率（資料なし）のため、令和7年3月分からの料率で代用している。
+    { months: 12, label: '令和7年3月分〜の料率（1〜2月分は令和6年度料率が未登録のため代用）', healthRateByPrefecture: HEALTH_R7, careRate: 0.0159, childSupportRate: 0 },
+  ],
+};
+
+export const KYOKAI_KENPO_2026 = {
+  ...COMMON,
+  schedule: [
+    { months: 2, label: '令和8年1〜2月分（令和7年度の料率）', healthRateByPrefecture: HEALTH_R7, careRate: 0.0159, childSupportRate: 0 },
+    { months: 1, label: '令和8年3月分（令和8年度の料率・支援金なし）', healthRateByPrefecture: HEALTH_R8, careRate: 0.0162, childSupportRate: 0 },
+    { months: 9, label: '令和8年4〜12月分（令和8年度の料率・支援金あり）', healthRateByPrefecture: HEALTH_R8, careRate: 0.0162, childSupportRate: 0.0023 },
+  ],
 };

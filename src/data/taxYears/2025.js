@@ -2,23 +2,23 @@
 // 住民税は「令和7年中の所得に対する令和8年度分」で、福山市の令和8年度の控除額（FUKUYAMA_DED）を使う。
 import {
   FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, FX, HIROSHIMA_BUSINESS_TAX, MEDICAL,
-  NENCHO_BRACKETS, OWNER_COLUMNS, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
+  INCOME_TAX_BRACKETS, OWNER_COLUMNS, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
 } from './local.js';
-import { KYOKAI_KENPO_2026 } from './kyokaiKenpo.js';
+import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
 
 export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.KYOKAI_HIROSHIMA, SRC.KYOKAI_FUKUOKA, SRC.KYOKAI_OSAKA],
+  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_2260, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
-    '令和7年分の協会けんぽの保険料率は資料がないため、令和8年3月分からの料率で代用した概算です（実額を入力すると置き換わります）。',
+    '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
   rounding: {
-    taxableIncome: { rule: 'floor', unit: 1000, source: 'NTA_R7_P55 p.55 速算表（注）1：課税給与所得金額の1,000円未満の端数は切り捨て（年末調整の算式。確定申告も同様かは未確認）' },
+    taxableIncome: { rule: 'floor', unit: 1000, source: 'NTA_2260：課税される所得金額は1,000円未満の端数を切り捨てた後の金額' },
   },
   incomeTax: {
-    brackets: NENCHO_BRACKETS, // NTA_R7_P55 p.55。年末調整用の表（確定申告用と同一かは未確認）。18,050,000円超なし
+    brackets: INCOME_TAX_BRACKETS, // NTA_2260（確定申告用・全区分）。年末調整用の表（NTA_R7_P55）とも一致
     reconstructionRate: RECON_RATE, // NTA_1521
   },
   residentTax: FUKUYAMA_RESIDENT,
@@ -50,7 +50,7 @@ export const taxYear2025 = {
   },
   medical: MEDICAL,
   // 社会保険料の概算（協会けんぽ・会社員）。国保・国民年金は自治体別のためフェーズ4。雇用保険料は未登録。
-  socialInsurance: { estimate: { employee: KYOKAI_KENPO_2026 } },
+  socialInsurance: { estimate: { employee: KYOKAI_KENPO_2025 } },
   businessTax: HIROSHIMA_BUSINESS_TAX,
   fx: FX, // NTA_1521
   deductions: {
@@ -87,17 +87,17 @@ export const taxYear2025 = {
   walls: [],
   unverified: [
     '復興特別所得税：令和9年分以後（1.1%＋防衛特別所得税1%）は対象外',
-    '所得税の税率表：18,050,000円超の区分、および確定申告用の速算表が年末調整用と同一か',
+    '所得税：基準所得金額3億3,000万円超の特例（NTA_2260 ※1）は対象外',
     '給与所得控除：収入660万円未満は別表第五による金額との差が出る場合がある（別表の資料なし）',
-    '所得税・住民税の端数処理（税額の100円未満切捨など。課税所得の1,000円未満切捨は年末調整の算式として確認）',
+    '所得税・住民税の税額の端数処理（100円未満切捨など。課税所得の1,000円未満切捨は確認済み）',
     '特定親族の年齢要件（住民税の資料の定義を所得税にも適用。国税庁の資料は未確認）',
     'ひとり親・寡婦控除の所得要件（住民税の資料の要件を所得税にも適用）',
     '所得税の勤労学生控除・扶養親族等の所得要件は、令和8年分資料の「改正前」列から令和7年分に適用',
     '個人事業税の端数処理・月割適用・事業の種類ごとの業種一覧・損失繰越',
-    '住民税の調整控除、非課税判定、国外居住親族・16歳未満の扱い',
+    '住民税の非課税判定、国外居住親族・16歳未満の扱い',
     'FX・先物：繰越損失の適用要件（確定申告の継続など）、先物取引全般（No.1522）・商品先物・オプションの扱い（FX以外は損益の入力のみ）',
     '暗号資産：雑所得（総合課税）として扱う前提（国税庁の資料は未確認）',
-    '社会保険料：国民健康保険・国民年金・雇用保険、協会けんぽの他支部（広島・福岡・大阪以外は平均で概算）、賞与、料率改定の月割',
-    '住民税の調整控除（福山市の算式は確認済み。人的控除額の差額一覧表が未入手のため未反映）',
+    '社会保険料：国民健康保険・国民年金・雇用保険、協会けんぽの他支部（資料のない都道府県は登録済み支部の平均で概算）、賞与',
+    '住民税の調整控除：ひとり親は性別の入力がないため男性の差額（1万円）で計算。非課税判定は未反映',
   ],
 };

@@ -1,6 +1,6 @@
 // 期待値はすべて手計算（コメントに計算過程）。実装コードから生成していない。
 import { describe, expect, it } from 'vitest';
-import { calculate } from '../src/calc/engine.js';
+import { calcAdjustmentCredit, calculate } from '../src/calc/engine.js';
 import { applyRounding } from '../src/calc/rounding.js';
 import { calcProgressive, lookupStep } from '../src/calc/progressive.js';
 import { defaultState, newIncome } from '../src/core/schema.js';
@@ -283,7 +283,7 @@ const auto = (state, totalIncome = 3_000_000) => {
 };
 const run8 = (s) => calculate(s, R8);
 
-describe('令和8年分: 所得税の速算表（年末調整用 p.55）', () => {
+describe('令和8年分: 所得税の速算表（No.2260・年末調整用 p.55）', () => {
   const b = R8.incomeTax.brackets;
   it.each([
     [1_950_000, 97_500], [1_950_001, 97_500],
@@ -292,9 +292,18 @@ describe('令和8年分: 所得税の速算表（年末調整用 p.55）', () =>
     [9_000_000, 1_434_000], [9_000_001, 1_434_000],
     [18_000_000, 4_404_000], [18_000_001, 4_404_000],
   ])('課税所得%i円 → %i円（区分の境界で連続）', (t, tax) => expect(calcProgressive(t, b)).toBe(tax));
-  it('資料にある範囲(18,050,000円)を超えると推測せず null', () => {
+  it('18,050,000円超・4,000万円以上の区分（No.2260）', () => {
     expect(calcProgressive(18_050_000, b)).toBe(4_424_000); // 18,050,000*0.4=7,220,000 → 7,220,000-2,796,000
-    expect(calcProgressive(18_050_001, b)).toBeNull();
+    expect(calcProgressive(18_050_001, b)).toBe(4_424_000);
+    expect(calcProgressive(40_000_000, b)).toBe(13_204_000); // 16,000,000-2,796,000
+    expect(calcProgressive(40_000_001, b)).toBe(13_204_000); // 18,000,000.45→18,000,000-4,796,000
+    expect(calcProgressive(50_000_000, b)).toBe(17_704_000); // 22,500,000-4,796,000
+  });
+  it('No.2260 の具体例: 課税所得7,000,000円 → 974,000円、復興特別所得税は(974,000×2.1%)', () => {
+    expect(calcProgressive(7_000_000, b)).toBe(974_000);
+  });
+  it('資料の範囲を超える表（途中までの表）は推測せず null を返す', () => {
+    expect(calcProgressive(1_000_001, [{ upTo: 1_000_000, rate: 0.1, deduction: 0 }])).toBeNull();
   });
 });
 
@@ -435,8 +444,9 @@ describe('令和8年分: 統合（手計算）', () => {
   it('給与200万・社保実額15万（住民税は令和8年度の控除額で代用）', () => {
     // 給与所得=2,000,000-740,000=1,260,000 / 所得税の控除=基礎1,040,000+社保150,000=1,190,000 / 課税=70,000 / 税=70,000*5%=3,500
     // 復興特別所得税(2.1%)=floor(73.5)=73 → 3,573（税額の端数処理は資料なしのため未実施）
-    // 住民税: 控除=基礎430,000+社保150,000=580,000 → 課税680,000 → 所得割68,000+均等割等5,500=73,500
-    // 負担=3,573+73,500+150,000=227,073 / 手取り=2,000,000-227,073=1,772,927
+    // 住民税: 控除=基礎430,000+社保150,000=580,000 → 課税680,000 → 所得割68,000
+    //   調整控除=min(①基礎の差額50,000, ②680,000)×5%=2,500 → 65,500 + 均等割等5,500 = 71,000
+    // 負担=3,573+71,000+150,000=224,573 / 手取り=2,000,000-224,573=1,775,427
     const s = mk([inc('salary', 2_000_000)], { insurance: { type: 'employee', actualAnnual: 150_000 } });
     const r = run8(s);
     expect(r.income.salaryIncome).toBe(1_260_000);
@@ -445,10 +455,11 @@ describe('令和8年分: 統合（手計算）', () => {
     expect(r.incomeTax.base).toBe(3_500);
     expect(r.incomeTax.reconstruction).toBe(73);
     expect(r.incomeTax.total).toBe(3_573);
-    expect(r.residentTax.total).toBe(73_500);
-    expect(r.takeHome).toBe(1_772_927);
+    expect(r.residentTax.adjustment).toBe(2_500);
+    expect(r.residentTax.total).toBe(71_000);
+    expect(r.takeHome).toBe(1_775_427);
     expect(r.notes.join()).toMatch(/令和9年度.*代用/); // 住民税の控除額が代用であることを明示
-    expect(r.notes.join()).not.toMatch(/二次情報/); // 復興特別所得税は国税庁No.1521で確認済み
+    expect(r.notes.join()).not.toMatch(/二次情報/); // 復興特別所得税は国税庁No.1521/2260で確認済み
   });
   it('配偶者控除が課税所得に反映される: 事業所得300万・配偶者所得0・配偶者控除380,000', () => {
     // 所得3,000,000(白色) / 控除=基礎1,040,000+配偶者380,000=1,420,000 / 課税=1,580,000 / 税=79,000
@@ -615,8 +626,9 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
   // 給与所得=5,000,000-(5,000,000*20%+440,000=1,440,000)=3,560,000
   // 所得税: 基礎(336万超489万以下)680,000+社保700,000=1,380,000 → 課税2,180,000 → 10%: 218,000-97,500=120,500
   //   復興2.1%: floor(2,530.5)=2,530 → 123,030（税額の端数処理は資料なしのため未実施）
-  // 住民税: 基礎430,000+社保700,000=1,130,000 → 課税2,430,000 → 所得割243,000 + 均等割等5,500 = 248,500
-  // 負担=123,030+248,500+700,000=1,071,530 / 手取り=5,000,000-1,071,530=3,928,470
+  // 住民税: 基礎430,000+社保700,000=1,130,000 → 課税2,430,000 → 所得割243,000
+  //   調整控除: ②=2,430,000>200万 → ①50,000-(430,000)<5万 → 5万 → 50,000×5%=2,500 → 240,500 + 均等割等5,500 = 246,000
+  // 負担=123,030+246,000+700,000=1,069,030 / 手取り=5,000,000-1,069,030=3,930,970
   const r = calculate(mk([inc('salary', 5_000_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } }), R7);
   it('所得・課税所得', () => {
     expect(r.income.salaryIncome).toBe(3_560_000);
@@ -627,9 +639,10 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
     expect(r.incomeTax.base).toBe(120_500);
     expect(r.incomeTax.reconstruction).toBe(2_530);
     expect(r.incomeTax.total).toBe(123_030);
-    expect(r.residentTax.total).toBe(248_500);
-    expect(r.burden).toBe(1_071_530);
-    expect(r.takeHome).toBe(3_928_470);
+    expect(r.residentTax.adjustment).toBe(2_500);
+    expect(r.residentTax.total).toBe(246_000);
+    expect(r.burden).toBe(1_069_030);
+    expect(r.takeHome).toBe(3_930_970);
     expect(r.missing).toEqual([]);
   });
   it('前提の注記（端数処理・別表・住民税の概算）が出る', () => {
@@ -654,55 +667,103 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
 // ---------------------------------------------------------------------------
 // 協会けんぽ（令和8年3月分〜）による社会保険料の概算。期待値は保険料額表（広島・福岡・大阪）の行から取った。
 // ---------------------------------------------------------------------------
-describe('社会保険料の概算（協会けんぽ）', () => {
-  const si = (salary, patch = {}) => {
-    const s = mk([inc('salary', salary)], { insurance: { type: 'employee', actualAnnual: null }, ...patch });
-    return calculate(s, R8);
+describe('社会保険料の概算（協会けんぽ・月ごとの料率）', () => {
+  // 令和8年分 = 1〜2月(令和7年度料率) 2か月 + 3月(令和8年度・支援金なし) 1か月 + 4〜12月(令和8年度・支援金あり) 9か月
+  // 令和7年分 = 令和7年3月分からの料率で12か月（1〜2月は旧料率が未登録のため代用）
+  // 年収480万円=月40万円 → 等級27(24) 標準報酬410,000円 / 厚生年金折半 410,000×18.3%÷2=37,515 / 端数は50銭以下切捨・50銭超切上げ
+  const si = (year, salary, patch = {}) => {
+    const s = mk([inc('salary', salary)], { insurance: { type: 'employee', actualAnnual: null }, taxYear: year, ...patch });
+    return calculate(s, getTaxYear(year));
   };
-  const withPref = (pref, age = 30) => ({ residence: { prefecture: pref, city: '' }, self: { ...defaultState().self, age } });
-  it('広島・年収480万円(月40万)・30歳: 等級27(24)標準報酬410,000円', () => {
-    // 表の行: 健保折半20,049.0 + 支援金折半471.5 + 厚年折半37,515.0 = 58,035.5 → 50銭以下切捨 58,035 → ×12 = 696,420
-    expect(si(4_800_000, withPref('広島県')).socialInsurance).toEqual({ total: 696_420, mode: 'estimate' });
+  const at = (pref, age = 30) => ({ residence: { prefecture: pref, city: '' }, self: { ...defaultState().self, age } });
+
+  describe('令和8年分（2026）', () => {
+    const y = (salary, patch) => si(2026, salary, patch);
+    it('広島・30歳', () => {
+      // 1-2月: 410,000×9.97%÷2=20,438.5 + 37,515 = 57,953.5 → 57,953 ×2 = 115,906
+      // 3月:   410,000×9.78%÷2=20,049   + 37,515 = 57,564             ×1 =  57,564
+      // 4-12月: 20,049 + 支援金410,000×0.23%÷2=471.5 + 37,515 = 58,035.5 → 58,035 ×9 = 522,315 → 695,785
+      expect(y(4_800_000, at('広島県')).socialInsurance).toEqual({ total: 695_785, mode: 'estimate' });
+    });
+    it('広島・45歳は介護保険料を含む', () => {
+      // 1-2月: 410,000×(9.97%+1.59%)÷2=23,698 + 37,515 = 61,213 ×2 = 122,426
+      // 3月:   410,000×(9.78%+1.62%)÷2=23,370 + 37,515 = 60,885 ×1 =  60,885
+      // 4-12月: 23,370 + 471.5 + 37,515 = 61,356.5 → 61,356 ×9 = 552,204 → 735,515
+      const r = y(4_800_000, at('広島県', 45));
+      expect(r.socialInsurance.total).toBe(735_515);
+      expect(r.notes.join()).toMatch(/介護保険料/);
+    });
+    it('40歳・64歳は介護あり、39歳・65歳はなし（境界）', () => {
+      expect(y(4_800_000, at('広島県', 39)).socialInsurance.total).toBe(695_785);
+      expect(y(4_800_000, at('広島県', 40)).socialInsurance.total).toBe(735_515);
+      expect(y(4_800_000, at('広島県', 64)).socialInsurance.total).toBe(735_515);
+      expect(y(4_800_000, at('広島県', 65)).socialInsurance.total).toBe(695_785);
+    });
+    it('福岡（令和7年度の資料なし→1〜2月は3支部平均10.04%）', () => {
+      // 1-2月: 410,000×10.04%÷2=20,582 + 37,515 = 58,097 ×2 = 116,194
+      // 3月:   410,000×10.11%÷2=20,725.5 + 37,515 = 58,240.5 → 58,240 ×1
+      // 4-12月: 20,725.5 + 471.5 + 37,515 = 58,712 ×9 = 528,408 → 702,842
+      const r = y(4_800_000, at('福岡県'));
+      expect(r.socialInsurance.total).toBe(702_842);
+      expect(r.notes.join()).toMatch(/平均/);
+    });
+    it('大阪', () => {
+      // 1-2月: 410,000×10.24%÷2=20,992 + 37,515 = 58,507 ×2 = 117,014
+      // 3月:   410,000×10.13%÷2=20,766.5 + 37,515 = 58,281.5 → 58,281 ×1
+      // 4-12月: 20,766.5 + 471.5 + 37,515 = 58,753 ×9 = 528,777 → 704,072
+      expect(y(4_800_000, at('大阪府')).socialInsurance.total).toBe(704_072);
+    });
+    it('東京（令和8年度の資料なし→3月以降は3府県平均10.0067%）', () => {
+      // 1-2月: 410,000×9.91%÷2=20,315.5 + 37,515 = 57,830.5 → 57,830 ×2 = 115,660
+      // 3月:   410,000×10.00667%÷2=20,513.67 + 37,515 = 58,028.67 → 58,029 ×1
+      // 4-12月: 20,513.67 + 471.5 + 37,515 = 58,500.17 → 58,500 ×9 = 526,500 → 700,189
+      const r = y(4_800_000, at('東京都'));
+      expect(r.socialInsurance.total).toBe(700_189);
+      expect(r.notes.join()).toMatch(/平均/);
+    });
+    it('等級の境界: 報酬月額394,999円は標準380,000円(等級26)、395,000円は標準410,000円(等級27)', () => {
+      // 標準380,000: 厚年折半34,770
+      // 1-2月: 380,000×9.97%÷2=18,943 + 34,770 = 53,713 ×2 = 107,426 / 3月: 18,582 + 34,770 = 53,352
+      // 4-12月: 18,582 + 437 + 34,770 = 53,789 ×9 = 484,101 → 644,879
+      expect(y(394_999 * 12, at('広島県')).socialInsurance.total).toBe(644_879);
+      expect(y(395_000 * 12, at('広島県')).socialInsurance.total).toBe(695_785);
+    });
+    it('厚生年金は標準報酬650,000円で頭打ち（月額100万円は健保等級43・標準980,000円）', () => {
+      // 厚年折半=650,000×18.3%÷2=59,475
+      // 1-2月: 980,000×9.97%÷2=48,853 + 59,475 = 108,328 ×2 = 216,656 / 3月: 47,922 + 59,475 = 107,397
+      // 4-12月: 47,922 + 1,127 + 59,475 = 108,524 ×9 = 976,716 → 1,300,769
+      expect(y(12_000_000, at('広島県')).socialInsurance.total).toBe(1_300_769);
+    });
+    it('低報酬: 報酬月額63,000円未満は標準58,000円、厚生年金は88,000円（折半8,052）から', () => {
+      // 1-2月: 58,000×9.97%÷2=2,891.3 + 8,052 = 10,943.3 → 10,943 ×2 = 21,886 / 3月: 2,836.2 + 8,052 = 10,888.2 → 10,888
+      // 4-12月: 2,836.2 + 66.7 + 8,052 = 10,954.9 → 10,955 ×9 = 98,595 → 131,369
+      expect(y(600_000, at('広島県')).socialInsurance.total).toBe(131_369);
+    });
   });
-  it('広島・45歳は介護保険料を含む（介護込み折半23,370.0）', () => {
-    // 23,370.0 + 471.5 + 37,515.0 = 61,356.5 → 61,356 → ×12 = 736,272
-    const r = si(4_800_000, withPref('広島県', 45));
-    expect(r.socialInsurance.total).toBe(736_272);
-    expect(r.notes.join()).toMatch(/介護保険料/);
+
+  describe('令和7年分（2025）: 令和7年3月分からの料率（広島9.97%・東京9.91%・大阪10.24%・介護1.59%）', () => {
+    const y = (salary, patch) => si(2025, salary, patch);
+    it('広島・30歳: 410,000×9.97%÷2=20,438.5 + 37,515 = 57,953.5 → 57,953 ×12 = 695,436', () => {
+      expect(y(4_800_000, at('広島県')).socialInsurance.total).toBe(695_436);
+    });
+    it('広島・45歳: 410,000×11.56%÷2=23,698 + 37,515 = 61,213 ×12 = 734,556', () => {
+      expect(y(4_800_000, at('広島県', 45)).socialInsurance.total).toBe(734_556);
+    });
+    it('東京: 20,315.5 + 37,515 = 57,830.5 → 57,830 ×12 = 693,960', () => {
+      expect(y(4_800_000, at('東京都')).socialInsurance.total).toBe(693_960);
+    });
+    it('大阪: 20,992 + 37,515 = 58,507 ×12 = 702,084', () => {
+      expect(y(4_800_000, at('大阪府')).socialInsurance.total).toBe(702_084);
+    });
+    it('福岡（令和7年度の資料なし→3支部平均10.04%）: 20,582 + 37,515 = 58,097 ×12 = 697,164', () => {
+      const r = y(4_800_000, at('福岡県'));
+      expect(r.socialInsurance.total).toBe(697_164);
+      expect(r.notes.join()).toMatch(/平均/);
+    });
   });
-  it('40歳・64歳は介護あり、39歳・65歳はなし（境界）', () => {
-    expect(si(4_800_000, withPref('広島県', 39)).socialInsurance.total).toBe(696_420);
-    expect(si(4_800_000, withPref('広島県', 40)).socialInsurance.total).toBe(736_272);
-    expect(si(4_800_000, withPref('広島県', 64)).socialInsurance.total).toBe(736_272);
-    expect(si(4_800_000, withPref('広島県', 65)).socialInsurance.total).toBe(696_420);
-  });
-  it('福岡: 健保折半20,725.5 + 支援金471.5 + 厚年37,515.0 = 58,712 → ×12 = 704,544', () => {
-    expect(si(4_800_000, withPref('福岡県')).socialInsurance.total).toBe(704_544);
-  });
-  it('大阪: 410,000×10.13%=41,533 → 折半20,766.5 + 471.5 + 37,515.0 = 58,753 → ×12 = 705,036', () => {
-    expect(si(4_800_000, withPref('大阪府')).socialInsurance.total).toBe(705_036);
-  });
-  it('未登録の都道府県は登録済み府県の平均料率で概算し、その旨を注記', () => {
-    // 平均=(9.78+10.11+10.13)/3=10.00667% → 410,000×=41,027.33 → 折半20,513.67 + 471.5 + 37,515.0 = 58,500.17 → 58,500 → ×12 = 702,000
-    const r = si(4_800_000, withPref('東京都'));
-    expect(r.socialInsurance.total).toBe(702_000);
-    expect(r.notes.join()).toMatch(/平均/);
-  });
-  it('等級の境界: 報酬月額394,999円は等級26(23)標準380,000円、395,000円は等級27(24)標準410,000円', () => {
-    // 等級26(23): 健保折半18,582.0 + 支援金折半437.0 + 厚年折半34,770.0 = 53,789 → ×12 = 645,468
-    expect(si(394_999 * 12, withPref('広島県')).socialInsurance.total).toBe(645_468);
-    expect(si(395_000 * 12, withPref('広島県')).socialInsurance.total).toBe(696_420); // 等級27(24)
-  });
-  it('厚生年金は標準報酬650,000円で頭打ち（月額100万円は健保等級43・標準980,000円）', () => {
-    // 健保折半47,922.0 + 支援金折半1,127.0 + 厚年は650,000×18.3%÷2=59,475.0 → 108,524 → ×12 = 1,302,288
-    expect(si(12_000_000, withPref('広島県')).socialInsurance.total).toBe(1_302_288);
-  });
-  it('低報酬: 報酬月額63,000円未満は標準58,000円、厚生年金は88,000円から', () => {
-    // 年収60万=月5万 → 標準58,000: 健保折半2,836.2 + 支援金折半66.7 + 厚年88,000×18.3%÷2=8,052.0 = 10,954.9 → 50銭超切上げ 10,955 → ×12 = 131,460
-    expect(si(600_000, withPref('広島県')).socialInsurance.total).toBe(131_460);
-  });
+
   it('実額を入力すれば概算より優先', () => {
-    expect(si(4_800_000, { ...withPref('広島県'), insurance: { type: 'employee', actualAnnual: 500_000 } }).socialInsurance).toEqual({ total: 500_000, mode: 'actual' });
+    expect(si(2026, 4_800_000, { ...at('広島県'), insurance: { type: 'employee', actualAnnual: 500_000 } }).socialInsurance).toEqual({ total: 500_000, mode: 'actual' });
   });
   it('国民健康保険（個人事業主）は自治体別のため概算率は未登録 → 実額入力が必要', () => {
     const r = calculate(mk([inc('business', 5_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R8);
@@ -710,7 +771,54 @@ describe('社会保険料の概算（協会けんぽ）', () => {
     expect(r.missing).toContain('socialInsurance.estimate.national');
   });
   it('会社員でも給与がなければ0円', () => {
-    expect(si(0).socialInsurance.total).toBe(0);
+    expect(si(2026, 0).socialInsurance.total).toBe(0);
+  });
+});
+
+describe('住民税の調整控除（福山市の算式と差額一覧表）', () => {
+  const adjCfg = R7.residentTax.adjustment;
+  const adj = (state, totalIncome, taxable) => calcAdjustmentCredit(state, adjCfg, { items: [{ id: 'basic', amount: totalIncome > 25_000_000 ? 0 : 430_000 }] }, totalIncome, taxable);
+  const base = mk([]);
+  const withSelf = (o) => ({ ...base, self: { ...defaultState().self, ...o } });
+  const withSpouse = (o) => ({ ...base, spouse: { exists: true, age: 40, income: 0, disability: 'none', cohabiting: true, ...o } });
+  const withDeps = (...ds) => ({ ...base, dependents: ds });
+
+  it('算式: ②が200万円以下は min(①,②)×5%、超は max(①−(②−200万),5万)×5%、2,500万円超は適用なし', () => {
+    // ① = 基礎50,000 + 配偶者(一般・所得者300万)50,000 + 扶養(一般・17歳)50,000 = 150,000
+    const s = { ...withSpouse({}), dependents: [person({ age: 17 })] };
+    expect(adj(s, 3_000_000, 1_500_000)).toBe(7_500);
+    expect(adj(s, 3_000_000, 100_000)).toBe(5_000); // min(150,000, 100,000)×5%
+    expect(adj(s, 3_000_000, 2_000_000)).toBe(7_500);
+    expect(adj(s, 3_000_000, 2_000_001)).toBe(7_499); // (150,000-1)×5%=7,499.95
+    expect(adj(s, 3_000_000, 2_100_000)).toBe(2_500); // 150,000-100,000=50,000
+    expect(adj(s, 3_000_000, 2_300_000)).toBe(2_500); // 負なら5万円
+    expect(adj(s, 3_000_000, 25_000_000)).toBe(2_500);
+    expect(adj(s, 3_000_000, 25_000_001)).toBe(0);
+  });
+  // 以下は ②=200万円（①がそのまま使われる）で ①×5% を検証。基礎控除の差額5万円は含まれる。
+  it.each([
+    [withSpouse({}), 3_000_000, 100_000], // 一般: 5万
+    [withSpouse({}), 9_000_000, 100_000], [withSpouse({}), 9_000_001, 90_000], [withSpouse({}), 9_500_000, 90_000],
+    [withSpouse({}), 9_500_001, 70_000], [withSpouse({}), 10_000_000, 70_000],
+    [withSpouse({ age: 70 }), 3_000_000, 150_000], // 老人: 10万 / 6万 / 3万
+    [withSpouse({ age: 70 }), 9_000_001, 110_000], [withSpouse({ age: 70 }), 9_500_001, 80_000],
+    [withSpouse({}), 10_000_001, 50_000], // 所得者1,000万円超は配偶者控除なし
+    [withSpouse({ income: 700_000 }), 3_000_000, 50_000], // 配偶者特別控除は差額なし（令和8年度から）
+    [withDeps(person({ age: 17 })), 3_000_000, 100_000], // 一般 5万
+    [withDeps(person({ age: 20 })), 3_000_000, 230_000], // 特定 18万
+    [withDeps(person({ age: 72 })), 3_000_000, 150_000], // 老人 10万
+    [withDeps(person({ age: 72, relationship: 'parent', cohabiting: true })), 3_000_000, 180_000], // 同居老親等 13万
+    [withDeps(person({ age: 15 })), 3_000_000, 50_000], // 16歳未満は控除対象外
+    [withDeps(person({ age: 20, income: 700_000 })), 3_000_000, 50_000], // 特定親族特別控除は差額なし
+    [withSelf({ disability: 'general' }), 3_000_000, 60_000], // 障害者 一般1万
+    [withSelf({ disability: 'special' }), 3_000_000, 150_000], // 特別10万
+    [withDeps(person({ age: 40, disability: 'special', cohabiting: true })), 3_000_000, 50_000 + 50_000 + 220_000], // 扶養一般5万＋同居特別22万
+    [withSelf({ widowSingleParent: 'widow' }), 3_000_000, 60_000], // 寡婦1万
+    [withSelf({ widowSingleParent: 'singleParent' }), 3_000_000, 60_000], // ひとり親（男性の1万円で計算）
+    [withSelf({ workingStudent: true }), 800_000, 60_000], // 勤労学生1万
+    [base, 25_000_001, 0], // 基礎控除がなければ差額もなし
+  ])('人的控除の差額の合計①=%#', (state, owner, expectedDiff) => {
+    expect(adj(state, owner, 2_000_000)).toBe(Math.floor(expectedDiff * 0.05 + 1e-6));
   });
 });
 

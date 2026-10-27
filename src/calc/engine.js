@@ -165,9 +165,11 @@ export function calculate(state, rules) {
       const levy = round(mulFloor(taxableRT.comprehensive, rate), 'residentIncomeLevy');
       const fx = mulFloor(taxableRT.fx, fxRate);
       const credit = state.taxCredits.donationCredit.amount;
-      const incomeLevy = Math.max(0, levy - credit);
-      residentTax = { incomeLevy, fxTax: fx, perCapita, credit, total: incomeLevy + fx + perCapita };
-      notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（調整控除・非課税判定は未反映）。`);
+      const adj = rules.residentTax.adjustment;
+      const adjustment = adj ? calcAdjustmentCredit(state, adj, deductions.residentTax, totalIncome, taxableRT.comprehensive) : 0;
+      const incomeLevy = Math.max(0, levy - adjustment - credit);
+      residentTax = { incomeLevy, fxTax: fx, perCapita, credit, adjustment, total: incomeLevy + fx + perCapita };
+      notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です（${adj ? '' : '調整控除・'}非課税判定は未反映）。`);
     }
   }
 
@@ -214,6 +216,19 @@ export function calculate(state, rules) {
     incomeTax, residentTax, businessTax, socialInsurance,
     burden, takeHome,
   };
+}
+
+// 住民税の調整控除（福山市の算式）。人的控除額の差（所得税−住民税）の合計①と合計課税所得金額②から求め、所得割から控除する。
+//   ②≦200万円: min(①,②)×5% / 200万円<②≦2,500万円: max(①−(②−200万円), 5万円)×5% / 2,500万円超: なし
+export function calcAdjustmentCredit(state, adj, residentDeductions, totalIncome, taxableComprehensive) {
+  if (taxableComprehensive > adj.upperLimit) return 0;
+  const basic = residentDeductions.items.find((i) => i.id === 'basic');
+  const diffs = autoPersonalDeductions(state, adj.diffDeductions, totalIncome, () => {}, 'residentTax');
+  const diffSum = (basic && basic.amount > 0 ? adj.basicDiff : 0) + diffs.reduce((a, i) => a + (i.amount ?? 0), 0);
+  const base = taxableComprehensive <= adj.threshold
+    ? Math.min(diffSum, taxableComprehensive)
+    : Math.max(diffSum - (taxableComprehensive - adj.threshold), adj.minAfter);
+  return mulFloor(base, adj.rate);
 }
 
 function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFull }) {
@@ -296,20 +311,27 @@ const roundHalfDown = (x) => {
 };
 
 // 協会けんぽ（会社員）の概算: 給与収入を12か月均等の報酬月額とみなし、標準報酬月額の等級から
-// 健康保険（＋介護）・子ども・子育て支援金・厚生年金の被保険者負担（折半）を求める。賞与・雇用保険は含まない。
+// 健康保険（＋介護）・子ども・子育て支援金・厚生年金の被保険者負担（折半）を月ごとの料率スケジュールで求める。賞与・雇用保険は含まない。
 function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
   if (!(salaryRevenue > 0)) return 0;
   const monthly = Math.floor(salaryRevenue / 12);
   const grade = e.grades.find((g) => (g.min == null || monthly >= g.min) && (g.max == null || monthly < g.max));
   const std = grade.standard;
-  const prefRate = e.healthRateByPrefecture[state.residence.prefecture];
-  const rates = Object.values(e.healthRateByPrefecture);
-  const healthRate = prefRate ?? rates.reduce((a, b) => a + b, 0) / rates.length;
-  const kaigo = state.self.age >= e.care.ageMin && state.self.age <= e.care.ageMax ? e.care.rate : 0;
   const pensionStd = Math.min(e.pension.range.max, Math.max(e.pension.range.min, std));
-  const monthlyShare = (std * (healthRate + kaigo + e.childSupportRate) + pensionStd * e.pension.rate) * e.employeeShare;
+  const kaigoOn = state.self.age >= e.careAge.min && state.self.age <= e.careAge.max;
+  const pref = state.residence.prefecture;
+  let total = 0;
+  let usedAverage = false;
+  for (const p of e.schedule) {
+    const rates = Object.values(p.healthRateByPrefecture);
+    const prefRate = p.healthRateByPrefecture[pref];
+    if (prefRate === undefined) usedAverage = true;
+    const healthRate = prefRate ?? rates.reduce((a, b) => a + b, 0) / rates.length;
+    const share = (std * (healthRate + (kaigoOn ? p.careRate : 0) + p.childSupportRate) + pensionStd * e.pension.rate) * e.employeeShare;
+    total += roundHalfDown(share) * p.months;
+  }
   notes.push('社会保険料は協会けんぽの料率による概算です（賞与なし・12か月均等の報酬として計算。健保組合・共済や賞与の有無で異なります。雇用保険料は含みません）。');
-  if (prefRate === undefined) notes.push(`お住まいの都道府県の協会けんぽ料率が未登録のため、登録済み${rates.length}府県（広島・福岡・大阪）の健康保険料率の平均を使っています。`);
-  if (kaigo) notes.push('40〜64歳のため介護保険料を含めています。');
-  return roundHalfDown(monthlyShare) * 12;
+  if (usedAverage) notes.push(`お住まいの都道府県（${pref || '未選択'}）の協会けんぽ料率が未登録の期間があるため、登録済み支部（${Object.keys(e.schedule[e.schedule.length - 1].healthRateByPrefecture).join('・')}）の健康保険料率の平均を使っています。`);
+  if (kaigoOn) notes.push('40〜64歳のため介護保険料を含めています。');
+  return total;
 }
