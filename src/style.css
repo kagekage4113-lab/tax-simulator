@@ -93,3 +93,28 @@ svg.chart { width: 100%; height: auto; touch-action: pan-y; }
 .legend .sw { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--accent); }
 .legend .sw-ref { border-top: 2px dashed var(--muted); }
 .legend .sw-wall { border-top: 1px dashed var(--muted); }
+
+/* 結果の要約バー（結果欄が見えないときだけ下部に固定） */
+.summary-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 760px; margin: 0 auto; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--accent); color: var(--accent-text); border: 0; border-radius: 12px 12px 0 0; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 -2px 10px rgba(0,0,0,.18); }
+.summary-bar[hidden] { display: none; }
+.summary-bar .sb-item { display: flex; flex-direction: column; min-width: 0; }
+.summary-bar small { font-size: .7rem; opacity: .85; }
+.summary-bar strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.summary-bar .sb-go { font-size: .8rem; white-space: nowrap; }
+#app { padding-bottom: 76px; }
+.help { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
+.help > summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--accent); font-weight: 600; }
+.help ol { padding-left: 1.3em; margin: 4px 0; }
+.help p { margin: 4px 0; }
+
+/* PC幅: 入力は左、結果は右に固定表示 */
+@media (min-width: 1000px) {
+  #app { max-width: 1140px; }
+  .summary-bar { display: none !important; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 20px; align-items: start; }
+  main > .dynamic { grid-column: 1; grid-row: 1; }
+  main > #sec-sim { grid-column: 1; grid-row: 2; }
+  main > #sec-data { grid-column: 1; grid-row: 3; }
+  main > #sec-result { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; margin-top: 0; }
+  #app { padding-bottom: 32px; }
+}

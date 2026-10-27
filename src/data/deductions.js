@@ -53,7 +53,7 @@ export const INCOME_DEDUCTIONS = [
     condition: '支払額と補填額を入力して控除額を計算。セルフメディケーション税制との選択は未対応',
     fields: [{ key: 'paid', label: '支払った医療費' }, { key: 'reimbursed', label: '補填される金額（保険金など）' }] },
   { id: 'donation', label: '寄附金控除（ふるさと納税など）', inputMode: 'manual', phase: 2, incomeTax: both, residentTax: both, supported: true,
-    condition: '住民税側の特例分は税額控除と合わせて扱う。上限額の推定はフェーズ4' },
+    condition: '住民税側の特例分は税額控除と合わせて扱う。ふるさと納税の寄附上限額の目安は、結果の詳細に表示されます' },
   { id: 'casualty', label: '雑損控除', inputMode: 'manual+calc', phase: 4, incomeTax: both, residentTax: both, supported: true,
     condition: '災害・盗難・横領による損失。(1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額（所得税・住民税とも同じ式）。繰越控除（3年）・災害減免法との選択は未対応',
     fields: [

@@ -49,6 +49,8 @@ export function gaugeField({ label, value, max, step = 10000, allowNegative = fa
     onChange(v);
     syncRange();
   });
+  // タップ・フォーカスで全選択し、そのまま上書き入力できるようにする
+  text.addEventListener('focus', () => setTimeout(() => { try { text.select(); } catch { /* 一部の環境では選択できない */ } }, 0));
   text.addEventListener('blur', () => {
     const v = parseYen(text.value, { allowNegative });
     text.classList.remove('invalid');

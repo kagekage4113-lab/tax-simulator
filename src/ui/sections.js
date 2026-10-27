@@ -1,7 +1,7 @@
 import { h, field, select, checkbox, badge } from './dom.js';
 import { gaugeField } from './gaugeField.js';
 import {
-  BLUE_DEDUCTIONS, BUSINESS_TYPES, DISABILITY, FILING_TYPE, INSURANCE_TYPE, RELATIONSHIPS, WIDOW_SINGLE, WORK_STYLES,
+  BLUE_DEDUCTIONS, BUSINESS_TYPES, DISABILITY, FILING_TYPE, INSURANCE_TYPE, RELATIONSHIPS, WIDOW_SINGLE,
   newDependent, newIncome,
 } from '../core/schema.js';
 import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/incomeCategories.js';
@@ -48,15 +48,11 @@ export function settingsSection(store) {
   return section('年度・申告条件', 'sec-settings', [
     field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
     ty && ty.status === 'skeleton'
-      ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です（フェーズ2で公的資料を確認して登録します）。`) : null,
+      ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
     field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
       { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。広島・福岡・大阪以外は3府県の平均で概算します。住民税の税率・控除は現在、福山市の値です。' }),
     field('市区町村', h('input', { type: 'text', value: s.residence.city, maxlength: 100, placeholder: '例：渋谷区', onInput: (e) => set((x) => { x.residence.city = e.target.value; }) }),
-      { hint: '自治体別の計算はフェーズ4以降。現在は全国共通の概算を使う予定です。' }),
-    h('fieldset', { class: 'chips' }, h('legend', {}, '収入の種類（複数選択可）'),
-      Object.entries(WORK_STYLES).map(([k, label]) => checkbox(label, s.workStyles.includes(k), (on) => set((x) => {
-        x.workStyles = on ? [...new Set([...x.workStyles, k])] : x.workStyles.filter((w) => w !== k);
-      })))),
+      { hint: '住民税・国民健康保険税の税率と控除は、現在は福山市の値で計算します（他の自治体の値は未対応です）。' }),
     field('申告方式', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true))),
     ...(s.filing.type === 'blue' ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
@@ -176,13 +172,13 @@ export function deductionsSection(store) {
 
   const statusRow = (d) => h('li', {},
     h('span', {}, d.label), ' ',
-    d.supported ? badge(d.inputMode === 'auto' ? '自動計算（フェーズ2）' : '手入力', '') : badge('未対応', 'warn'));
+    d.supported ? badge(d.inputMode === 'auto' ? '自動計算' : d.inputMode === 'manual' ? '手入力' : '入力から自動計算', '') : badge('未対応', 'warn'));
 
   return section('所得控除・税額控除', 'sec-deductions', [
-    h('p', { class: 'note' }, '控除額の自動計算はフェーズ2で対応します。ここでは手入力が必要な控除の入力欄を用意しています。適用条件を満たすかはご自身の申告に基づきます。'),
-    h('h3', {}, '手入力する所得控除'),
+    h('p', { class: 'note' }, '基礎控除・配偶者控除・扶養控除・障害者控除などは、「年度・申告条件」の本人・配偶者・扶養親族の入力から自動で計算されます。ここには、保険料・医療費・寄附など、金額を入力する控除の欄があります。適用条件を満たすかはご自身の申告に基づきます。'),
+    h('h3', {}, '金額を入力する所得控除'),
     ...MANUAL_DEDUCTIONS.filter((d) => d.supported).map((d) => manual(d, 'deductions')),
-    h('h3', {}, '手入力する税額控除'),
+    h('h3', {}, '金額を入力する税額控除'),
     ...MANUAL_TAX_CREDITS.map((d) => manual(d, 'taxCredits')),
     h('details', { class: 'sub' }, h('summary', {}, '控除の対応状況'),
       h('ul', { class: 'status-list' }, [...INCOME_DEDUCTIONS, ...TAX_CREDITS].map(statusRow))),
@@ -225,6 +221,7 @@ export function resultSection(rulesFor = getTaxYear) {
 
   el.update = (s) => {
     const r = calculate(s, rulesFor(s.taxYear));
+    if (el.onCalc) el.onCalc(r);
     const i = r.income;
     const hasBusinessTax = s.incomes.some((x) => x.category === 'business' && x.businessType !== 'unknown');
     const kids = [];
