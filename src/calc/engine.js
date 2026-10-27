@@ -25,6 +25,7 @@ import { INCOME_DEDUCTIONS } from '../data/deductions.js';
 
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 
+const formatYenText = (n) => n.toLocaleString('ja-JP');
 const ROUNDING_LABEL = {
   taxableIncome: '所得税の課税所得', residentTaxableIncome: '住民税の課税所得', incomeTax: '所得税額',
   reconstruction: '復興特別所得税額', residentIncomeLevy: '住民税の所得割額', businessTax: '個人事業税額',
@@ -109,11 +110,35 @@ export function calculate(state, rules) {
 
   // ---- 4. FX（申告分離）----
   const fxProfit = sum('fx', (i) => i.amount);
-  const carryIn = state.fxCarryForward;
-  const fxCarryUsed = Math.min(carryIn, Math.max(0, fxProfit));
+  // 繰越損失: 損失の年の翌年以後3年間、古い年の損失から順に控除する（NTA_1523）。控除は当年の利益が限度。
+  const carryYears = state.fxCarryLosses.length ? need('fx.carryForwardYears') : undefined;
+  let profitLeft = Math.max(0, fxProfit);
+  let carryIn = 0;
+  let fxCarryUsed = 0;
+  const carryNext = []; // 翌年に繰り越せる損失
+  const carryExpired = []; // 期限（3年）を過ぎて使えない損失
+  let expiringAmount = 0;
+  for (const l of [...state.fxCarryLosses].sort((a, b) => a.year - b.year)) {
+    if (carryYears === undefined) break;
+    if (l.year >= state.taxYear) { notes.push(`${l.year}年に生じた損失は${state.taxYear}年分には繰り越せないため無視しています。`); continue; }
+    if (l.year < state.taxYear - carryYears) { carryExpired.push(l); continue; }
+    carryIn += l.amount;
+    const use = Math.min(l.amount, profitLeft);
+    profitLeft -= use;
+    fxCarryUsed += use;
+    const rest = l.amount - use;
+    if (rest > 0) {
+      if (l.year >= state.taxYear + 1 - carryYears) carryNext.push({ year: l.year, amount: rest });
+      else expiringAmount += rest;
+    }
+  }
   const fxIncome = Math.max(0, fxProfit) - fxCarryUsed;
-  const fxCarryRemaining = carryIn - fxCarryUsed + Math.max(0, -fxProfit);
-  if (fxProfit < 0) notes.push('FXの損失は総合課税の所得と通算せず、翌年以降へ繰り越す額として計上しています。');
+  if (fxProfit < 0) carryNext.push({ year: state.taxYear, amount: -fxProfit });
+  const fxCarryRemaining = carryNext.reduce((a, c) => a + c.amount, 0);
+  if (fxProfit < 0) notes.push('FXの損失は総合課税の所得と通算せず、翌年以後3年間の繰越損失として計上しています。');
+  if (carryExpired.length) notes.push(`${carryExpired.map((l) => `${l.year}年`).join('・')}に生じた損失は3年を過ぎているため、繰越控除に使えません。`);
+  if (expiringAmount > 0) notes.push(`繰越損失のうち${formatYenText(expiringAmount)}円は、今年で3年の期限を迎えるため翌年には繰り越せません。`);
+  if (state.fxCarryLosses.length || fxProfit < 0) notes.push('繰越控除を受けるには、損失の年から連続して「先物取引に係る繰越損失用」の付表付きで確定申告を行う必要があります（国税庁No.1523）。');
 
   const totalIncome = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome; // 合計所得金額（簡易）
 
@@ -207,7 +232,7 @@ export function calculate(state, rules) {
       businessRevenue, businessNet, blueDeductionApplied, businessIncome,
       realEstateNet, miscNet, miscIncome, miscLossIgnored, simpleComp,
       comprehensiveRaw, lossOffset, comprehensive: comprehensiveIncome,
-      fx: { profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining },
+      fx: { profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining, carryNext, carryExpired, expiringAmount },
       total: totalIncome,
       revenueTotal, expensesTotal,
     },

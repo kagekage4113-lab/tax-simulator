@@ -14,6 +14,7 @@ export const SRC = {
   KYOKAI_R7_OSAKA: { id: 'KYOKAI_R7_OSAKA', title: '協会けんぽ 大阪支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_osaka.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
+  NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
   KYOKAI_HIROSHIMA: { id: 'KYOKAI_HIROSHIMA', title: '協会けんぽ 広島支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_hiroshima.pdf' },
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
   KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },

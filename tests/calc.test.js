@@ -166,7 +166,7 @@ describe('FX・先物（申告分離）', () => {
   it('繰越損失を差し引き、所得控除の余りがFXから引かれる', () => {
     // 利益1,000,000-繰越300,000=700,000。総合0なので基礎480,000が全てFXへ → 所得税課税220,000
     // 税=floor(220,000*0.15)=33,000, 復興660 → 33,660→33,600 ／ 住民税: 課税270,000*0.05=13,500+均等割5,000=18,500
-    const r = run(mk([inc('fx', 1_000_000)], { fxCarryForward: 300_000 }));
+    const r = run(mk([inc('fx', 1_000_000)], { fxCarryLosses: [{ year: 2024, amount: 300_000 }] }));
     expect(r.income.fx).toMatchObject({ income: 700_000, carryUsed: 300_000, carryRemaining: 0 });
     expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, fx: 220_000, spillToFx: 480_000 });
     expect(r.incomeTax.total).toBe(33_600);
@@ -189,12 +189,50 @@ describe('FX・先物（申告分離）', () => {
     expect(r.incomeTax.total).toBe(463_000);
   });
   it('既存の繰越と当年損失の合算', () => {
-    const r = run(mk([inc('fx', -50_000)], { fxCarryForward: 100_000 }));
+    const r = run(mk([inc('fx', -50_000)], { fxCarryLosses: [{ year: 2024, amount: 100_000 }] }));
     expect(r.income.fx.carryRemaining).toBe(150_000);
   });
   it('繰越額が利益より大きい場合は利益分だけ使う', () => {
-    const r = run(mk([inc('fx', 100_000)], { fxCarryForward: 250_000 }));
+    const r = run(mk([inc('fx', 100_000)], { fxCarryLosses: [{ year: 2024, amount: 250_000 }] }));
     expect(r.income.fx).toMatchObject({ income: 0, carryUsed: 100_000, carryRemaining: 150_000 });
+  });
+});
+
+describe('FXの繰越損失（年ごと・3年・古い年から: No.1523）', () => {
+  // 令和7年（2025）分。損失の年の翌年以後3年間 = 2022年の損失は2023〜2025年分に使える。2021年の損失は使えない。
+  const carry = (profit, losses) => run(mk([inc('fx', profit)], { taxYear: 2025, fxCarryLosses: losses }));
+  it('3年以内の損失は使え、3年を過ぎた損失は使えない（境界）', () => {
+    expect(carry(1_000_000, [{ year: 2022, amount: 200_000 }]).income.fx).toMatchObject({ carryUsed: 200_000, income: 800_000 });
+    const old = carry(1_000_000, [{ year: 2021, amount: 200_000 }]);
+    expect(old.income.fx).toMatchObject({ carryUsed: 0, income: 1_000_000 });
+    expect(old.income.fx.carryExpired).toEqual([{ year: 2021, amount: 200_000 }]);
+    expect(old.notes.join()).toMatch(/3年を過ぎている/);
+  });
+  it('古い年の損失から先に控除する。使い切れない分は翌年に繰り越すが、2022年分は今年で期限切れ', () => {
+    // 利益300,000: 2022年の損失200,000を全額、2023年の損失250,000のうち100,000を使い、残り150,000は翌年へ
+    const r = carry(300_000, [{ year: 2023, amount: 250_000 }, { year: 2022, amount: 200_000 }]);
+    expect(r.income.fx).toMatchObject({ carryIn: 450_000, carryUsed: 300_000, income: 0 });
+    expect(r.income.fx.carryNext).toEqual([{ year: 2023, amount: 150_000 }]);
+    expect(r.income.fx.carryRemaining).toBe(150_000);
+  });
+  it('利益が足りず2022年分が使い切れない場合は、期限切れの額を明示（翌年に繰り越せない）', () => {
+    const r = carry(50_000, [{ year: 2022, amount: 200_000 }, { year: 2024, amount: 100_000 }]);
+    expect(r.income.fx).toMatchObject({ carryUsed: 50_000, income: 0, expiringAmount: 150_000 });
+    expect(r.income.fx.carryNext).toEqual([{ year: 2024, amount: 100_000 }]);
+    expect(r.notes.join()).toMatch(/150,000円は、今年で3年の期限/);
+  });
+  it('当年の損失は翌年への繰越に加わる', () => {
+    const r = carry(-80_000, [{ year: 2023, amount: 100_000 }]);
+    expect(r.income.fx.carryNext).toEqual([{ year: 2023, amount: 100_000 }, { year: 2025, amount: 80_000 }]);
+    expect(r.income.fx.carryRemaining).toBe(180_000);
+  });
+  it('今年以降の年の損失は無視して注記する', () => {
+    const r = carry(100_000, [{ year: 2025, amount: 50_000 }]);
+    expect(r.income.fx.carryUsed).toBe(0);
+    expect(r.notes.join()).toMatch(/2025年に生じた損失は2025年分には繰り越せない/);
+  });
+  it('繰越控除の手続き要件を注記する', () => {
+    expect(carry(100_000, [{ year: 2024, amount: 10_000 }]).notes.join()).toMatch(/付表付きで確定申告/);
   });
 });
 
@@ -823,7 +861,7 @@ describe('住民税の調整控除（福山市の算式と差額一覧表）', (
 });
 
 describe('FX・先物（令和7年分 実データ: 所得税15%＋復興2.1%、住民税5%）', () => {
-  const fx = (profit, carry = 0) => calculate(mk([inc('fx', profit)], { fxCarryForward: carry }), R7);
+  const fx = (profit, carry = 0) => calculate(mk([inc('fx', profit)], { fxCarryLosses: carry ? [{ year: 2024, amount: carry }] : [] }), R7);
   it('利益100万円のみ: 手計算', () => {
     // 合計所得=1,000,000 / 所得税: 基礎(132万以下)950,000 → FX課税=50,000 → 15%=7,500 / 復興floor(157.5)=157 → 7,657
     // 住民税: 基礎430,000 → FX課税570,000 → 5%=28,500 + 均等割等5,500 = 34,000 / 手取り=1,000,000-7,657-34,000=958,343

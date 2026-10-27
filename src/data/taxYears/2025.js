@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_2260, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_2260, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -95,7 +95,7 @@ export const taxYear2025 = {
     '所得税の勤労学生控除・扶養親族等の所得要件は、令和8年分資料の「改正前」列から令和7年分に適用',
     '個人事業税の端数処理・月割適用・事業の種類ごとの業種一覧・損失繰越',
     '住民税の非課税判定、国外居住親族・16歳未満の扱い',
-    'FX・先物：繰越損失の適用要件（確定申告の継続など。No.1523 未入手）。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
+    'FX・先物：繰越控除の要件（連続した付表付き確定申告）は注記のみで、実際に満たしているかは確認しない。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
     '暗号資産：雑所得（総合課税）として扱う前提（国税庁の資料は未確認）',
     '社会保険料：国民健康保険・国民年金・雇用保険、協会けんぽの他支部（資料のない都道府県は登録済み支部の平均で概算）、賞与',
     '住民税の調整控除：ひとり親は性別の入力がないため男性の差額（1万円）で計算。非課税判定は未反映',

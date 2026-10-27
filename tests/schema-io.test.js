@@ -93,6 +93,31 @@ describe('validateState', () => {
   });
 });
 
+describe('繰越損失の入力', () => {
+  it('年ごとの繰越損失を保存・検証できる', () => {
+    const s = defaultState();
+    s.fxCarryLosses = [{ year: 2023, amount: 100000 }, { year: 2024, amount: 50000 }];
+    expect(validateState(JSON.parse(JSON.stringify(s))).ok).toBe(true);
+  });
+  it('旧形式の単一の繰越額は「前年に生じた損失」として読み替える', () => {
+    const old = JSON.parse(JSON.stringify(defaultState()));
+    delete old.fxCarryLosses;
+    old.fxCarryForward = 120000;
+    const r = validateState(old);
+    expect(r.ok).toBe(true);
+    expect(r.state.fxCarryLosses).toEqual([{ year: 2024, amount: 120000 }]);
+  });
+  it.each([
+    ['金額が負', { year: 2024, amount: -1 }],
+    ['年が小数', { year: 2024.5, amount: 1 }],
+    ['年が範囲外', { year: 1800, amount: 1 }],
+  ])('不正: %s', (_, l) => {
+    const s = defaultState();
+    s.fxCarryLosses = [l];
+    expect(validateState(s).ok).toBe(false);
+  });
+});
+
 describe('JSON エクスポート/インポート', () => {
   it('往復で内容が一致する（正常な復元）', () => {
     const s = defaultState();

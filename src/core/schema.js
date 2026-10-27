@@ -79,7 +79,7 @@ export function defaultState() {
     insurance: { type: 'employee', actualAnnual: null }, // actualAnnual: 実額（円）。null=概算を使う
     filing: { type: 'white', blueDeduction: 65 },
     incomes: [newIncome('salary')],
-    fxCarryForward: 0, // FX・先物の繰越損失（円・正の値）
+    fxCarryLosses: [], // FX・先物の繰越損失 [{ year: 損失が生じた年, amount: 円(正の値) }]。損失の年の翌年以後3年間繰越控除できる（No.1523）
     deductions,
     taxCredits: credits,
   };
@@ -188,7 +188,16 @@ export function validateState(input) {
     });
   } else err('incomes', '配列ではありません');
 
-  s.fxCarryForward = yen(input.fxCarryForward ?? 0, 'fxCarryForward');
+  // 繰越損失（年ごと）。旧形式の fxCarryForward（単一の金額）は「前年に生じた損失」として読み替える。
+  const rawLosses = input.fxCarryLosses ?? (Number.isSafeInteger(input.fxCarryForward) && input.fxCarryForward > 0 ? [{ year: s.taxYear - 1, amount: input.fxCarryForward }] : []);
+  if (Array.isArray(rawLosses)) {
+    if (rawLosses.length > 20) err('fxCarryLosses', '件数が多すぎます');
+    s.fxCarryLosses = rawLosses.slice(0, 20).map((l, i) => {
+      const p = `fxCarryLosses[${i}]`;
+      if (!isObj(l)) { err(p, '不正です'); return { year: s.taxYear - 1, amount: 0 }; }
+      return { year: yen(l.year, `${p}.year`, { min: 1990, max: 2100 }) || s.taxYear - 1, amount: yen(l.amount, `${p}.amount`) };
+    });
+  } else err('fxCarryLosses', '配列ではありません');
 
   const ded = isObj(input.deductions) ? input.deductions : (err('deductions', '不正です'), {});
   for (const d of MANUAL_DEDUCTIONS) {

@@ -130,9 +130,26 @@ export function incomesSection(store) {
   return section('現在の収入と経費', 'sec-incomes', [
     s.incomes.length === 0 ? h('p', { class: 'note' }, '収入がまだ登録されていません。') : null,
     ...cards,
-    s.incomes.some((x) => x.category === 'fx') ? gaugeField({ label: 'FX・先物の繰越損失（前年までの繰越額）', value: s.fxCarryForward, max: 5_000_000, onChange: (v) => set((x) => { x.fxCarryForward = v; }), hint: '最長3年繰り越せます。繰越の年数チェックは未対応のため、残っている額だけを入力してください。' }) : null,
+    s.incomes.some((x) => x.category === 'fx') ? fxCarrySection(store) : null,
     h('button', { type: 'button', class: 'btn primary', onClick: () => set((x) => { x.incomes.push(newIncome('business')); }, true) }, '＋ 収入を追加'),
   ]);
+}
+
+// FX・先物の繰越損失（損失が生じた年ごと）。損失の年の翌年以後3年間、古い年から控除される（国税庁No.1523）。
+function fxCarrySection(store) {
+  const s = store.get();
+  const set = (fn, structural = false) => store.update(fn, { structural });
+  const yearOptions = Object.fromEntries([1, 2, 3].map((n) => [s.taxYear - n, `${s.taxYear - n}年に生じた損失`]));
+  return h('div', { class: 'item' },
+    h('strong', {}, 'FX・先物の繰越損失'),
+    h('p', { class: 'hint' }, '前年以前3年内に生じた損失で、その年から連続して「繰越損失用」付表付きの確定申告をしているものを入力します。古い年の損失から先に控除されます。'),
+    ...s.fxCarryLosses.map((l, i) => h('div', { class: 'item' },
+      h('div', { class: 'item-head' }, h('strong', {}, `繰越損失 ${i + 1}`),
+        h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.fxCarryLosses.splice(i, 1); }, true) }, '削除')),
+      field('損失が生じた年', select(yearOptions, l.year, (v) => set((x) => { x.fxCarryLosses[i].year = Number(v); }, true))),
+      s.taxYear - l.year > 3 || l.year >= s.taxYear ? h('p', { class: 'warn' }, '3年を過ぎている（または今年以降の）損失は、繰越控除に使えないため計算に含めません。') : null,
+      gaugeField({ label: '繰り越された損失額', value: l.amount, max: 5_000_000, onChange: (v) => set((x) => { x.fxCarryLosses[i].amount = v; }) }))),
+    h('button', { type: 'button', class: 'btn', onClick: () => set((x) => { x.fxCarryLosses.push({ year: x.taxYear - 1, amount: 0 }); }, true) }, '＋ 繰越損失を追加'));
 }
 
 // ---- 3. 所得控除・税額控除 ----
@@ -237,6 +254,7 @@ export function resultSection(rulesFor = getTaxYear) {
       i.lossOffset ? row('通算しきれない赤字', yen(i.lossOffset)) : null,
       s.incomes.some((x) => x.category === 'fx') ? row(`FX所得（損益${formatYen(i.fx.profit)} − 繰越控除${formatYen(i.fx.carryUsed)}）`, yen(i.fx.income), { tag: '分離課税' }) : null,
       s.incomes.some((x) => x.category === 'fx') ? row('翌年への繰越損失', yen(i.fx.carryRemaining)) : null)));
+    if (i.fx.carryNext.length) det.push(h('p', { class: 'hint' }, `翌年に繰り越せる損失：${i.fx.carryNext.map((c) => `${c.year}年分 ${formatYen(c.amount)}円`).join('、')}`));
 
     det.push(h('h3', {}, '所得控除'));
     for (const [kind, title] of [['incomeTax', '所得税'], ['residentTax', '住民税']]) {
