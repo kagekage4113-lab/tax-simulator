@@ -803,10 +803,10 @@ describe('社会保険料の概算（協会けんぽ・月ごとの料率）', (
   it('実額を入力すれば概算より優先', () => {
     expect(si(2026, 4_800_000, { ...at('広島県'), insurance: { type: 'employee', actualAnnual: 500_000 } }).socialInsurance).toEqual({ total: 500_000, mode: 'actual' });
   });
-  it('国民健康保険（個人事業主）は自治体別のため概算率は未登録 → 実額入力が必要', () => {
+  it('個人事業主は国保税を概算できるが、国民年金の保険料額が未登録のため合計は確定させない', () => {
     const r = calculate(mk([inc('business', 5_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R8);
     expect(r.socialInsurance.total).toBeNull();
-    expect(r.missing).toContain('socialInsurance.estimate.national');
+    expect(r.missing).toContain('socialInsurance.estimate.national.pension');
   });
   it('会社員でも給与がなければ0円', () => {
     expect(si(2026, 0).socialInsurance.total).toBe(0);
@@ -948,5 +948,114 @@ describe('住民税の非課税判定（福山市）', () => {
   it('非課税のときは調整控除・分離課税(FX)の住民税も0円', () => {
     const r = rt([inc('fx', 400_000)]);
     expect(r).toMatchObject({ exemption: 'all', fxTax: 0, adjustment: 0, total: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 確定申告の要否（給与所得者）の参考表示: 国税庁 No.1900
+// ---------------------------------------------------------------------------
+describe('確定申告の要否の参考表示（No.1900）', () => {
+  const f = (incomes, patch) => calculate(mk(incomes, patch), R7).filing;
+  const salary = () => inc('salary', 5_000_000);
+  it('給与1か所＋給与以外の所得が20万円以下なら「不要の可能性」、20万円超なら「必要の可能性」（境界）', () => {
+    expect(f([salary(), inc('misc', 200_000)])).toMatchObject({ status: 'likelyNotRequired', sideIncome: 200_000 });
+    expect(f([salary(), inc('misc', 200_001)])).toMatchObject({ status: 'required', sideIncome: 200_001 });
+  });
+  it('給与以外の所得は収入−経費の所得金額で判定する（雑所得 収入50万−経費30万=20万）', () => {
+    expect(f([salary(), inc('misc', 500_000, 300_000)]).status).toBe('likelyNotRequired');
+    expect(f([salary(), inc('misc', 500_000, 299_999)]).status).toBe('required');
+  });
+  it('事業・不動産・暗号資産・簡易扱いの所得も合算する', () => {
+    expect(f([salary(), inc('business', 100_000), inc('realEstate', 100_000), inc('crypto', 100_000)]).sideIncome).toBe(300_000);
+    expect(f([salary(), inc('business', 100_000), inc('realEstate', 100_000), inc('crypto', 100_000)]).status).toBe('required');
+  });
+  it('FX・先物の利益も含めて判定する', () => {
+    expect(f([salary(), inc('fx', 200_000)]).status).toBe('likelyNotRequired');
+    expect(f([salary(), inc('fx', 300_000)]).status).toBe('required');
+  });
+  it('給与の年間収入が2,000万円を超える場合は必要（境界）', () => {
+    expect(f([inc('salary', 20_000_000)]).status).toBe('likelyNotRequired');
+    expect(f([inc('salary', 20_000_001)]).status).toBe('required');
+  });
+  it('給与が2か所以上の場合は断定しない（年末調整されなかった給与が不明）', () => {
+    const r = f([salary(), inc('salary', 1_000_000), inc('misc', 10_000)]);
+    expect(r.status).toBe('unknown');
+    expect(r.reason).toMatch(/年末調整されなかった給与/);
+  });
+  it('給与がなければ表示しない（事業のみなどは断定しない）', () => {
+    expect(f([inc('business', 3_000_000)])).toBeNull();
+  });
+  it('税制データに規定がない年度では表示しない', () => {
+    expect(calculate(mk([salary()]), R).filing).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 個人事業主の社会保険料: 福山市の国民健康保険税（令和8年度＝令和7年所得）。国民年金の額は未登録のため、テストでは架空の額を差し込む。
+// ---------------------------------------------------------------------------
+describe('国民健康保険税の概算（福山市）', () => {
+  const withPension = (monthly) => ({
+    ...R7,
+    socialInsurance: { estimate: { ...R7.socialInsurance.estimate, national: { ...R7.socialInsurance.estimate.national, pension: { monthly, ageMin: 20, ageMax: 59 } } } },
+  });
+  const kk = (patch, monthly = 0, income = 3_000_000) => calculate(mk([inc('business', income)], { insurance: { type: 'national', actualAnnual: null }, ...patch }), withPension(monthly));
+  const me = (age) => ({ self: { ...defaultState().self, age } });
+  const spouse = (o) => ({ spouse: { exists: true, age: 43, income: 0, disability: 'none', cohabiting: true, ...o } });
+
+  it('本人45歳・所得300万円（基礎控除43万円→2,570,000円）: 医療・支援・介護・子ども分の合計', () => {
+    // 医療 2,570,000×8.99%=231,043 + 均等割29,520 + 平等割19,680 = 280,243 → 280,200
+    // 支援 ×3.15%=80,955 + 10,680 + 6,480 = 98,115 → 98,100 / 介護 ×2.79%=71,703 + 9,960 + 4,800 = 86,463 → 86,400
+    // 子ども ×0.29%=7,453 + 均等割1,262+18歳以上79=1,341 + 平等割802 = 9,596 → 9,500 → 合計474,200
+    const r = kk(me(45));
+    expect(r.socialInsurance).toEqual({ total: 474_200, mode: 'estimate' });
+    expect(r.notes.join()).toMatch(/法定軽減.*反映していない/);
+  });
+  it('介護分は40〜64歳のみ（39歳・65歳は介護分なし＝387,800円、40歳・64歳は474,200円）', () => {
+    expect(kk(me(39)).socialInsurance.total).toBe(387_800);
+    expect(kk(me(40)).socialInsurance.total).toBe(474_200);
+    expect(kk(me(64)).socialInsurance.total).toBe(474_200);
+    expect(kk(me(65)).socialInsurance.total).toBe(387_800);
+    expect(kk(me(74)).socialInsurance.total).toBe(387_800);
+  });
+  it('75歳以上は後期高齢者医療のため国保税なし', () => {
+    const r = kk(me(75));
+    expect(r.socialInsurance.total).toBe(0);
+    expect(r.notes.join()).toMatch(/後期高齢者医療/);
+  });
+  it('課税限度額: 所得2,000万円なら 医療67万＋支援26万＋介護17万＋子ども3万＝1,130,000円', () => {
+    expect(kk(me(45), 0, 20_000_000).socialInsurance.total).toBe(1_130_000);
+  });
+  it('世帯: 本人45歳(所得300万)・配偶者43歳(所得0)・子10歳 → 565,900円', () => {
+    // 医療 231,043 + 3人×29,520=88,560 + 19,680 = 339,283 → 339,200 / 支援 80,955 + 32,040 + 6,480 = 119,475 → 119,400
+    // 介護(本人・配偶者の2人) 71,703 + 19,920 + 4,800 = 96,423 → 96,400 / 子ども 7,453 + (本人・配偶者の18歳以上 2×1,341=2,682、10歳は全額軽減) + 802 = 10,937 → 10,900
+    const r = kk({ ...me(45), ...spouse({}), dependents: [person({ age: 10 })] });
+    expect(r.socialInsurance.total).toBe(565_900);
+  });
+  it('未就学児（3歳）は均等割が5割軽減: 545,900円', () => {
+    // 医療 231,043 + (29,520×2+14,760=73,800) + 19,680 = 324,523 → 324,500 / 支援 80,955 + (21,360+5,340) + 6,480 = 114,135 → 114,100 / 介護 96,400 / 子ども 10,900
+    expect(kk({ ...me(45), ...spouse({}), dependents: [person({ age: 3 })] }).socialInsurance.total).toBe(545_900);
+  });
+  it('配偶者の所得も所得割に入る（基礎控除は各人ごと）: 配偶者所得100万円 → 612,500円', () => {
+    // 所得割の基礎: 2,570,000 + (1,000,000-430,000=570,000) = 3,140,000
+    // 医療 282,286 + 59,040 + 19,680 = 361,006 → 361,000 / 支援 98,910 + 21,360 + 6,480 = 126,750 → 126,700
+    // 介護 87,606 + 19,920 + 4,800 = 112,326 → 112,300 / 子ども 9,106 + 2,682 + 802 = 12,590 → 12,500
+    expect(kk({ ...me(45), ...spouse({ income: 1_000_000 }) }).socialInsurance.total).toBe(612_500);
+  });
+  it('国民年金（架空の月額10,000円）は20〜59歳の本人・配偶者が対象', () => {
+    expect(kk(me(45), 10_000).socialInsurance.total).toBe(474_200 + 120_000);
+    expect(kk({ ...me(45), ...spouse({}) }, 10_000).socialInsurance.total).toBe(525_700 + 240_000);
+    expect(kk({ ...me(45), ...spouse({ age: 60 }) }, 10_000).socialInsurance.total).toBe(525_700 + 120_000); // 60歳以上は第1号の対象外
+    expect(kk(me(60), 10_000).socialInsurance.total - kk(me(60), 0).socialInsurance.total).toBe(0);
+  });
+  it('国民年金の保険料額が未登録の間は確定させない（登録されたデータ）', () => {
+    const r = calculate(mk([inc('business', 3_000_000)], { insurance: { type: 'national', actualAnnual: null } }), R7);
+    expect(r.socialInsurance.total).toBeNull();
+    expect(r.missing).toContain('socialInsurance.estimate.national.pension');
+    expect(r.takeHome).toBeNull();
+  });
+  it('実額を入力すれば未登録でも手取りまで出る', () => {
+    const r = calculate(mk([inc('business', 3_000_000)], { insurance: { type: 'national', actualAnnual: 600_000 } }), R7);
+    expect(r.socialInsurance).toEqual({ total: 600_000, mode: 'actual' });
+    expect(r.takeHome).not.toBeNull();
   });
 });

@@ -215,6 +215,8 @@ export function calculate(state, rules) {
 
   if (softMissing.size) notes.push(`端数処理の根拠が未登録のため、端数処理を行っていない項目があります（概算）：${[...softMissing].map((k) => ROUNDING_LABEL[k] || k).join('、')}`);
 
+  const filing = filingGuide(state, rules, { salaryRevenue, businessIncome, realEstateNet, miscIncome, simpleComp, fxProfit });
+
   // 途中で計算を打ち切っても、この入力で必要な未登録データを漏れなく列挙する。
   const required = [
     'incomeTax.brackets', 'incomeTax.reconstructionRate', 'residentTax.incomeRate', 'residentTax.perCapita',
@@ -243,8 +245,23 @@ export function calculate(state, rules) {
     deductions,
     taxable: { incomeTax: taxableIT, residentTax: taxableRT },
     incomeTax, residentTax, businessTax, socialInsurance,
+    filing,
     burden, takeHome,
   };
+}
+
+// 所得税の確定申告が必要か（給与所得者）の参考表示。国税庁 No.1900。断定せず「可能性」として示す。
+// 給与1か所のみ: 給与・退職以外の各種の所得金額の合計が20万円超なら申告が必要。給与2か所以上は年末調整されなかった給与との合計で判定するため断定しない。
+export function filingGuide(state, rules, v) {
+  const cfg = get(rules, 'filing.salaryEarner');
+  const salaries = state.incomes.filter((i) => i.category === 'salary');
+  if (!cfg || salaries.length === 0) return null;
+  const sideIncome = v.businessIncome + v.realEstateNet + v.miscIncome + v.simpleComp + Math.max(0, v.fxProfit);
+  const base = { sideIncome, threshold: cfg.sideIncomeMax, salaryCount: salaries.length };
+  if (v.salaryRevenue > cfg.salaryRevenueMax) return { ...base, status: 'required', reason: `給与の年間収入金額が${cfg.salaryRevenueMax.toLocaleString('ja-JP')}円を超えるため、確定申告が必要です。` };
+  if (salaries.length >= 2) return { ...base, status: 'unknown', reason: `給与が2か所以上あります。年末調整されなかった給与の収入金額と給与以外の所得（現在 ${sideIncome.toLocaleString('ja-JP')}円）の合計が${cfg.sideIncomeMax.toLocaleString('ja-JP')}円を超える場合は、確定申告が必要です。` };
+  if (sideIncome > cfg.sideIncomeMax) return { ...base, status: 'required', reason: `給与以外の所得の合計が${sideIncome.toLocaleString('ja-JP')}円で、${cfg.sideIncomeMax.toLocaleString('ja-JP')}円を超えるため、所得税の確定申告が必要になる可能性があります。` };
+  return { ...base, status: 'likelyNotRequired', reason: `給与以外の所得の合計が${sideIncome.toLocaleString('ja-JP')}円で${cfg.sideIncomeMax.toLocaleString('ja-JP')}円以下のため、所得税の確定申告が不要となる可能性があります。` };
 }
 
 // 住民税の非課税の基準額（福山市）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
@@ -356,6 +373,7 @@ function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes })
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
   if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };
+  if (e.model === 'fukuyamaKokuho') return { total: totalIncome === null ? null : fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate' };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
   return { total: mulFloor(baseVal, e.rate ?? 0) + (e.fixed ?? 0), mode: 'estimate' };
@@ -366,6 +384,36 @@ const roundHalfDown = (x) => {
   const f = Math.floor(x + 1e-9);
   return x - f > 0.5 + 1e-9 ? f + 1 : f;
 };
+
+// 国民健康保険税（福山市）＋国民年金の概算（個人事業主）。世帯＝本人・配偶者・扶養親族の全員が同じ国保に加入している前提。
+// 所得は各人の合計所得金額で代用し、加入月数は12か月、法定軽減（7・5・2割）は未反映。国民年金の保険料額が未登録の間は null。
+function fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes) {
+  if (e.pension == null) { need('socialInsurance.estimate.national.pension'); return null; }
+  const members = [{ age: state.self.age, income: totalIncome }];
+  if (state.spouse.exists) members.push({ age: state.spouse.age, income: state.spouse.income });
+  for (const d of state.dependents) members.push({ age: d.age, income: d.income });
+  const insured = members.filter((m) => m.age < e.retireAge);
+  let tax = 0;
+  if (insured.length > 0) {
+    for (const c of Object.values(e.components)) {
+      const eligible = insured.filter((m) => c.ageMin == null || (m.age >= c.ageMin && m.age <= c.ageMax));
+      if (eligible.length === 0) continue;
+      let amount = eligible.reduce((a, m) => a + Math.max(0, m.income - lookupStep(m.income, e.basicDeduction)), 0) * c.incomeRate + c.perHousehold;
+      for (const m of eligible) {
+        let per = c.perPerson;
+        if (c.exemptUnderAge != null && m.age < c.exemptUnderAge) per = 0; // 子ども分：18歳未満は全額軽減
+        else if (c.perPersonAdult != null && m.age >= 18) per += c.perPersonAdult;
+        if (m.age < e.preschool.underAge) per *= 1 - e.preschool.reduction; // 未就学児の均等割5割軽減
+        amount += per;
+      }
+      tax += Math.min(c.limit, applyRounding(amount + 1e-6, e.rounding));
+    }
+  }
+  const pensionMembers = [state.self, ...(state.spouse.exists ? [state.spouse] : [])].filter((m) => m.age >= e.pension.ageMin && m.age <= e.pension.ageMax);
+  notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険税（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。法定軽減（7・5・2割）は反映していないため、所得が低い世帯では実際より高く出ます。`);
+  if (members.length !== insured.length) notes.push('75歳以上の方は後期高齢者医療制度のため、国民健康保険税の対象から除いています。');
+  return tax + pensionMembers.length * e.pension.monthly * 12;
+}
 
 // 協会けんぽ（会社員）の概算: 給与収入を12か月均等の報酬月額とみなし、標準報酬月額の等級から
 // 健康保険（＋介護）・子ども・子育て支援金・厚生年金の被保険者負担（折半）を月ごとの料率スケジュールで求める。賞与・雇用保険は含まない。

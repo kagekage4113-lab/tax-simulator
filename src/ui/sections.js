@@ -200,6 +200,7 @@ const MISSING_LABEL = {
   'businessTax.rate': '個人事業税の税率',
   'businessTax.mainDeduction': '個人事業税の事業主控除',
   'businessTax.rates': '個人事業税の税率',
+  'socialInsurance.estimate.national.pension': '国民年金の保険料額',
   'deductions.residentTax': '住民税の所得控除額（配偶者・扶養・障害者など）',
   'deductions.incomeTax': '所得税の人的控除の金額',
   'deductions.incomeTax.specificRelative.ageMin': '特定親族の年齢要件',
@@ -265,6 +266,11 @@ export function resultSection(rulesFor = getTaxYear) {
     const t = r.taxable.incomeTax;
     if (t) det.push(h('p', { class: 'hint' }, `所得税の課税所得：総合 ${formatYen(t.comprehensive)}円${i.fx.income ? ` ／ FX ${formatYen(t.fx)}円（総合で引ききれない控除 ${formatYen(t.spillToFx)}円をFXから差引）` : ''}${t.unusedDeduction ? ` ／ 使い切れない控除 ${formatYen(t.unusedDeduction)}円` : ''}`));
 
+    if (r.filing) {
+      det.push(h('h3', {}, '確定申告の要否（参考）'));
+      det.push(h('p', { class: r.filing.status === 'likelyNotRequired' ? 'note' : 'warn' }, r.filing.reason));
+      det.push(h('p', { class: 'hint' }, '参考表示で、申告の要否を断定するものではありません。医療費控除・寄附金控除などで還付を受ける場合や、住民税の申告は別に必要になることがあります。FX・先物の所得も含めて判定しています（国税庁 No.1900）。'));
+    }
     det.push(h('h3', {}, '税額の内訳'));
     det.push(h('table', { class: 'tbl' }, h('tbody', {},
       r.incomeTax ? [

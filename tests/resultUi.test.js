@@ -47,15 +47,26 @@ describe('結果画面', () => {
     expect(cells(el)['年間手取り']).not.toBe('—');
     expect(el.textContent).toMatch(/協会けんぽ/);
   });
-  it('国保（個人事業主）は概算率が未登録のため、実額未入力だと手取りは「—」', () => {
+  it('国保（個人事業主）は国民年金の額が未登録のため、実額未入力だと手取りは「—」', () => {
     const s = defaultState();
     s.taxYear = 2025;
     s.insurance = { type: 'national', actualAnnual: null };
     s.incomes = [{ ...newIncome('business'), amount: 3_000_000 }];
     const el = resultSection();
     el.update(s);
-    expect(el.textContent).toMatch(/社会保険料の概算率/);
+    expect(el.textContent).toMatch(/国民年金の保険料額/);
     expect(cells(el)['年間手取り']).toBe('—');
+  });
+  it('給与所得者の確定申告の要否（参考）を表示する', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'none', actualAnnual: null };
+    s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }, { ...newIncome('misc'), amount: 300_000 }];
+    const el = resultSection();
+    el.update(s);
+    expect(el.textContent).toMatch(/確定申告の要否（参考）/);
+    expect(el.textContent).toMatch(/確定申告が必要になる可能性/);
+    expect(el.textContent).toMatch(/断定するものではありません/);
   });
   it('税制データがあれば手取りまで表示する（給与500万・社保概算: 手計算で手取り350万）', () => {
     const s = defaultState();

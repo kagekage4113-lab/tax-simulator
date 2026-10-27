@@ -152,7 +152,7 @@ export function simulationSection(store, rulesFor = getTaxYear) {
       h('h3', {}, '条件が変わる境界（壁）'),
       sw.walls.length ? h('ol', { class: 'wall-list' }, sw.walls.map((w) => h('li', {},
         h('strong', {}, `+${formatYen(w.add)}円付近`), '：', w.label,
-        h('span', { class: 'hint' }, ` ${w.detail}。壁の前後の限界負担率 ${pct(w.marginalBefore === null ? null : w.marginalBefore * 100)} → ${pct(w.marginalAfter === null ? null : w.marginalAfter * 100)}${w.jump > 1000 ? `。この境界で負担が ${formatYen(Math.round(w.jump))}円 段差的に増えます` : ''}［${w.source}］`)))) : h('p', { class: 'note' }, 'この範囲に、登録済みの境界はありません。'),
+        h('span', { class: 'hint' }, ` ${w.detail}。壁の前後の限界負担率 ${pct(w.marginalBefore === null ? null : w.marginalBefore * 100)} → ${pct(w.marginalAfter === null ? null : w.marginalAfter * 100)}${w.jump > 1000 && !w.noTaxEffect ? `。この境界で負担が ${formatYen(Math.round(w.jump))}円 段差的に増えます` : ''}［${w.source}］`)))) : h('p', { class: 'note' }, 'この範囲に、登録済みの境界はありません。'),
       h('details', { class: 'sub' }, h('summary', {}, '未対応の壁（資料が未確認）'), h('ul', { class: 'status-list' }, UNSUPPORTED_WALLS.map((t) => h('li', {}, t)))),
       tableView(sw, step),
       notesList(sw.notes));

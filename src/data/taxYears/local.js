@@ -12,6 +12,9 @@ export const SRC = {
   KYOKAI_R7_HIROSHIMA: { id: 'KYOKAI_R7_HIROSHIMA', title: '協会けんぽ 広島支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_hiroshima.pdf' },
   KYOKAI_R7_TOKYO: { id: 'KYOKAI_R7_TOKYO', title: '協会けんぽ 東京支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_tokyo.pdf' },
   KYOKAI_R7_OSAKA: { id: 'KYOKAI_R7_OSAKA', title: '協会けんぽ 大阪支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_osaka.pdf' },
+  NTA_1900: { id: 'NTA_1900', title: '国税庁 タックスアンサー No.1900 給与所得者で確定申告が必要な人［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm', localFile: 'docs/tax-sources/nta_tax-answer-1900_filing-required-salary_2026-04-01.pdf' },
+  NTA_1525: { id: 'NTA_1525', title: '国税庁 タックスアンサー No.1525 暗号資産交換業者から暗号資産に代えて金銭の補償を受けた場合［令和8年4月1日現在法令等］（補償金は総合課税の雑所得、損失は他の雑所得と通算可）', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1525.htm', localFile: 'docs/tax-sources/nta_tax-answer-1525_crypto-compensation_2026-04-01.pdf' },
+  FUKUYAMA_KOKUHO: { id: 'FUKUYAMA_KOKUHO', title: '福山市「国民健康保険税について」（2026年7月7日更新。令和8年度＝令和7年中の所得に対する国保税）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/hokennenkin/405324.html', localFile: 'docs/tax-sources/fukuyama_national-health-insurance-tax_updated-2026-07-07.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
   NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   NTA_1523: { id: 'NTA_1523', title: '国税庁 タックスアンサー No.1523 先物取引の差金等決済に係る損失の繰越控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1523.htm', localFile: 'docs/tax-sources/nta_tax-answer-1523_futures-loss-carryforward_2026-04-01.pdf' },
@@ -143,6 +146,28 @@ export const FUKUYAMA_ADJUSTMENT = {
   },
 };
 
+// 福山市の国民健康保険税 令和8年度（令和7年中の所得に対する分）。FUKUYAMA_KOKUHO。
+//  ・所得割 =（所得−基礎控除）×税率、均等割 = 加入者1人あたり、平等割 = 1世帯あたり。各区分の合計（100円未満切捨）が課税限度額を超えれば限度額。
+//  ・介護分は40歳以上65歳未満のみ。65歳以上は介護分の課税なし（別途介護保険料）。75歳以上は後期高齢者医療のため国保の対象外。
+//  ・子ども分の均等割は18歳未満は全額軽減。18歳以上は均等割とは別に「18歳以上被保険者均等割」79円。
+//  ・未就学児の均等割は5割軽減。
+// 未登録: 法定軽減（7割・5割・2割）の判定基準、国民年金保険料、特定世帯・特定継続世帯、年度途中加入の月割。
+export const FUKUYAMA_KOKUHO = {
+  model: 'fukuyamaKokuho',
+  scope: '福山市（広島県）',
+  basicDeduction: FUKUYAMA_RESIDENT_BASIC_R8NENDO, // 合計所得金額による基礎控除（注）：43万円（2,400万円以下）／29万円／15万円／適用なし
+  rounding: { rule: 'floor', unit: 100 },
+  retireAge: 75,
+  preschool: { underAge: 6, reduction: 0.5 }, // 未就学児の均等割5割軽減
+  components: {
+    medical: { incomeRate: 0.0899, perPerson: 29_520, perHousehold: 19_680, limit: 670_000 },
+    support: { incomeRate: 0.0315, perPerson: 10_680, perHousehold: 6_480, limit: 260_000 },
+    care: { incomeRate: 0.0279, perPerson: 9_960, perHousehold: 4_800, limit: 170_000, ageMin: 40, ageMax: 64 },
+    children: { incomeRate: 0.0029, perPerson: 1_262, perPersonAdult: 79, perHousehold: 802, limit: 30_000, exemptUnderAge: 18 },
+  },
+  pension: null, // 国民年金保険料は資料なし → 登録まで個人事業主の社会保険料の概算は確定させない
+};
+
 export const FUKUYAMA_RESIDENT = {
   scope: '福山市（広島県）',
   incomeRate: 0.1, // 所得割：市民税6%＋県民税4%
@@ -161,6 +186,9 @@ export const HIROSHIMA_BUSINESS_TAX = {
   blueDeductionApplies: false,
   rates: { type1: 0.05, type2: 0.04, type3: 0.05, type3b: 0.03 },
 };
+
+// 給与所得者の確定申告の要否（NTA_1900）: 給与の年間収入が2,000万円超、または給与以外の所得（給与・退職を除く）の合計が20万円超（給与1か所の場合）。
+export const FILING_SALARY_EARNER = { salaryRevenueMax: 20_000_000, sideIncomeMax: 200_000 };
 
 export const MEDICAL = {
   // 福山市「所得控除の種類」の医療費控除（10万円または総所得金額等の5%の少ない額、限度額200万円）。所得税でも同じ仕組みだが国税庁の資料は未確認。

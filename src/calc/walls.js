@@ -53,6 +53,10 @@ export function wallDefinitions(state, rules) {
   const wsp = get(rules, 'deductions.incomeTax.widowSingleParentIncomeMax');
   if (state.self.widowSingleParent !== 'none' && wsp) add({ id: 'widowSingleParent', metric: 'totalIncome', threshold: wsp, label: '寡婦控除・ひとり親控除がなくなる', detail: `合計所得金額が${wsp.toLocaleString('ja-JP')}円を超えると`, source: '福山市 所得控除の種類' });
 
+  const fl = get(rules, 'filing.salaryEarner');
+  if (fl && state.incomes.filter((i) => i.category === 'salary').length === 1) {
+    add({ id: 'filingRequired', metric: 'sideIncome', threshold: fl.sideIncomeMax, label: '所得税の確定申告が必要になる可能性（給与以外の所得が20万円超）', detail: `給与以外の所得の合計が${fl.sideIncomeMax.toLocaleString('ja-JP')}円を超えると（給与1か所の場合。住民税の申告は別に必要な場合があります）`, source: '国税庁 No.1900', noTaxEffect: true });
+  }
   return walls.sort((a, b) => a.threshold - b.threshold);
 }
 
@@ -60,6 +64,5 @@ export function wallDefinitions(state, rules) {
 export const UNSUPPORTED_WALLS = [
   '社会保険の扶養の年収要件（いわゆる106万円・130万円の壁）',
   '国民健康保険料の軽減判定',
-  '所得20万円以下の申告不要ライン',
   '配偶者・扶養親族側の所得の壁（本人の追加収入のシミュレーションでは扱いません）',
 ];
