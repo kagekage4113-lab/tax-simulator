@@ -13,6 +13,7 @@ export const SRC = {
   KYOKAI_R7_TOKYO: { id: 'KYOKAI_R7_TOKYO', title: '協会けんぽ 東京支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_tokyo.pdf' },
   KYOKAI_R7_OSAKA: { id: 'KYOKAI_R7_OSAKA', title: '協会けんぽ 大阪支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_osaka.pdf' },
   NTA_1521: { id: 'NTA_1521', title: '国税庁 タックスアンサー No.1521 外国為替証拠金取引(FX)の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1521.htm', localFile: 'docs/tax-sources/nta_tax-answer-1521_fx_2026-04-01.pdf' },
+  NTA_1522: { id: 'NTA_1522', title: '国税庁 タックスアンサー No.1522 先物取引に係る雑所得等の課税の特例［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1522.htm', localFile: 'docs/tax-sources/nta_tax-answer-1522_futures_2026-04-01.pdf' },
   KYOKAI_HIROSHIMA: { id: 'KYOKAI_HIROSHIMA', title: '協会けんぽ 広島支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_hiroshima.pdf' },
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
   KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },
@@ -33,7 +34,8 @@ export const INCOME_TAX_BRACKETS = [
 
 export const RECON_RATE = 0.021;
 
-// FX・先物取引（NTA_1521）: 所得税15%＋地方税5%の申告分離課税。損失は翌年以後3年内の「先物取引に係る雑所得等」から控除できる。
+// FX・先物取引（NTA_1521・NTA_1522）: 所得税15%＋地方税5%の申告分離課税。損失は同制度内でのみ通算し、一定の要件の下で翌年以後3年間繰り越せる。
+// 対象は商品先物取引等・金融商品先物取引等（株価指数先物・オプション等）・国内のFX（第一種金融商品取引業者等）で、一定の暗号資産に係る店頭デリバティブは除く。
 export const FX = { incomeTaxRate: 0.15, residentTaxRate: 0.05, carryForwardYears: 3 };
 
 // 所得者の合計所得金額による列（配偶者控除・配偶者特別控除）

@@ -67,7 +67,7 @@ export const INCOME_CATEGORIES = [
   },
   {
     id: 'fx',
-    label: 'FX・先物取引（国内業者・申告分離）',
+    label: 'FX・先物・オプション取引（申告分離）',
     taxMethod: TAX_METHOD.SEPARATE,
     computeModule: 'fxIncome',
     // 年間損益（経費控除後）を実額で入力する。損失はマイナスで入力。
