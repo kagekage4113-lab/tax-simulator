@@ -24,17 +24,22 @@ describe('設定データの構造', () => {
     expect(INCOME_CATEGORIES.find((c) => c.id === 'fx').taxMethod).toBe('separate');
     expect(INCOME_CATEGORIES.find((c) => c.id === 'securities').supported).toBe(false);
   });
-  it('年度データは未確認項目を記録し、税率を推測で入れていない', () => {
-    const y25 = getTaxYear(2025);
-    expect(y25.status).toBe('skeleton');
-    expect(y25.incomeTax.brackets).toBeNull();
-    const y26 = getTaxYear(2026);
-    expect(y26.status).toBe('partial');
-    expect(y26.sources.length).toBeGreaterThan(0);
-    expect(y26.incomeTax.reconstructionRate).toBeNull(); // 資料なし
-    expect(y26.deductions.residentTax).toBeNull(); // 資料なし
-    expect(y26.unverified.length).toBeGreaterThan(0);
-    for (const y of [y25, y26]) expect(y.sources.every((s) => s.localFile || s.url)).toBe(true);
+  it('年度データは出典と未確認項目を記録している（推測値を入れていない）', () => {
+    for (const y of [2025, 2026]) {
+      const ty = getTaxYear(y);
+      expect(ty.status).toBe('partial');
+      expect(ty.sources.length).toBeGreaterThan(0);
+      expect(ty.sources.every((s) => s.localFile || s.url || s.secondary)).toBe(true);
+      expect(ty.unverified.length).toBeGreaterThan(0);
+      expect(ty.incomeTax.reconstructionRate).toBe(0.021);
+      expect(ty.advisories.join()).toMatch(/二次情報/); // 公式資料で未確認の値は注意書きが付く
+      expect(ty.socialInsurance).toBeNull(); // 概算率の資料なし
+      expect(ty.fx.incomeTaxRate).toBeNull();
+    }
+    // 住民税の控除額は、令和7年分の所得に対する令和8年度分のみ資料あり
+    expect(getTaxYear(2025).deductions.residentTax).not.toBeNull();
+    expect(getTaxYear(2026).deductions.residentTax).toBeNull();
+    expect(getTaxYear(2026).basicDeduction.residentTax).toBeNull();
   });
 });
 

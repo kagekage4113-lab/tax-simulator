@@ -16,17 +16,23 @@
 //   deductions: { incomeTax: { spouse, dependent, specificRelative, disability, widow, singleParent, workingStudent } }  → autoDeductions.js
 // 表の最後の upTo が null でない場合は「その金額までしか資料がない」。超える入力は「未登録」として扱う。
 // rounding.* が未登録の場合は端数処理なしで計算し、notes に記載する（概算）。
+import { mulFloor } from '../core/money.js';
 import { applyRounding } from './rounding.js';
 import { calcProgressive, lookupStep } from './progressive.js';
-import { autoIncomeTaxDeductions, autoLabel, declaredAutoIds } from './autoDeductions.js';
+import { autoPersonalDeductions, declaredAutoIds } from './autoDeductions.js';
 import { getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS } from '../data/deductions.js';
 
 const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 
+const ROUNDING_LABEL = {
+  taxableIncome: '所得税の課税所得', residentTaxableIncome: '住民税の課税所得', incomeTax: '所得税額',
+  reconstruction: '復興特別所得税額', residentIncomeLevy: '住民税の所得割額', businessTax: '個人事業税額',
+};
+
 export function calculate(state, rules) {
   const missing = new Set();
-  const notes = [];
+  const notes = [...(rules.advisories || [])];
   const need = (path) => {
     const v = get(rules, path);
     if (v == null) { missing.add(path); return undefined; }
@@ -64,11 +70,17 @@ export function calculate(state, rules) {
   if (salaryRevenue > 0) {
     const sd = need('salaryDeduction.brackets');
     const b = sd && sd.find((x) => x.upTo == null || salaryRevenue <= x.upTo);
-    if (sd && !b) {
+    const override = (get(rules, 'salaryDeduction.incomeOverrides') || []).find((o) => salaryRevenue >= o.from && salaryRevenue < o.to);
+    const approx = get(rules, 'salaryDeduction.approximate');
+    if (approx && salaryRevenue >= approx.from && salaryRevenue < approx.below) notes.push('給与収入660万円未満は、法令上は別表（年末調整等のための給与所得控除後の給与等の金額の表）で給与所得を求めるため、速算式による金額と数千円程度の差が出る場合があります。');
+    if (override) {
+      salaryIncome = override.income;
+      salaryDeductionAmount = salaryRevenue - override.income;
+    } else if (sd && !b) {
       missing.add(`salaryDeduction.brackets@>${sd[sd.length - 1].upTo}`);
       salaryIncome = null;
     } else if (sd) {
-      salaryDeductionAmount = Math.floor(salaryRevenue * b.rate) + b.add;
+      salaryDeductionAmount = mulFloor(salaryRevenue, b.rate) + b.add;
       salaryIncome = Math.max(0, salaryRevenue - salaryDeductionAmount);
     } else salaryIncome = null;
   }
@@ -133,11 +145,11 @@ export function calculate(state, rules) {
       const comp = calcProgressive(taxableIT.comprehensive, brackets);
       if (comp === null) missing.add(`incomeTax.brackets@>${brackets[brackets.length - 1].upTo}`);
       else {
-        const fx = Math.floor(taxableIT.fx * fxRate);
+        const fx = mulFloor(taxableIT.fx, fxRate);
         const credit = state.taxCredits.housingLoan.amount; // 所得税の税額控除（手入力）
         const base = Math.max(0, comp + fx - credit);
         // 復興特別所得税の率が未登録の間は、基準所得税額までを表示し合計は出さない。
-        const recon = recRate === undefined ? null : round(base * recRate, 'reconstruction');
+        const recon = recRate === undefined ? null : round(mulFloor(base, recRate), 'reconstruction');
         incomeTax = { comprehensiveTax: comp, fxTax: fx, credit, base, reconstruction: recon, total: recon === null ? null : round(base + recon, 'incomeTax') };
       }
     }
@@ -150,8 +162,8 @@ export function calculate(state, rules) {
     const perCapita = need('residentTax.perCapita');
     const fxRate = fxIncome > 0 ? need('fx.residentTaxRate') : 0;
     if (rate !== undefined && perCapita !== undefined && fxRate !== undefined) {
-      const levy = round(taxableRT.comprehensive * rate, 'residentIncomeLevy');
-      const fx = Math.floor(taxableRT.fx * fxRate);
+      const levy = round(mulFloor(taxableRT.comprehensive, rate), 'residentIncomeLevy');
+      const fx = mulFloor(taxableRT.fx, fxRate);
       const credit = state.taxCredits.donationCredit.amount;
       const incomeLevy = Math.max(0, levy - credit);
       residentTax = { incomeLevy, fxTax: fx, perCapita, credit, total: incomeLevy + fx + perCapita };
@@ -170,7 +182,7 @@ export function calculate(state, rules) {
     : null;
   const burden = taxesKnown ? incomeTax.total + residentTax.total + businessTax.total + socialInsurance.total : null;
 
-  if (softMissing.size) notes.push(`端数処理の根拠が未登録のため、端数処理を行っていない項目があります（概算）：${[...softMissing].join('、')}`);
+  if (softMissing.size) notes.push(`端数処理の根拠が未登録のため、端数処理を行っていない項目があります（概算）：${[...softMissing].map((k) => ROUNDING_LABEL[k] || k).join('、')}`);
 
   // 途中で計算を打ち切っても、この入力で必要な未登録データを漏れなく列挙する。
   const required = [
@@ -181,7 +193,7 @@ export function calculate(state, rules) {
   if (fxIncome > 0) required.push('fx.incomeTaxRate', 'fx.residentTaxRate');
   if (state.incomes.some((i) => i.category === 'business' && i.businessType !== 'unknown')) required.push('businessTax.rates', 'businessTax.mainDeduction');
   if (state.insurance.actualAnnual == null && ['employee', 'national'].includes(state.insurance.type)) required.push(`socialInsurance.estimate.${state.insurance.type}`);
-  if (declaredAutoIds(state).length) required.push('deductions.residentTax');
+  if (declaredAutoIds(state).length) required.push('deductions.incomeTax', 'deductions.residentTax');
   required.forEach(need);
 
   return {
@@ -210,7 +222,6 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
     out[kind].items.push(item);
     if (out[kind].total !== null) out[kind].total = item.amount === null ? null : out[kind].total + item.amount;
   };
-  const auto = autoIncomeTaxDeductions(state, get(rules, 'deductions.incomeTax'), totalIncome, need);
 
   for (const kind of ['incomeTax', 'residentTax']) {
     // 基礎控除（自動）
@@ -220,9 +231,8 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
     push(kind, { id: 'basic', label: '基礎控除', amount: basic, mode: 'auto' });
     // 社会保険料控除（自動: 実額 or 概算）
     push(kind, { id: 'socialInsurance', label: '社会保険料控除', amount: siFull.total, mode: siFull.mode === 'actual' ? 'actual' : 'estimate' });
-    // 人的控除などの自動計算。住民税の控除額は資料が未登録のため、該当しうる控除は金額未確定として扱う。
-    if (kind === 'incomeTax') auto.forEach((a) => push(kind, a));
-    else declaredAutoIds(state).filter((id) => id !== 'specificRelative').forEach((id) => push(kind, { id, label: autoLabel(id), amount: null, mode: 'auto' }));
+    // 人的控除などの自動計算（金額データが無い年度は未確定 null）
+    autoPersonalDeductions(state, get(rules, `deductions.${kind}`), totalIncome, need, kind).forEach((a) => push(kind, a));
     // 手入力の控除
     for (const [id, box] of Object.entries(state.deductions)) {
       const def = INCOME_DEDUCTIONS.find((d) => d.id === id);
@@ -234,7 +244,7 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
         else if (!m || m.thresholdFixed == null || m.thresholdRate == null || m.cap == null) { need('medical'); amount = null; }
         else if (totalIncome === null) amount = null;
         else {
-          const threshold = Math.min(m.thresholdFixed, Math.floor(totalIncome * m.thresholdRate));
+          const threshold = Math.min(m.thresholdFixed, mulFloor(totalIncome, m.thresholdRate));
           amount = Math.min(m.cap, Math.max(0, box.paid - box.reimbursed - threshold));
         }
       } else amount = box.amount;
@@ -264,7 +274,7 @@ function calcBusinessTax({ state, rules, need, round, notes }) {
   }
   if (Object.keys(byType).length > 1) notes.push('複数の業種がある個人事業税は、事業主控除を所得の割合で按分した簡易計算です。');
   notes.push('個人事業税は事業主控除の月割（年の途中の開業・廃業）、損失の繰越控除、専従者給与を反映していません。');
-  return { total: round(Math.floor(sum), 'businessTax'), income, taxable, note: '当年所得に対して翌年に納付' };
+  return { total: round(Math.floor(sum + 1e-6), 'businessTax'), income, taxable, note: '当年所得に対して翌年に納付' };
 }
 
 function calcSocialInsurance({ state, need, salaryRevenue, totalIncome }) {
@@ -275,5 +285,5 @@ function calcSocialInsurance({ state, need, salaryRevenue, totalIncome }) {
   if (!e) return { total: null, mode: 'estimate' };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
-  return { total: Math.floor(baseVal * (e.rate ?? 0)) + (e.fixed ?? 0), mode: 'estimate' };
+  return { total: mulFloor(baseVal, e.rate ?? 0) + (e.fixed ?? 0), mode: 'estimate' };
 }

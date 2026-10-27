@@ -10,7 +10,7 @@ export const TAX_YEARS = {
 };
 
 export const SUPPORTED_YEARS = Object.keys(TAX_YEARS).map(Number);
-export const DEFAULT_YEAR = 2026; // 令和8年分（資料で確認できた値が最も多い年）
+export const DEFAULT_YEAR = 2025; // 令和7年分（住民税まで資料が揃っている年）
 
 export function getTaxYear(year) {
   return TAX_YEARS[year] || null;

@@ -254,10 +254,10 @@ describe('簡易扱い（未対応区分）', () => {
   });
 });
 
-describe('税制データ未登録（実データの骨組み）', () => {
-  it('推測せず、未登録項目を列挙して計算結果をnullにする（令和7年分は骨組みのみ）', () => {
+describe('税制データ未登録（空のルール）', () => {
+  it('推測せず、未登録項目を列挙して計算結果をnullにする', () => {
     const s = mk([inc('salary', 5_000_000)]);
-    const r = calculate(s, getTaxYear(2025));
+    const r = calculate(s, { year: 1 });
     expect(r.incomeTax).toBeNull();
     expect(r.residentTax).toBeNull();
     expect(r.takeHome).toBeNull();
@@ -271,7 +271,7 @@ describe('税制データ未登録（実データの骨組み）', () => {
 // 令和8年分の実データ（docs/tax-sources の国税庁「年末調整のしかた」p.3-4, p.55-56 の表）に対するテスト。
 // 期待値は資料の表から直接取ったもの。実装コードから生成していない。
 // ---------------------------------------------------------------------------
-import { autoIncomeTaxDeductions } from '../src/calc/autoDeductions.js';
+import { autoIncomeTaxDeductions, autoPersonalDeductions } from '../src/calc/autoDeductions.js';
 
 const R8 = getTaxYear(2026);
 const D8 = R8.deductions.incomeTax;
@@ -318,11 +318,22 @@ describe('令和8年分: 給与所得（収入220万円以下のみ資料あり�
     expect(sal(2_196_000).salaryIncome).toBe(1_456_000);
     expect(sal(2_200_000).salaryIncome).toBe(1_460_000);
   });
-  it('220万円超は資料が無いため未登録として扱う', () => {
-    const r = run8(mk([inc('salary', 2_200_001)]));
-    expect(r.income.salaryIncome).toBeNull();
-    expect(r.missing).toContain('salaryDeduction.brackets@>2200000');
-    expect(r.incomeTax).toBeNull();
+  it('2,191,000〜2,199,999円は固定額（No.1410 注2）', () => {
+    expect(sal(2_192_000).salaryIncome).toBe(1_451_000);
+    expect(sal(2_195_999).salaryIncome).toBe(1_453_000);
+    expect(sal(2_199_999).salaryIncome).toBe(1_456_000);
+    expect(sal(691_000).salaryIncome).toBe(0);
+    expect(sal(740_999).salaryIncome).toBe(0);
+  });
+  // 令和8・9年分（No.1410）: 3,600,000円まで30%+80,000 / 6,600,000円まで20%+440,000 / 8,500,000円まで10%+1,100,000 / 以上1,950,000
+  it.each([
+    [2_200_001, 1_460_001], [3_600_000, 2_440_000], [3_600_001, 2_440_001],
+    [6_600_000, 4_840_000], [6_600_001, 4_840_001], [7_000_000, 5_200_000], // 660万以上850万未満は 収入×90%−110万（No.1410 速算表）
+    [8_500_000, 6_550_000], [8_500_001, 6_550_001], [10_000_000, 8_050_000],
+  ])('給与収入%i円 → 給与所得%i円', (rev, income) => expect(sal(rev).salaryIncome).toBe(income));
+  it('660万円未満は別表との差が出うる旨を注記する', () => {
+    expect(run8(mk([inc('salary', 3_000_000)])).notes.join()).toMatch(/別表/);
+    expect(run8(mk([inc('salary', 2_000_000)])).notes.join()).not.toMatch(/別表/); // 220万円以下は資料の表で確定
   });
 });
 
@@ -370,16 +381,23 @@ describe('令和8年分: 特定親族特別控除（p.56）', () => {
     [1_100_000, 210_000], [1_100_001, 110_000], [1_150_000, 110_000], [1_150_001, 60_000], [1_200_000, 60_000],
     [1_200_001, 30_000], [1_230_000, 30_000],
   ])('特定親族の合計所得%i円 → %i円', (income, amount) => expect(lookupStep(income, D8.specificRelative.steps)).toBe(amount));
-  it('年齢要件の資料が無いため、対象になりうる所得の親族がいると確定させない', () => {
-    const s = { ...mk([]), dependents: [person({ age: 20, income: 700_000 })] };
-    const a = auto(s);
-    expect(a.get('specificRelative').amount).toBeNull();
-    expect(a.missing).toContain('deductions.incomeTax.specificRelative.ageMin');
+  it('特定親族(19〜22歳・所得62万円超123万円以下)に特定親族特別控除が適用される', () => {
+    const a = auto({ ...mk([]), dependents: [person({ age: 20, income: 700_000 })] });
+    expect(a.get('specificRelative').amount).toBe(630_000);
     expect(a.get('dependent').amount).toBe(0); // 所得62万円超なので扶養控除の対象外
+    expect(auto({ ...mk([]), dependents: [person({ age: 22, income: 1_230_000 })] }).get('specificRelative').amount).toBe(30_000);
   });
-  it('所得が範囲外なら対象外（未確認扱いにもしない）', () => {
-    const a = auto({ ...mk([]), dependents: [person({ age: 20, income: 1_230_001 })] });
-    expect(a.get('specificRelative')).toBeUndefined();
+  it('年齢が19〜22歳以外、または所得が範囲外なら対象外', () => {
+    expect(auto({ ...mk([]), dependents: [person({ age: 18, income: 700_000 })] }).get('specificRelative').amount).toBe(0);
+    expect(auto({ ...mk([]), dependents: [person({ age: 23, income: 700_000 })] }).get('specificRelative').amount).toBe(0);
+    expect(auto({ ...mk([]), dependents: [person({ age: 20, income: 1_230_001 })] }).get('specificRelative')).toBeUndefined();
+  });
+  it('年齢要件の資料が無い年度データでは、確定させず未登録扱い', () => {
+    const d = { ...D8, specificRelative: { ...D8.specificRelative, ageMin: null, ageMax: null } };
+    const missing = [];
+    const items = autoIncomeTaxDeductions({ ...mk([]), dependents: [person({ age: 20, income: 700_000 })] }, d, 3_000_000, (k) => missing.push(k));
+    expect(items.find((i) => i.id === 'specificRelative').amount).toBeNull();
+    expect(missing).toContain('deductions.incomeTax.specificRelative.ageMin');
   });
 });
 
@@ -414,22 +432,21 @@ describe('令和8年分: 障害者・寡婦・ひとり親・勤労学生（p.56
 });
 
 describe('令和8年分: 統合（手計算）', () => {
-  it('給与200万・社保実額15万: 所得税は基準所得税額まで出し、復興税が未登録のため合計は出さない', () => {
+  it('給与200万・社保実額15万: 所得税まで計算でき、住民税は控除額が未登録のため手取りは出さない', () => {
     // 給与所得=2,000,000-740,000=1,260,000 / 控除=基礎1,040,000+社保150,000=1,190,000 / 課税=70,000 / 税=70,000*5%=3,500
+    // 復興特別所得税(2.1%)=floor(73.5)=73 → 3,573（税額の端数処理は資料なしのため未実施）
     const s = mk([inc('salary', 2_000_000)], { insurance: { type: 'employee', actualAnnual: 150_000 } });
     const r = run8(s);
     expect(r.income.salaryIncome).toBe(1_260_000);
     expect(r.deductions.incomeTax.total).toBe(1_190_000);
     expect(r.taxable.incomeTax.comprehensive).toBe(70_000);
     expect(r.incomeTax.base).toBe(3_500);
-    expect(r.incomeTax.total).toBeNull();
-    expect(r.missing).toContain('incomeTax.reconstructionRate');
-    expect(r.takeHome).toBeNull();
-  });
-  it('住民税は所得控除額が未登録のため確定させない', () => {
-    const r = run8(mk([inc('salary', 2_000_000)], { insurance: { type: 'none', actualAnnual: null } }));
+    expect(r.incomeTax.reconstruction).toBe(73);
+    expect(r.incomeTax.total).toBe(3_573);
     expect(r.residentTax).toBeNull();
     expect(r.missing).toContain('basicDeduction.residentTax');
+    expect(r.takeHome).toBeNull();
+    expect(r.notes.join()).toMatch(/二次情報/);
   });
   it('配偶者控除が課税所得に反映される: 事業所得300万・配偶者所得0・配偶者控除380,000', () => {
     // 所得3,000,000(白色) / 控除=基礎1,040,000+配偶者380,000=1,420,000 / 課税=1,580,000 / 税=79,000
@@ -473,5 +490,161 @@ describe('令和8年分: 住民税の率（福山市）', () => {
   it('所得割10%（市6%+県4%）・均等割+森林環境税=5,500円', () => {
     expect(R8.residentTax.incomeRate).toBe(0.1);
     expect(R8.residentTax.perCapita).toBe(5_500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 令和7年分（国税庁 年末調整のしかた R7 p.55-56 / No.1410）と、福山市の住民税（令和8年度分）
+// ---------------------------------------------------------------------------
+const R7 = getTaxYear(2025);
+const D7 = R7.deductions.incomeTax;
+const DR = R7.deductions.residentTax;
+const autoWith = (d, key, state, totalIncome = 3_000_000) => {
+  const items = autoPersonalDeductions(state, d, totalIncome, () => {}, key);
+  return { get: (id) => items.find((i) => i.id === id) };
+};
+const spouseOf = (o) => ({ ...mk([]), spouse: { exists: true, age: 40, income: 0, disability: 'none', cohabiting: true, ...o } });
+
+describe('令和7年分: 基礎控除（R7 p.56）', () => {
+  it.each([
+    [1_320_000, 950_000], [1_320_001, 880_000], [3_360_000, 880_000], [3_360_001, 680_000], [4_890_000, 680_000],
+    [4_890_001, 630_000], [6_550_000, 630_000], [6_550_001, 580_000], [23_500_000, 580_000], [23_500_001, 480_000],
+    [24_000_001, 320_000], [24_500_001, 160_000], [25_000_000, 160_000], [25_000_001, 0],
+  ])('合計所得金額%i円 → %i円', (income, amount) => expect(lookupStep(income, R7.basicDeduction.incomeTax)).toBe(amount));
+});
+
+describe('令和7年分: 給与所得控除（No.1410）', () => {
+  const sal = (n) => calculate(mk([inc('salary', n)]), R7).income;
+  it.each([
+    [1_900_000, 1_250_000], [1_900_001, 1_250_001], [3_600_000, 2_440_000], [3_600_001, 2_440_001],
+    [6_600_000, 4_840_000], [6_600_001, 4_840_001], [8_500_000, 6_550_000], [8_500_001, 6_550_001],
+  ])('給与収入%i円 → 給与所得%i円', (rev, income) => expect(sal(rev).salaryIncome).toBe(income));
+  it('令和8年分の特例（220万円未満の固定額）は令和7年分には適用しない', () => {
+    // 令和7年分: 2,192,000円 → 控除=2,192,000×30%+80,000=737,600 → 給与所得1,454,400（令和8年分の固定額1,451,000にはならない）
+    expect(sal(2_192_000).salaryIncome).toBe(1_454_400);
+  });
+});
+
+describe('令和7年分: 配偶者・扶養などの所得要件（58万円基準）', () => {
+  it('配偶者控除は配偶者の合計所得58万円以下（境界）', () => {
+    expect(autoWith(D7, 'incomeTax', spouseOf({ income: 580_000 }), 9_000_000).get('spouse').amount).toBe(380_000);
+    expect(autoWith(D7, 'incomeTax', spouseOf({ income: 580_001 }), 9_000_001).get('spouse').amount).toBe(260_000); // 配偶者特別控除(58万超95万以下)
+  });
+  it('扶養親族の所得要件58万円', () => {
+    const dep = (income) => ({ ...mk([]), dependents: [person({ age: 40, income })] });
+    expect(autoWith(D7, 'incomeTax', dep(580_000)).get('dependent').amount).toBe(380_000);
+    expect(autoWith(D7, 'incomeTax', dep(580_001)).get('dependent').amount).toBe(0);
+  });
+  it('配偶者の障害者控除は同一生計配偶者(58万円以下)のみ', () => {
+    expect(autoWith(D7, 'incomeTax', spouseOf({ income: 580_000, disability: 'special', cohabiting: true })).get('disability').amount).toBe(750_000);
+    expect(autoWith(D7, 'incomeTax', spouseOf({ income: 600_000, disability: 'special' })).get('disability').amount).toBe(0);
+  });
+  it('特定親族特別控除は58万円超から', () => {
+    expect(autoWith(D7, 'incomeTax', { ...mk([]), dependents: [person({ age: 20, income: 580_001 })] }).get('specificRelative').amount).toBe(630_000);
+    expect(autoWith(D7, 'incomeTax', { ...mk([]), dependents: [person({ age: 20, income: 580_000 })] }).get('specificRelative')).toBeUndefined();
+  });
+  it('勤労学生控除は合計所得85万円以下', () => {
+    const s = { ...mk([]), self: { ...defaultState().self, workingStudent: true } };
+    expect(autoWith(D7, 'incomeTax', s, 850_000).get('workingStudent').amount).toBe(270_000);
+    expect(autoWith(D7, 'incomeTax', s, 850_001).get('workingStudent').amount).toBe(0);
+  });
+  it('ひとり親控除は合計所得500万円以下（境界）', () => {
+    const s = { ...mk([]), self: { ...defaultState().self, widowSingleParent: 'singleParent' } };
+    expect(autoWith(D7, 'incomeTax', s, 5_000_000).get('widowSingleParent').amount).toBe(350_000);
+    expect(autoWith(D7, 'incomeTax', s, 5_000_001).get('widowSingleParent').amount).toBe(0);
+  });
+});
+
+describe('住民税（福山市・令和8年度分）の控除', () => {
+  it.each([
+    [0, 430_000], [24_000_000, 430_000], [24_000_001, 290_000], [24_500_000, 290_000],
+    [24_500_001, 150_000], [25_000_000, 150_000], [25_000_001, 0],
+  ])('基礎控除 合計所得%i円 → %i円', (income, amount) => expect(lookupStep(income, R7.basicDeduction.residentTax)).toBe(amount));
+
+  it.each([
+    // [所得者の合計所得, 配偶者所得, 配偶者年齢, 期待]
+    [9_000_000, 580_000, 40, 330_000], [9_000_001, 580_000, 40, 220_000], [9_500_001, 580_000, 40, 110_000],
+    [10_000_000, 580_000, 40, 110_000], [10_000_001, 580_000, 40, 0],
+    [9_000_000, 580_000, 70, 380_000], [9_500_000, 580_000, 70, 260_000], [10_000_000, 580_000, 70, 130_000],
+    [3_000_000, 580_001, 40, 330_000], [3_000_000, 1_000_000, 40, 330_000], [3_000_000, 1_000_001, 40, 310_000],
+    [3_000_000, 1_100_000, 40, 260_000], [3_000_000, 1_150_000, 40, 210_000], [3_000_000, 1_200_000, 40, 160_000],
+    [3_000_000, 1_250_000, 40, 110_000], [3_000_000, 1_300_000, 40, 60_000], [3_000_000, 1_330_000, 40, 30_000],
+    [3_000_000, 1_330_001, 40, 0],
+    [9_500_000, 1_300_000, 40, 40_000], [10_000_000, 1_330_000, 40, 10_000], [9_500_000, 1_150_000, 40, 140_000],
+  ])('配偶者 所得者%i円・配偶者所得%i円・%i歳 → %i円', (owner, income, age, expected) => {
+    expect(autoWith(DR, 'residentTax', spouseOf({ income, age }), owner).get('spouse').amount).toBe(expected);
+  });
+  it.each([
+    [15, 0, 'child', true, 0], [16, 0, 'child', true, 330_000], [19, 0, 'child', true, 450_000], [22, 0, 'child', true, 450_000],
+    [23, 0, 'child', true, 330_000], [70, 0, 'parent', true, 450_000], [70, 0, 'parent', false, 380_000],
+    [30, 580_000, 'child', true, 330_000], [30, 580_001, 'child', true, 0],
+  ])('扶養 年齢%i・所得%i・%s・同居%s → %i円', (age, income, rel, coh, expected) => {
+    const s = { ...mk([]), dependents: [person({ age, income, relationship: rel, cohabiting: coh })] };
+    expect(autoWith(DR, 'residentTax', s).get('dependent').amount).toBe(expected);
+  });
+  it.each([
+    [580_001, 450_000], [950_000, 450_000], [950_001, 410_000], [1_000_000, 410_000], [1_000_001, 310_000],
+    [1_050_001, 210_000], [1_100_001, 110_000], [1_150_001, 60_000], [1_200_001, 30_000], [1_230_000, 30_000],
+  ])('特定親族特別控除 所得%i円 → %i円', (income, amount) => {
+    expect(autoWith(DR, 'residentTax', { ...mk([]), dependents: [person({ age: 20, income })] }).get('specificRelative').amount).toBe(amount);
+  });
+  it('障害者控除: 一般26万・特別30万・同居特別53万（30万+23万）', () => {
+    const me = (d) => ({ ...mk([]), self: { ...defaultState().self, disability: d } });
+    expect(autoWith(DR, 'residentTax', me('general')).get('disability').amount).toBe(260_000);
+    expect(autoWith(DR, 'residentTax', me('special')).get('disability').amount).toBe(300_000);
+    expect(autoWith(DR, 'residentTax', { ...mk([]), dependents: [person({ disability: 'special', cohabiting: true })] }).get('disability').amount).toBe(530_000);
+  });
+  it('寡婦26万・ひとり親30万（合計所得500万円以下）・勤労学生26万（85万円以下）', () => {
+    const w = (k) => ({ ...mk([]), self: { ...defaultState().self, widowSingleParent: k } });
+    expect(autoWith(DR, 'residentTax', w('widow'), 5_000_000).get('widowSingleParent').amount).toBe(260_000);
+    expect(autoWith(DR, 'residentTax', w('singleParent'), 5_000_000).get('widowSingleParent').amount).toBe(300_000);
+    expect(autoWith(DR, 'residentTax', w('singleParent'), 5_000_001).get('widowSingleParent').amount).toBe(0);
+    const g = { ...mk([]), self: { ...defaultState().self, workingStudent: true } };
+    expect(autoWith(DR, 'residentTax', g, 850_000).get('workingStudent').amount).toBe(260_000);
+    expect(autoWith(DR, 'residentTax', g, 850_001).get('workingStudent').amount).toBe(0);
+  });
+  it('医療費控除: 福山市の算式（10万円または総所得金額等の5%の少ない額・限度200万円）', () => {
+    expect(R7.medical).toMatchObject({ thresholdFixed: 100_000, thresholdRate: 0.05, cap: 2_000_000 });
+  });
+});
+
+describe('令和7年分: 統合（手計算）— 所得税・住民税・手取りまで', () => {
+  // 給与500万・社保実額70万・扶養なし
+  // 給与所得=5,000,000-(5,000,000*20%+440,000=1,440,000)=3,560,000
+  // 所得税: 基礎(336万超489万以下)680,000+社保700,000=1,380,000 → 課税2,180,000 → 10%: 218,000-97,500=120,500
+  //   復興2.1%: floor(2,530.5)=2,530 → 123,030（税額の端数処理は資料なしのため未実施）
+  // 住民税: 基礎430,000+社保700,000=1,130,000 → 課税2,430,000 → 所得割243,000 + 均等割等5,500 = 248,500
+  // 負担=123,030+248,500+700,000=1,071,530 / 手取り=5,000,000-1,071,530=3,928,470
+  const r = calculate(mk([inc('salary', 5_000_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } }), R7);
+  it('所得・課税所得', () => {
+    expect(r.income.salaryIncome).toBe(3_560_000);
+    expect(r.taxable.incomeTax.comprehensive).toBe(2_180_000);
+    expect(r.taxable.residentTax.comprehensive).toBe(2_430_000);
+  });
+  it('税額と手取り', () => {
+    expect(r.incomeTax.base).toBe(120_500);
+    expect(r.incomeTax.reconstruction).toBe(2_530);
+    expect(r.incomeTax.total).toBe(123_030);
+    expect(r.residentTax.total).toBe(248_500);
+    expect(r.burden).toBe(1_071_530);
+    expect(r.takeHome).toBe(3_928_470);
+    expect(r.missing).toEqual([]);
+  });
+  it('前提の注記（二次情報・端数処理・別表・住民税の概算）が出る', () => {
+    const n = r.notes.join('\n');
+    expect(n).toMatch(/二次情報/);
+    expect(n).toMatch(/端数処理の根拠が未登録/);
+    expect(n).toMatch(/別表/);
+    expect(n).toMatch(/福山市/);
+  });
+  it('配偶者(所得0)がいると所得税・住民税の控除がそれぞれの表で入る', () => {
+    const s = mk([inc('salary', 5_000_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } });
+    s.spouse = { exists: true, age: 40, income: 0, disability: 'none', cohabiting: true };
+    const r2 = calculate(s, R7);
+    // 所得者の合計所得3,560,000は900万以下 → 所得税の配偶者控除380,000 / 住民税330,000
+    expect(item(r2, 'incomeTax', 'spouse').amount).toBe(380_000);
+    expect(item(r2, 'residentTax', 'spouse').amount).toBe(330_000);
+    expect(r2.deductions.incomeTax.total).toBe(680_000 + 700_000 + 380_000);
+    expect(r2.deductions.residentTax.total).toBe(430_000 + 700_000 + 330_000);
   });
 });

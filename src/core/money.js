@@ -3,6 +3,9 @@
 export const floorTo = (value, unit = 1) => Math.floor(value / unit) * unit;
 export const ceilTo = (value, unit = 1) => Math.ceil(value / unit) * unit;
 
+// 金額×率の切り捨て。2.1%など小数の率で 2530.5 → 2530.4999… となり1円ずれないよう、微小値を足してから切り捨てる。
+export const mulFloor = (value, rate) => Math.floor(value * rate + 1e-6);
+
 export const MAX_YEN = 9_999_999_999_999; // 入力の上限（安全な整数範囲内）
 
 // 文字列 → 整数円。全角数字・カンマ・円記号を許容。空/不正は null。

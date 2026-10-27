@@ -1,5 +1,5 @@
-// 所得税の人的控除の自動計算（配偶者・扶養・特定親族特別控除・障害者・寡婦/ひとり親・勤労学生）。
-// 金額・所得要件・年齢区分は rules.deductions.incomeTax（年度別データ）から読む。値が無ければ amount: null。
+// 人的控除の自動計算（配偶者・扶養・特定親族特別控除・障害者・寡婦/ひとり親・勤労学生）。所得税と住民税で別々に呼ぶ。
+// 金額・所得要件・年齢区分は rules.deductions.<incomeTax|residentTax>（年度別データ）から読む。値が無ければ amount: null。
 // 障害者・寡婦・ひとり親などの該当はユーザーの申告に基づく（証明書類が必要な場合がある）。
 import { lookupStep } from './progressive.js';
 
@@ -26,13 +26,13 @@ export function declaredAutoIds(state) {
 export const autoLabel = (id) => LABEL[id];
 
 // 戻り値: [{ id, label, amount|null, mode: 'auto' }]。totalIncome は本人の合計所得金額（null なら未確定）。
-export function autoIncomeTaxDeductions(state, d, totalIncome, need) {
+export function autoPersonalDeductions(state, d, totalIncome, need, key) {
   const out = [];
   const add = (id, amount) => out.push({ id, label: LABEL[id], amount, mode: 'auto' });
   const ids = declaredAutoIds(state);
   if (ids.length === 0) return out;
   if (!d) {
-    need('deductions.incomeTax');
+    need(`deductions.${key}`);
     return ids.filter((id) => id !== 'specificRelative').map((id) => ({ id, label: LABEL[id], amount: null, mode: 'auto' }));
   }
 
@@ -71,7 +71,7 @@ export function autoIncomeTaxDeductions(state, d, totalIncome, need) {
     const cand = state.dependents.filter((p) => p.income > c.incomeMin && p.income <= c.incomeMax);
     if (cand.length) {
       if (c.ageMin == null || c.ageMax == null) {
-        need('deductions.incomeTax.specificRelative.ageMin');
+        need(`deductions.${key}.specificRelative.ageMin`);
         add('specificRelative', null);
       } else {
         add('specificRelative', cand.filter((p) => p.age >= c.ageMin && p.age <= c.ageMax).reduce((a, p) => a + lookupStep(p.income, c.steps), 0));
@@ -89,10 +89,16 @@ export function autoIncomeTaxDeductions(state, d, totalIncome, need) {
     add('disability', sum);
   }
 
-  if (ids.includes('widowSingleParent')) add('widowSingleParent', state.self.widowSingleParent === 'widow' ? d.widow : d.singleParent);
+  if (ids.includes('widowSingleParent')) {
+    const over = d.widowSingleParentIncomeMax != null && totalIncome !== null && totalIncome > d.widowSingleParentIncomeMax;
+    add('widowSingleParent', totalIncome === null && d.widowSingleParentIncomeMax != null ? null : over ? 0 : state.self.widowSingleParent === 'widow' ? d.widow : d.singleParent);
+  }
 
   if (ids.includes('workingStudent')) {
     add('workingStudent', totalIncome === null ? null : totalIncome <= d.workingStudent.incomeMax ? d.workingStudent.amount : 0);
   }
   return out;
 }
+
+// 互換用（所得税）
+export const autoIncomeTaxDeductions = (state, d, totalIncome, need) => autoPersonalDeductions(state, d, totalIncome, need, 'incomeTax');
