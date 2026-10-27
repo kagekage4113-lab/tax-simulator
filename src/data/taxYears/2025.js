@@ -4,6 +4,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'skeleton', // skeleton | partial | confirmed
+  // 登録した値ごとに { url, localFile(docs/tax-sources/), retrievedAt, effectiveFrom } を記録する。
   sources: [],
   // 端数処理の根拠は税目ごとにここへ記録する（2.3）。
   // 形は src/calc/engine.js 冒頭を参照。例: taxableIncome: { rule: 'floor', unit: 1000 }（出典を併記して登録）
