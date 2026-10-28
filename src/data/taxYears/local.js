@@ -33,6 +33,7 @@ export const SRC = {
   FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
   NTA_1411: { id: 'NTA_1411', title: '国税庁 タックスアンサー No.1411 所得金額調整控除［令和8年4月1日現在法令等］：給与収入850万円超で、本人が特別障害者・23歳未満の扶養親族がいる・特別障害者の同一生計配偶者または扶養親族がいる場合、（収入（1,000万円超は1,000万円）−850万円）×10%を給与所得から控除', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1411.htm', localFile: 'docs/tax-sources/nta_tax-answer-1411_income-adjustment-deduction_2026-04-01.pdf' },
   TSUYAMA_ADJ: { id: 'TSUYAMA_ADJ', title: '津山市（岡山県）「所得金額調整控除について」：令和3年度市県民税から。住民税でも所得税と同じ要件・算式（（収入（1,000万円超は1,000万円）−850万円）×10%）で給与所得から控除。法令で全国共通の制度のため、福山市・東京23区にも同じ算式を適用', url: 'https://www.city.tsuyama.lg.jp/article?articleId=65b399c9f6ce953f748ccdae', localFile: 'docs/tax-sources/tsuyama_resident-tax_income-adjustment-deduction_printed-2026-10-28.pdf' },
+  KITA_MEASURE: { id: 'KITA_MEASURE', title: '東京都北区「所得割の調整措置」（更新日2026年7月17日）：調整額＝（A）35万円×（1＋同一生計配偶者及び扶養親族の人数）＋10万円＋32万円 −（B）総所得金額等−算出所得割額。算出所得割額は調整控除・寄附金税額控除・外国税額控除・配当控除・住宅借入金等特別税額控除の適用後。0以下なら控除なし', url: 'https://www.city.kita.lg.jp/living/tax/1001899/1001911/1026301.html', localFile: 'docs/tax-sources/kita-ku_resident-tax_levy-adjustment-measure_updated-2026-07-17.pdf' },
   NTA_1160: { id: 'NTA_1160', title: '国税庁 タックスアンサー No.1160 障害者控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1160.htm', localFile: 'docs/tax-sources/nta_tax-answer-1160_disability-deduction_2026-04-01.pdf' },
   NTA_1170: { id: 'NTA_1170', title: '国税庁 タックスアンサー No.1170 寡婦控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm', localFile: 'docs/tax-sources/nta_tax-answer-1170_widow-deduction_2026-04-01.pdf' },
   NTA_1171: { id: 'NTA_1171', title: '国税庁 タックスアンサー No.1171 ひとり親控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm', localFile: 'docs/tax-sources/nta_tax-answer-1171_single-parent-deduction_2026-04-01.pdf' },
@@ -220,6 +221,8 @@ export const FUKUYAMA_RESIDENT = {
   //  ・合計所得金額 ≦ (本人+扶養人数)×35万円+10万円(+21万円: 同一生計配偶者・扶養親族がいる場合) → 均等割・所得割とも非課税
   //  ・総所得金額等 ≦ (本人+扶養人数)×35万円+10万円(+32万円: 同上) → 所得割のみ非課税
   nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 }, specialGroup: { incomeMax: 1_350_000, minorUnderAge: 18 } },
+  // 所得割の調整措置（逆転防止）: 所得割の非課税の基準を若干上回る人の「総所得金額等−算出所得割額」が基準を下回らないよう所得割を減額する。
+  levyMeasure: { source: 'SOUMU_R4_ISSUES', note: '総務省資料の注に基づく。福山市の公表資料は未入手で、算式は東京都北区の公表式' },
 };
 
 // 東京23区（令和8年度）。住民税は「令和7年中の所得に対する令和8年度分」。人的控除などの控除額は法定で全国共通のため、福山市と同じ表を使う。
@@ -229,6 +232,7 @@ export const TOKYO23_RESIDENT = {
   perCapita: 5_000, // 均等割：特別区民税3,000円＋都民税1,000円（TOKYO23_BOOKLET）＋森林環境税1,000円（令和6年度から）
   adjustment: FUKUYAMA_ADJUSTMENT, // 地方税法314条の6（市町村民税3%）＋道府県民税2%＝5%。算式は全国共通
   nonTaxable: FUKUYAMA_RESIDENT.nonTaxable, // 東京23区の住民税（令和8年度版）の非課税の算式は福山市と同じ
+  levyMeasure: { source: 'KITA_MEASURE', note: '東京都北区の公表式' }, // 北区のページで確認（他の22区の条例は未確認だが、23区は同様と見られる）
 };
 
 // 特別区の国民健康保険料（令和7年度・TOKUBETSUKU_KOKUHO_R7）。23区のうち16区が同一の料率で、ここにはその最頻値を登録している。

@@ -190,12 +190,20 @@ export function calculate(state, rules) {
       const adj = rules.residentTax.adjustment;
       const adjustment = adj ? calcAdjustmentCredit(state, adj, deductions.residentTax, totalIncome, taxableRT.comprehensive) : 0;
       const exemption = calcResidentExemption(state, rules, totalIncome, totalIncomeNet);
-      const incomeLevy = exemption ? 0 : Math.max(0, levy - adjustment - credit);
-      const fxTax = exemption ? 0 : fx;
-      const listedTax = exemption ? 0 : listed;
+      const incomeLevy0 = exemption ? 0 : Math.max(0, levy - adjustment - credit);
+      const fxTax0 = exemption ? 0 : fx;
+      const listedTax0 = exemption ? 0 : listed;
+      // 所得割の調整措置（逆転防止）: 総所得金額等が所得割の非課税の基準を若干上回るとき、所得割を減額する。総合課税分→FX・先物→上場株式等の順に減額
+      const measure = exemption ? 0 : calcLevyMeasure(state, rules, totalIncomeNet, incomeLevy0 + fxTax0 + listedTax0);
+      let rest = measure;
+      const take = (v) => { const t = Math.min(v, rest); rest -= t; return v - t; };
+      const incomeLevy = take(incomeLevy0);
+      const fxTax = take(fxTax0);
+      const listedTax = take(listedTax0);
       const perCapitaDue = exemption === 'all' ? 0 : perCapita;
       furusato = calcFurusatoLimit(rules, taxableIT, exemption ? 0 : Math.max(0, levy - adjustment));
-      residentTax = { incomeLevy, fxTax, listedTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, exemption, total: incomeLevy + fxTax + listedTax + perCapitaDue };
+      residentTax = { incomeLevy, fxTax, listedTax, perCapita: perCapitaDue, credit, adjustment: exemption ? 0 : adjustment, adjustmentMeasure: measure, exemption, total: incomeLevy + fxTax + listedTax + perCapitaDue };
+      if (measure > 0) notes.push(`所得割の調整措置（逆転防止）として、所得割を${measure.toLocaleString('ja-JP')}円減額しています（${rules.residentTax.levyMeasure.note}）。`);
       if (exemption) notes.push(exemption === 'all' ? '住民税の非課税の基準に該当するため、住民税を0円としています。' : '住民税の所得割の非課税の基準に該当するため、所得割を0円としています（均等割は課税）。');
       const notApplied = [adj ? null : '調整控除', rules.residentTax.nonTaxable ? null : '非課税判定'].filter(Boolean);
       notes.push(`住民税は${rules.residentTax.scope ? rules.residentTax.scope + 'の値による' : ''}概算です${notApplied.length ? `（${notApplied.join('・')}は未反映）` : ''}。`);
@@ -335,6 +343,14 @@ export function residentNonTaxableLimits(state, rules) {
 }
 
 // 住民税の非課税判定。'all' = 均等割・所得割とも非課税、'levy' = 所得割のみ非課税、null = 課税。
+// 所得割の調整措置（逆転防止）の減額: (A) 所得割の非課税の基準 − (B) 総所得金額等 − 算出所得割額。0以下なら減額なし。算出所得割額を超えては減額しない。
+function calcLevyMeasure(state, rules, netIncome, calculatedLevy) {
+  if (!rules.residentTax.levyMeasure || netIncome === null) return 0;
+  const lim = residentNonTaxableLimits(state, rules);
+  if (!lim) return 0;
+  return Math.min(calculatedLevy, Math.max(0, lim.levy - (netIncome - calculatedLevy)));
+}
+
 // 所得金額調整控除（子ども・特別障害者等を有する者等）の額。適用対象でなければ0。
 function calcSalaryAdjustment(state, rules, salaryRevenue) {
   const c = get(rules, 'salaryAdjustment');

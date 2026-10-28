@@ -76,3 +76,49 @@ describe('壁の一覧: 住民税の非課税の限度（福山市）', () => {
     expect(walls[0].threshold).toBe(1_350_000);
   });
 });
+
+import { calculate } from '../src/calc/engine.js';
+describe('所得割の調整措置（逆転防止・東京都北区の公表式）', () => {
+  // 本人＋16歳未満の子3人（扶養控除なし・扶養人数には数える）、FXの利益のみ、令和7年分、東京23区
+  const st = (fx) => {
+    const s = mk();
+    s.residence.area = 'tokyo23';
+    s.dependents = [1, 2, 3].map((i) => ({ id: `d${i}`, name: '', relationship: 'child', age: 10, cohabiting: true, income: 0, disability: 'none' }));
+    s.incomes = [{ ...newIncome('fx'), amount: fx }];
+    return s;
+  };
+  const t = rulesTokyo();
+  function rulesTokyo() { return getTaxYear(2025, 'tokyo23'); }
+  // 所得割の非課税の基準 A = 35万円×(1+3)+10万円+32万円 = 182万円。住民税の所得控除は基礎43万円のみ（子は16歳未満）
+  it('基準ちょうど（182万円）は所得割が非課税（均等割のみ）', () => {
+    const r = calculate(st(1_820_000), t);
+    expect(r.residentTax.exemption).toBe('levy');
+    expect(r.residentTax.total).toBe(5_000);
+  });
+  it('基準を1,000円超えた182.1万円: 所得割は 総所得金額等−A = 1,000円に抑えられる（減額前は 課税(182.1万−43万=139.1万)×5% = 69,550円）', () => {
+    const r = calculate(st(1_821_000), t);
+    expect(r.residentTax.exemption).toBeNull();
+    // 調整額 = A − (B) = 1,820,000 − (1,821,000 − 69,550) = 68,550 → 所得割 69,550 − 68,550 = 1,000
+    expect(r.residentTax.adjustmentMeasure).toBe(68_550);
+    expect(r.residentTax.fxTax).toBe(1_000);
+    expect(r.residentTax.total).toBe(1_000 + 5_000);
+  });
+  it('183万円: 減額前の所得割 (183万−43万=140万)×5% = 70,000円 → 調整額 60,000円 → 所得割10,000円', () => {
+    const r = calculate(st(1_830_000), t);
+    expect(r.residentTax.adjustmentMeasure).toBe(60_000);
+    expect(r.residentTax.total).toBe(10_000 + 5_000);
+  });
+  it('十分に超えると調整なし: 190万円 → 所得割 (190万−43万=147万)×5% = 73,500円、B = 190万−73,500 = 1,826,500 > A', () => {
+    const r = calculate(st(1_900_000), t);
+    expect(r.residentTax.adjustmentMeasure).toBe(0);
+    expect(r.residentTax.total).toBe(73_500 + 5_000);
+  });
+  it('所得割の調整措置は、手取りが非課税の人より少なくならない: 収入が増えて住民税が増える額は、増えた所得を超えない', () => {
+    let prev = calculate(st(1_820_000), t).residentTax.total;
+    for (let fx = 1_821_000; fx <= 1_900_000; fx += 1_000) {
+      const cur = calculate(st(fx), t).residentTax.total;
+      expect(cur - prev).toBeLessThanOrEqual(1_000 + 1); // 所得が1,000円増えたとき、税額の増加が所得の増加（1,000円）を超えない
+      prev = cur;
+    }
+  });
+});
