@@ -2,7 +2,7 @@
 // 画面・計算から独立。外部入力（localStorage / JSON）は必ず validateState を通す。
 import { INCOME_CATEGORIES, getIncomeCategory } from '../data/incomeCategories.js';
 import { MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS } from '../data/deductions.js';
-import { AREAS, DEFAULT_AREA, SUPPORTED_YEARS, DEFAULT_YEAR } from '../data/taxYears/index.js';
+import { DEFAULT_PREFECTURE, SUPPORTED_YEARS, DEFAULT_YEAR } from '../data/taxYears/index.js';
 import { MAX_YEN } from './money.js';
 import { newId } from './ids.js';
 import { defaultHousehold, validateHousehold } from './household.js';
@@ -73,7 +73,7 @@ export function defaultState() {
   for (const c of MANUAL_TAX_CREDITS) credits[c.id] = { amount: 0 };
   return {
     taxYear: DEFAULT_YEAR,
-    residence: { prefecture: AREAS[DEFAULT_AREA].prefecture, city: '', area: DEFAULT_AREA }, // area: 住民税・国保・事業税の基準地域。prefecture: 協会けんぽの支部
+    residence: { prefecture: DEFAULT_PREFECTURE, city: '' }, // prefecture: 協会けんぽの支部（住民税・国保・事業税は東京23区の標準の値）
     workStyles: [],
     self: { age: 30, disability: 'none', widowSingleParent: 'none', workingStudent: false },
     spouse: { exists: false, age: 30, income: 0, disability: 'none', cohabiting: true },
@@ -115,8 +115,7 @@ export function validateState(input) {
   s.taxYear = oneOf(input.taxYear, SUPPORTED_YEARS, 'taxYear', base.taxYear);
 
   const r = isObj(input.residence) ? input.residence : (err('residence', '不正です'), {});
-  // area が無い旧データは、当時の計算（福山市の値）のまま読み込む。新規の既定は東京23区。
-  s.residence = { prefecture: str(r.prefecture ?? '', 'residence.prefecture'), city: str(r.city ?? '', 'residence.city'), area: oneOf(r.area ?? 'fukuyama', Object.keys(AREAS), 'residence.area', 'fukuyama') };
+  s.residence = { prefecture: str(r.prefecture ?? '', 'residence.prefecture'), city: str(r.city ?? '', 'residence.city') };
 
   if (Array.isArray(input.workStyles)) {
     s.workStyles = input.workStyles.filter((w) => {

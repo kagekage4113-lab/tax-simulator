@@ -7,9 +7,10 @@ import { simulationSection } from './ui/simulation.js';
 import { householdInputSection, householdReviewSection } from './ui/household.js';
 import { situationSection } from './ui/situation.js';
 import { cushionSection } from './ui/cushion.js';
+import { scopeSection } from './ui/scope.js';
 import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
-import { AREAS, DEFAULT_AREA, DEFAULT_YEAR, UI_AREAS, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
+import { DEFAULT_YEAR, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
 
 const store = createStore();
 const app = document.getElementById('app');
@@ -20,12 +21,6 @@ if (!UI_YEARS.includes(store.get().taxYear)) {
   const old = store.get().taxYear;
   store.update((x) => { x.taxYear = DEFAULT_YEAR; });
   yearNotice = `${yearLabel(old)}の保存データを、${yearLabel(DEFAULT_YEAR)}として読み込みました。税額は${yearLabel(DEFAULT_YEAR)}の制度で計算し直されます。`;
-}
-// 住民税・国保の基準は東京23区だけ。以前の保存データの地域（福山市など）は、標準の東京23区に付け替える
-if (!UI_AREAS.includes(store.get().residence.area)) {
-  const old = AREAS[store.get().residence.area]?.label || store.get().residence.area;
-  store.update((x) => { x.residence.area = DEFAULT_AREA; });
-  yearNotice = [yearNotice, `住民税・国保の基準を、${old}から${AREAS[DEFAULT_AREA].label}に変えました（住民税・国保は標準の値で計算します。国保は実額入力が確実です）。`].filter(Boolean).join(' ');
 }
 
 const status = h('span', { class: 'save-status', role: 'status' }, '');
@@ -87,7 +82,7 @@ refreshBadge(store.get());
 
 store.subscribe((state, e) => {
   if (e.type === 'saved') {
-    status.textContent = e.saveOk ? '保存しました' : '保存できませんでした（JSONで書き出してください）';
+    status.textContent = e.saveOk ? '保存しました' : '保存できませんでした（「調整」のバックアップ保存をご利用ください）';
     status.classList.toggle('error', !e.saveOk);
     return;
   }
@@ -110,19 +105,20 @@ syncToggle();
 
 app.append(
   h('header', { class: 'top' },
-    h('h1', {}, 'ざっくり手取り＆税金シミュレーター'),
+    h('h1', {}, 'ざっくり手取り＆税金シミュレーター', ' ', h('span', { class: 'badge warn' }, 'ベータ版')),
     h('p', {}, '確定申告の代わりではなく、収入が変わったときの目安を知るためのツールです。'),
+    scopeSection(),
     h('details', { class: 'help' }, h('summary', {}, '使い方と注意'),
       h('ol', {},
         h('li', {}, h('strong', {}, '①入力'), ': 住んでいる場所・収入・家族・年齢を入れます（スライダーか数字の直接入力）。赤い欄はまだ答えていない項目です。'),
         h('li', {}, h('strong', {}, '②確認'), ': 税金と手取りの目安、世帯の見取り図（誰が非課税か）、控除の判定と理由、あとどこまで余裕があるかを見ます。'),
         h('li', {}, h('strong', {}, '③調整'), ': 「あと○円稼いだら？」などを試したり、保険料・医療費・寄附などの控除を足して精度を上げたりします。')),
-      h('p', {}, '入力は、この端末のブラウザの中だけに保存され、外部へ送信されません。「調整」の下にある「データ保存・復元」で、ファイルに書き出せます。金額は概算の目安です。')),
+      h('p', {}, '入力は、この端末のブラウザの中だけに保存され、外部へ送信されません。「調整」の下にある「データの保存・読み込み」で、バックアップを残せます。金額は概算の目安です。')),
     status),
   ...(notice ? [notice] : []),
   steps.dock, // スマホでは下に固定、PCでは上に固定（CSSで切り替え）
   h('main', {}, panels.input, panels.review, panels.adjust),
-  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データ保存・復元へ')),
+  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データの保存・読み込みへ')),
 );
 
 window.addEventListener('pagehide', () => store.flush());

@@ -4,19 +4,15 @@ export const SRC = {
   NTA_R8_P3: { id: 'NTA_R8_P3', title: '令和8年分 年末調整のしかた（国税庁） 3〜4ページ「昨年と比べて変わった点」（「改正前」列は令和7年分の所得要件として参照）', localFile: 'docs/tax-sources/2026_nencho-guide_nta_p3-4_changes.pdf' },
   NTA_R8_P55: { id: 'NTA_R8_P55', title: '令和8年分 年末調整のしかた（国税庁） 55〜56ページ「速算表」「参考」各控除額の表', localFile: 'docs/tax-sources/2026_nencho-guide_nta_p55-56_tables.pdf' },
   NTA_1410: { id: 'NTA_1410', title: '国税庁 タックスアンサー No.1410 給与所得控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm', localFile: 'docs/tax-sources/nta_tax-answer-1410_salary-deduction_2026-04-01.pdf' },
-  FUKUYAMA_RATE: { id: 'FUKUYAMA_RATE', title: '福山市「個人市民税の納税義務者と税額の計算方法・税率等について」（ページ掲載日2024年6月10日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2179.html', localFile: 'docs/tax-sources/fukuyama_resident-tax_printed-2026-10-27.pdf' },
-  FUKUYAMA_DED: { id: 'FUKUYAMA_DED', title: '福山市「所得控除の種類」（2026年5月22日更新。令和8年度＝令和7年中の所得に対する住民税の控除額）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2180.html', localFile: 'docs/tax-sources/fukuyama_resident-deductions_updated-2026-05-22.pdf' },
-  HIROSHIMA: { id: 'HIROSHIMA', title: '広島県「個人事業税について」（掲載日2025年4月1日）', url: 'https://www.pref.hiroshima.lg.jp/site/zei/1170306367409.html', localFile: 'docs/tax-sources/hiroshima_business-tax_printed-2026-10-27.pdf' },
+  HIROSHIMA: { id: 'HIROSHIMA', title: '広島県「個人事業税について」（掲載日2025年4月1日。全国共通の標準税率・事業主控除290万円の確認に使用）', url: 'https://www.pref.hiroshima.lg.jp/site/zei/1170306367409.html', localFile: 'docs/tax-sources/hiroshima_business-tax_printed-2026-10-27.pdf' },
   NTA_2260: { id: 'NTA_2260', title: '国税庁 タックスアンサー No.2260 所得税の税率［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm', localFile: 'docs/tax-sources/nta_tax-answer-2260_income-tax-rate_2026-04-01.pdf' },
-  FUKUYAMA_DIFF: { id: 'FUKUYAMA_DIFF', title: '福山市「人的控除額の差額一覧表」（2026年5月22日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2181.html', localFile: 'docs/tax-sources/fukuyama_personal-deduction-diff_updated-2026-05-22.pdf' },
   KYOKAI_R7_HIROSHIMA: { id: 'KYOKAI_R7_HIROSHIMA', title: '協会けんぽ 広島支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_hiroshima.pdf' },
   KYOKAI_R7_TOKYO: { id: 'KYOKAI_R7_TOKYO', title: '協会けんぽ 東京支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_tokyo.pdf' },
   KYOKAI_R7_OSAKA: { id: 'KYOKAI_R7_OSAKA', title: '協会けんぽ 大阪支部 令和7年3月分（4月納付分）からの保険料額表（リーフレット）', localFile: 'docs/tax-sources/kyokai-kenpo_2025-03_osaka.pdf' },
   NTA_1900: { id: 'NTA_1900', title: '国税庁 タックスアンサー No.1900 給与所得者で確定申告が必要な人［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1900.htm', localFile: 'docs/tax-sources/nta_tax-answer-1900_filing-required-salary_2026-04-01.pdf' },
   NTA_1525: { id: 'NTA_1525', title: '国税庁 タックスアンサー No.1525 暗号資産交換業者から暗号資産に代えて金銭の補償を受けた場合［令和8年4月1日現在法令等］（補償金は総合課税の雑所得、損失は他の雑所得と通算可）', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1525.htm', localFile: 'docs/tax-sources/nta_tax-answer-1525_crypto-compensation_2026-04-01.pdf' },
-  FUKUYAMA_KOKUHO: { id: 'FUKUYAMA_KOKUHO', title: '福山市「国民健康保険税について」（2026年7月7日更新。令和8年度＝令和7年中の所得に対する国保税）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/hokennenkin/405324.html', localFile: 'docs/tax-sources/fukuyama_national-health-insurance-tax_updated-2026-07-07.pdf' },
   NENKIN_PREMIUM: { id: 'NENKIN_PREMIUM', title: '日本年金機構「国民年金保険料」（更新日2026年4月1日）：令和8年度の保険料は1か月17,920円（付加保険料400円）', url: 'https://www.nenkin.go.jp/service/kokunen/hokenryo/hokenryo.html', localFile: 'docs/tax-sources/nenkin-kikou_national-pension-premium_updated-2026-04-01.pdf' },
-  SECONDARY_KOKUHO_REDUCTION: { id: 'SECONDARY_KOKUHO_REDUCTION', title: '【二次情報】国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。福山市の公式資料は未確認', secondary: true },
+  SECONDARY_KOKUHO_REDUCTION: { id: 'SECONDARY_KOKUHO_REDUCTION', title: '【二次情報】国保の法定軽減（7割・5割・2割）の判定基準。ユーザーが提供した解説文（出典の記載なし）。公式資料は未確認', secondary: true },
   NTA_CRYPTO_FAQ: { id: 'NTA_CRYPTO_FAQ', title: '国税庁「暗号資産に関する税務上の取扱いについて（FAQ）」平成30年11月（令和4年12月最終改定。令和4年12月1日現在の法令等）', localFile: 'docs/tax-sources/nta_crypto-faq_2022-12.pdf' },
   NTA_INSURANCE: { id: 'NTA_INSURANCE', title: '国税庁 パンフレット「暮らしの税情報」（令和8年度版）保険と税（生命保険料控除・地震保険料控除）', url: 'https://www.nta.go.jp/publication/pamph/koho/kurashi/html/04_2.htm', localFile: 'docs/tax-sources/nta_pamphlet-2026_insurance-and-tax.pdf' },
   SECONDARY_FURUSATO: { id: 'SECONDARY_FURUSATO', title: '【二次情報】ふるさと納税の控除上限額：ふるさと納税サイト「さとふる」の早見表・シミュレーション（税理士監修・2026年4月現在の制度）と一般的な算式。総務省の公式資料は未確認', url: 'https://www.satofull.jp/static/calculation01.php', localFile: 'docs/tax-sources/satofull_furusato-limit-table_2026-04.pdf', secondary: true },
@@ -30,16 +26,14 @@ export const SRC = {
   KYOKAI_HIROSHIMA: { id: 'KYOKAI_HIROSHIMA', title: '協会けんぽ 広島支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_hiroshima.pdf' },
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
   KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },
-  FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
   NTA_1411: { id: 'NTA_1411', title: '国税庁 タックスアンサー No.1411 所得金額調整控除［令和8年4月1日現在法令等］：給与収入850万円超で、本人が特別障害者・23歳未満の扶養親族がいる・特別障害者の同一生計配偶者または扶養親族がいる場合、（収入（1,000万円超は1,000万円）−850万円）×10%を給与所得から控除', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1411.htm', localFile: 'docs/tax-sources/nta_tax-answer-1411_income-adjustment-deduction_2026-04-01.pdf' },
-  TSUYAMA_ADJ: { id: 'TSUYAMA_ADJ', title: '津山市（岡山県）「所得金額調整控除について」：令和3年度市県民税から。住民税でも所得税と同じ要件・算式（（収入（1,000万円超は1,000万円）−850万円）×10%）で給与所得から控除。法令で全国共通の制度のため、福山市・東京23区にも同じ算式を適用', url: 'https://www.city.tsuyama.lg.jp/article?articleId=65b399c9f6ce953f748ccdae', localFile: 'docs/tax-sources/tsuyama_resident-tax_income-adjustment-deduction_printed-2026-10-28.pdf' },
+  TSUYAMA_ADJ: { id: 'TSUYAMA_ADJ', title: '津山市（岡山県）「所得金額調整控除について」：令和3年度市県民税から。住民税でも所得税と同じ要件・算式（（収入（1,000万円超は1,000万円）−850万円）×10%）で給与所得から控除。法令で全国共通の制度のため、東京23区にも同じ算式を適用', url: 'https://www.city.tsuyama.lg.jp/article?articleId=65b399c9f6ce953f748ccdae', localFile: 'docs/tax-sources/tsuyama_resident-tax_income-adjustment-deduction_printed-2026-10-28.pdf' },
   KITA_MEASURE: { id: 'KITA_MEASURE', title: '東京都北区「所得割の調整措置」（更新日2026年7月17日）：調整額＝（A）35万円×（1＋同一生計配偶者及び扶養親族の人数）＋10万円＋32万円 −（B）総所得金額等−算出所得割額。算出所得割額は調整控除・寄附金税額控除・外国税額控除・配当控除・住宅借入金等特別税額控除の適用後。0以下なら控除なし', url: 'https://www.city.kita.lg.jp/living/tax/1001899/1001911/1026301.html', localFile: 'docs/tax-sources/kita-ku_resident-tax_levy-adjustment-measure_updated-2026-07-17.pdf' },
   NTA_1160: { id: 'NTA_1160', title: '国税庁 タックスアンサー No.1160 障害者控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1160.htm', localFile: 'docs/tax-sources/nta_tax-answer-1160_disability-deduction_2026-04-01.pdf' },
   NTA_1170: { id: 'NTA_1170', title: '国税庁 タックスアンサー No.1170 寡婦控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm', localFile: 'docs/tax-sources/nta_tax-answer-1170_widow-deduction_2026-04-01.pdf' },
   NTA_1171: { id: 'NTA_1171', title: '国税庁 タックスアンサー No.1171 ひとり親控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm', localFile: 'docs/tax-sources/nta_tax-answer-1171_single-parent-deduction_2026-04-01.pdf' },
   NTA_1600: { id: 'NTA_1600', title: '国税庁 タックスアンサー No.1600 公的年金等の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm', localFile: 'docs/tax-sources/nta_tax-answer-1600_public-pension_2026-04-01.pdf' },
   NTA_FORM_T3: { id: 'NTA_FORM_T3', title: '国税庁 確定申告書 第三表（分離課税用）様式（令和7年分以降用）：「所得から差し引かれる金額（第一表の㉚）」と、総合課税・譲渡・株式・配当・先物取引などの「課税される所得金額」の対応分を並べた様式', localFile: 'docs/tax-sources/nta_form_income-tax-return-table3-separate-taxation_R7.pdf' },
-  FUKUYAMA_R8_REFORM: { id: 'FUKUYAMA_R8_REFORM', title: '福山市「2026年度（令和8年度）から適用される主な市・県民税の税制改正点」（掲載日2025年6月16日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/368918.html', localFile: 'docs/tax-sources/fukuyama_r8-reform-highlights_updated-2025-06-16.pdf' },
   SOUMU_R4_ISSUES: { id: 'SOUMU_R4_ISSUES', title: '総務省自治税務局市町村税課「個人住民税の諸課題」（政府税制調査会 資料1、令和4年10月25日）：非課税限度額の基準（35万円×世帯人員数＋10万円＋21万円／32万円、級地区分・調整措置の注記）、分離課税の税率表（先物取引に係る雑所得等は所得税15%・住民税5%）', localFile: 'docs/tax-sources/soumu_tax-commission-2022-10-25_individual-resident-tax-issues.pdf' },
   TOKYO23_BOOKLET: { id: 'TOKYO23_BOOKLET', title: '「令和8年度版 東京23区の住民税」（特別区長会・東京都主税局等のパンフレット）：均等割（特別区民税3,000円＋都民税1,000円＋森林環境税1,000円）、所得割（特別区民税6%＋都民税4%）、非課税の基準、総所得金額等・合計所得金額の定義、税率表（先物取引に係る雑所得等は特別区民税3%＋都民税2%）', localFile: 'docs/tax-sources/tokyo23_resident-tax-booklet_R8.pdf' },
   TOKUBETSUKU_KOKUHO_R7: { id: 'TOKUBETSUKU_KOKUHO_R7', title: '「令和7年度 特別区国民健康保険料一覧表」（令和7年4月1日現在）：基礎賦課分・後期高齢者支援金等賦課分・介護納付金賦課分の均等割・所得割・賦課限度額、7割・5割・2割軽減を全区で実施、所得割は旧ただし書方式', localFile: 'docs/tax-sources/tokubetsuku_kokuho-premium-table_R7_2025-04-01.pdf' },
@@ -66,7 +60,7 @@ export const RECON_RATE = 0.021;
 
 // FX・先物取引（NTA_1521・NTA_1522）: 所得税15%＋地方税5%の申告分離課税。損失は同制度内でのみ通算し、一定の要件の下で翌年以後3年間繰り越せる。
 // 対象は商品先物取引等・金融商品先物取引等（株価指数先物・オプション等）・国内のFX（第一種金融商品取引業者等）で、一定の暗号資産に係る店頭デリバティブは除く。
-// 雑損控除（NTA_1110。住民税も福山市 FUKUYAMA_DED で同じ式）: (1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額
+// 雑損控除（NTA_1110。住民税も同じ式）: (1)（損害金額＋災害等関連支出−保険金等）−総所得金額等×10% と (2)（災害関連支出−保険金等）−5万円 のいずれか多い額
 export const CASUALTY = { incomeRate: 0.1, relatedFloor: 50_000 };
 
 // 上場株式等の譲渡益・配当（申告分離課税）（NTA_STOCKS）: 譲渡益×所得税15%（ほかに住民税5%）＋復興特別所得税。損失は上場株式等の譲渡益・配当（申告分離を選択）と損益通算でき、
@@ -99,8 +93,9 @@ export const SPECIFIC_RELATIVE_IT_STEPS = [
   { upTo: 1_150_000, amount: 110_000 }, { upTo: 1_200_000, amount: 60_000 }, { upTo: 1_230_000, amount: 30_000 },
 ];
 
-// 福山市（令和8年度＝令和7年中の所得に対する住民税）。FUKUYAMA_DED
-export const FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO = {
+// 住民税の控除額（令和8年度＝令和7年中の所得に対する住民税。地方税法による全国共通の値）。基礎控除・配偶者控除・扶養控除・特定親族特別控除の最高額・障害者控除・勤労学生控除は TOKYO23_BOOKLET で確認。
+// 配偶者特別控除・特定親族特別控除の段階額、寡婦・ひとり親控除の額、調整控除の差額表は、東京23区の資料では未確認（unverified に記録）。
+export const RESIDENT_DEDUCTIONS_R8NENDO = {
   spouse: {
     ownerIncomeLimit: 10_000_000,
     ownerColumns: OWNER_COLUMNS,
@@ -132,7 +127,7 @@ export const FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO = {
       { upTo: 1_100_000, amount: 210_000 }, { upTo: 1_150_000, amount: 110_000 }, { upTo: 1_200_000, amount: 60_000 },
       { upTo: 1_230_000, amount: 30_000 },
     ],
-    ageMin: 19, // 「19歳以上23歳未満」（FUKUYAMA_DED の定義）
+    ageMin: 19, // 「19歳以上23歳未満」（TOKYO23_BOOKLET）
     ageMax: 22,
   },
   disability: { general: 260_000, special: 300_000, specialCohabiting: 530_000 }, // 同居特別障がい者は特別障がい者30万円に23万円加算
@@ -142,21 +137,21 @@ export const FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO = {
   workingStudent: { amount: 260_000, incomeMax: 850_000 },
 };
 
-export const FUKUYAMA_RESIDENT_BASIC_R8NENDO = [
+export const RESIDENT_BASIC_R8NENDO = [
   { upTo: 24_000_000, amount: 430_000 },
   { upTo: 24_500_000, amount: 290_000 },
   { upTo: 25_000_000, amount: 150_000 },
   { upTo: null, amount: 0 },
 ];
 
-// 調整控除（FUKUYAMA_ADJ の算式 / FUKUYAMA_DIFF の差額）。人的控除額の差（所得税−住民税）の合計に基づき所得割から控除する。
+// 調整控除（CHIHOZEI_314_6 の算式。人的控除額の差額は法定）。人的控除額の差（所得税−住民税）の合計に基づき所得割から控除する。
 // 資格要件（所得要件・年齢）は住民税の人的控除と同じ。差額を金額とした「人的控除データ」として表現する。
 // ※ひとり親は、差額は5万円だが調整控除の計算では男性1万円（女性5万円）。性別の入力がないため1万円（少なめ）で計算する。
 // ※特定親族特別控除・配偶者特別控除は差額なし（令和8年度から）。基礎控除は合計所得金額に関わらず一律5万円。
 const zeroSteps = (steps) => steps.map((x) => ({ ...x, amounts: [0, 0, 0] }));
 const zeroSteps1 = (steps) => steps.map((x) => ({ ...x, amount: 0 }));
-const R = FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO;
-export const FUKUYAMA_ADJUSTMENT = {
+const R = RESIDENT_DEDUCTIONS_R8NENDO;
+export const RESIDENT_ADJUSTMENT = {
   rate: 0.05, // 市民税3%＋県民税2%
   threshold: 2_000_000, // 合計課税所得金額200万円
   upperLimit: 25_000_000, // 2,500万円超は適用なし
@@ -179,88 +174,58 @@ export const FUKUYAMA_ADJUSTMENT = {
   },
 };
 
-const KOKUHO_ADVISORIES = [
-  '国民健康保険税の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（福山市の公式資料は未確認）。',
-  '個人事業主の国保税は令和8年度（令和7年所得）の福山市の値、国民年金は令和8年度の額（月17,920円）を、年分にかかわらず当てはめた概算です（令和9年度の税率・令和7年度の年金額は未入手）。',
-];
-
-// 福山市の国民健康保険税 令和8年度（令和7年中の所得に対する分）。FUKUYAMA_KOKUHO。
-//  ・所得割 =（所得−基礎控除）×税率、均等割 = 加入者1人あたり、平等割 = 1世帯あたり。各区分の合計（100円未満切捨）が課税限度額を超えれば限度額。
-//  ・介護分は40歳以上65歳未満のみ。65歳以上は介護分の課税なし（別途介護保険料）。75歳以上は後期高齢者医療のため国保の対象外。
-//  ・子ども分の均等割は18歳未満は全額軽減。18歳以上は均等割とは別に「18歳以上被保険者均等割」79円。
+// 国保の共通の定め（賦課の仕組みは全国共通）。
+//  ・所得割 =（所得−基礎控除）×税率、均等割 = 加入者1人あたり。各区分の合計が賦課限度額を超えれば限度額。
+//  ・介護分は40歳以上65歳未満のみ。75歳以上は後期高齢者医療のため国保の対象外。
 //  ・未就学児の均等割は5割軽減。
-// 未登録: 法定軽減（7割・5割・2割）の判定基準、国民年金保険料、特定世帯・特定継続世帯、年度途中加入の月割。
-export const FUKUYAMA_KOKUHO = {
-  model: 'fukuyamaKokuho',
-  advisories: KOKUHO_ADVISORIES,
-  scope: '福山市（広島県）',
-  basicDeduction: FUKUYAMA_RESIDENT_BASIC_R8NENDO, // 合計所得金額による基礎控除（注）：43万円（2,400万円以下）／29万円／15万円／適用なし
-  rounding: { rule: 'floor', unit: 100 },
-  retireAge: 75,
-  preschool: { underAge: 6, reduction: 0.5 }, // 未就学児の均等割5割軽減
-  components: {
-    medical: { incomeRate: 0.0899, perPerson: 29_520, perHousehold: 19_680, limit: 670_000 },
-    support: { incomeRate: 0.0315, perPerson: 10_680, perHousehold: 6_480, limit: 260_000 },
-    care: { incomeRate: 0.0279, perPerson: 9_960, perHousehold: 4_800, limit: 170_000, ageMin: 40, ageMax: 64 },
-    children: { incomeRate: 0.0029, perPerson: 1_262, perPersonAdult: 79, perHousehold: 802, limit: 30_000, exemptUnderAge: 18 },
-  },
-  // 国民年金（第1号被保険者）: 令和8年度の月額17,920円（NENKIN_PREMIUM）。20歳以上60歳未満の本人・配偶者が対象。令和7年度の額は未入手のため令和8年度の値で代用
-  pension: { monthly: 17_920, ageMin: 20, ageMax: 59 },
-  // 法定軽減（二次情報）: 世帯の判定用所得（基礎控除前の合計所得）が基準以下なら、均等割・平等割を7割・5割・2割軽減。
-  //   7割: 43万円＋10万円×(給与・年金所得者数−1) / 5割: 7割の基準＋31万円×被保険者数 / 2割: 7割の基準＋57万円×被保険者数
-  //   給与・年金所得者＝給与収入55万円超など。扶養者側の給与・年金の有無は入力がないため、本人の給与収入のみで数える。
-  reduction: { base: 430_000, perSalaryOrPensionEarner: 100_000, salaryRevenueMin: 550_000, tiers: [{ rate: 0.7, perInsured: 0 }, { rate: 0.5, perInsured: 310_000 }, { rate: 0.2, perInsured: 570_000 }], secondary: true },
-};
+// 未登録: 国民年金保険料の免除、特定世帯・特定継続世帯、年度途中加入の月割。
+const KOKUHO_BASIC_DEDUCTION = RESIDENT_BASIC_R8NENDO; // 合計所得金額による基礎控除（注）：43万円（2,400万円以下）／29万円／15万円／適用なし
+// 国民年金（第1号被保険者）: 令和8年度の月額17,920円（NENKIN_PREMIUM）。20歳以上60歳未満の本人・配偶者が対象。令和7年度の額は未入手のため令和8年度の値で代用
+const KOKUHO_PENSION = { monthly: 17_920, ageMin: 20, ageMax: 59 };
+// 法定軽減（二次情報）: 世帯の判定用所得（基礎控除前の合計所得）が基準以下なら、均等割・平等割を7割・5割・2割軽減。
+//   7割: 43万円＋10万円×(給与・年金所得者数−1) / 5割: 7割の基準＋31万円×被保険者数 / 2割: 7割の基準＋57万円×被保険者数
+//   給与・年金所得者＝給与収入55万円超など。扶養者側の給与・年金の有無は入力がないため、本人の給与収入のみで数える。
+const KOKUHO_REDUCTION = { base: 430_000, perSalaryOrPensionEarner: 100_000, salaryRevenueMin: 550_000, tiers: [{ rate: 0.7, perInsured: 0 }, { rate: 0.5, perInsured: 310_000 }, { rate: 0.2, perInsured: 570_000 }], secondary: true };
 
-export const FUKUYAMA_RESIDENT = {
-  scope: '福山市（広島県）',
-  incomeRate: 0.1, // 所得割：市民税6%＋県民税4%
-  perCapita: 5_500, // 均等割4,500円（市3,000＋県1,500、ひろしまの森づくり県民税500円を含む）＋森林環境税1,000円
-  adjustment: FUKUYAMA_ADJUSTMENT,
-  // 非課税（FUKUYAMA_RATE）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
-  //  ・障がい者・未成年者・ひとり親・寡婦で前年の合計所得金額が135万円以下 → 均等割・所得割とも非課税
-  //  ・合計所得金額 ≦ (本人+扶養人数)×35万円+10万円(+21万円: 同一生計配偶者・扶養親族がいる場合) → 均等割・所得割とも非課税
-  //  ・総所得金額等 ≦ (本人+扶養人数)×35万円+10万円(+32万円: 同上) → 所得割のみ非課税
-  nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 }, specialGroup: { incomeMax: 1_350_000, minorUnderAge: 18 } },
-  // 所得割の調整措置（逆転防止）: 所得割の非課税の基準を若干上回る人の「総所得金額等−算出所得割額」が基準を下回らないよう所得割を減額する。
-  levyMeasure: { source: 'SOUMU_R4_ISSUES', note: '総務省資料の注に基づく。福山市の公表資料は未入手で、算式は東京都北区の公表式' },
-};
-
-// 東京23区（令和8年度）。住民税は「令和7年中の所得に対する令和8年度分」。人的控除などの控除額は法定で全国共通のため、福山市と同じ表を使う。
+// 東京23区（令和8年度）。住民税は「令和7年中の所得に対する令和8年度分」。人的控除などの控除額は法定で全国共通。
 export const TOKYO23_RESIDENT = {
   scope: '東京23区',
   incomeRate: 0.1, // 所得割：特別区民税6%＋都民税4%（TOKYO23_BOOKLET）
   perCapita: 5_000, // 均等割：特別区民税3,000円＋都民税1,000円（TOKYO23_BOOKLET）＋森林環境税1,000円（令和6年度から）
-  adjustment: FUKUYAMA_ADJUSTMENT, // 地方税法314条の6（市町村民税3%）＋道府県民税2%＝5%。算式は全国共通
-  nonTaxable: FUKUYAMA_RESIDENT.nonTaxable, // 東京23区の住民税（令和8年度版）の非課税の算式は福山市と同じ
-  levyMeasure: { source: 'KITA_MEASURE', note: '東京都北区の公表式' }, // 北区のページで確認（他の22区の条例は未確認だが、23区は同様と見られる）
+  adjustment: RESIDENT_ADJUSTMENT, // 地方税法314条の6（市町村民税3%）＋道府県民税2%＝5%。算式は全国共通
+  // 非課税（TOKYO23_BOOKLET）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
+  //  ・障害者・未成年者・ひとり親・寡婦で前年の合計所得金額が135万円以下 → 均等割・所得割とも非課税
+  //  ・合計所得金額 ≦ (本人+扶養人数)×35万円+10万円(+21万円: 同一生計配偶者・扶養親族がいる場合) → 均等割・所得割とも非課税
+  //  ・総所得金額等 ≦ (本人+扶養人数)×35万円+10万円(+32万円: 同上) → 所得割のみ非課税
+  nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 }, specialGroup: { incomeMax: 1_350_000, minorUnderAge: 18 } },
+  levyMeasure: { source: 'KITA_MEASURE', note: '東京都北区の公表式；総務省資料の注に基づく' }, // 北区のページで確認（他の22区の条例は未確認だが、23区は同様と見られる）
 };
 
 // 特別区の国民健康保険料（令和7年度・TOKUBETSUKU_KOKUHO_R7）。23区のうち16区が同一の料率で、ここにはその最頻値を登録している。
 // 中野区・江戸川区は基礎・支援金分の料率が異なり、千代田・文京・目黒・荒川・板橋などは介護分の所得割率が異なる。
 // 平等割はなく、均等割・所得割（旧ただし書方式）・賦課限度額で決まる。令和8年度の料率（子ども・子育て支援金分を含む）は未入手。
 export const TOKYO23_KOKUHO = {
-  model: 'fukuyamaKokuho', // 計算式は同じ（均等割＋所得割−基礎控除、賦課限度額、法定軽減）。名称はそのまま
+  model: 'kokuhoStandard', // 均等割＋所得割−基礎控除、賦課限度額、法定軽減
   advisories: [
     '国民健康保険料は、東京23区の令和7年度の標準的な料率（23区のうち16区が同一。中野区・江戸川区などは異なる）で、令和8年度の料率（子ども・子育て支援金分を含む）は未入手です。端数処理も未確認で、1円未満切捨てで概算しています。',
     '国保の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（東京23区が全区で軽減を実施していることは特別区の一覧表で確認済み）。',
   ],
   scope: '東京23区',
-  basicDeduction: FUKUYAMA_KOKUHO.basicDeduction,
+  basicDeduction: KOKUHO_BASIC_DEDUCTION,
   rounding: { rule: 'floor', unit: 1 },
   retireAge: 75,
-  preschool: FUKUYAMA_KOKUHO.preschool,
+  preschool: { underAge: 6, reduction: 0.5 }, // 未就学児の均等割5割軽減
   components: {
     medical: { incomeRate: 0.0771, perPerson: 47_300, perHousehold: 0, limit: 660_000 },
     support: { incomeRate: 0.0269, perPerson: 16_800, perHousehold: 0, limit: 260_000 },
     care: { incomeRate: 0.0225, perPerson: 16_600, perHousehold: 0, limit: 170_000, ageMin: 40, ageMax: 64 },
   },
-  pension: FUKUYAMA_KOKUHO.pension,
-  reduction: FUKUYAMA_KOKUHO.reduction,
+  pension: KOKUHO_PENSION,
+  reduction: KOKUHO_REDUCTION,
 };
 
-export const HIROSHIMA_BUSINESS_TAX = {
-  scope: '広島県',
+export const STANDARD_BUSINESS_TAX = {
+  scope: '標準税率（地方税法。東京都も同じ）',
   mainDeduction: 2_900_000,
   blueDeductionApplies: false,
   rates: { type1: 0.05, type2: 0.04, type3: 0.05, type3b: 0.03 },
@@ -289,7 +254,7 @@ export const INSURANCE_IT_2026 = {
   ...INSURANCE_IT_BASE,
   life: { ...INSURANCE_IT_BASE.life, newLifeUnder23: { table: T([30_000, 1, 0], [60_000, 0.5, 15_000], [120_000, 0.25, 30_000], [null, 0, 60_000]), bothSumMax: 60_000 } },
 };
-// 住民税: 福山市「所得控除の種類」別表1・2（FUKUYAMA_DED）。旧契約の控除額が28,000円を超える場合は旧契約のみ（上限35,000円）。
+// 住民税（地方税法による全国共通の値。東京23区の資料では未確認）。旧契約の控除額が28,000円を超える場合は旧契約のみ（上限35,000円）。
 export const INSURANCE_RT = {
   life: {
     newTable: T([12_000, 1, 0], [32_000, 0.5, 6_000], [56_000, 0.25, 14_000], [null, 0, 28_000]),
@@ -320,7 +285,7 @@ export const CRYPTO = { businessRevenueThreshold: 3_000_000 };
 export const FILING_SALARY_EARNER = { salaryRevenueMax: 20_000_000, sideIncomeMax: 200_000 };
 
 export const MEDICAL = {
-  // 福山市「所得控除の種類」の医療費控除（10万円または総所得金額等の5%の少ない額、限度額200万円）。所得税でも同じ仕組みだが国税庁の資料は未確認。
+  // 医療費控除（10万円または総所得金額等の5%の少ない額、限度額200万円。TOKYO23_BOOKLET）。所得税でも同じ仕組みだが国税庁の資料は未確認。
   thresholdFixed: 100_000, thresholdRate: 0.05, cap: 2_000_000,
 };
 
@@ -350,7 +315,7 @@ export const PUBLIC_PENSION = {
 };
 
 // 東京都の個人事業税。税率・事業主控除は法定の標準で全国共通として、広島県の資料の値を準用する（東京都の資料は未入手）。
-export const TOKYO_BUSINESS_TAX = { ...HIROSHIMA_BUSINESS_TAX, scope: '東京都（広島県の資料の標準税率・事業主控除を準用）' };
+export const TOKYO_BUSINESS_TAX = STANDARD_BUSINESS_TAX;
 
 // 所得金額調整控除（子ども・特別障害者等を有する者等。NTA_1411）。給与等の収入金額が revenueOver を超え、本人が特別障害者／underAge 歳未満の扶養親族がいる／
 // 特別障害者の同一生計配偶者または扶養親族がいる場合に、(min(収入, revenueCap) − revenueOver)×rate（1円未満切上げ）を給与所得から控除する。

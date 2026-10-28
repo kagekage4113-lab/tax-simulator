@@ -484,8 +484,8 @@ describe('令和8年分: 統合（手計算）', () => {
     // 給与所得=2,000,000-740,000=1,260,000 / 所得税の控除=基礎1,040,000+社保150,000=1,190,000 / 課税=70,000 / 税=70,000*5%=3,500
     // 復興特別所得税(2.1%)=floor(73.5)=73 → 3,573（税額の端数処理は資料なしのため未実施）
     // 住民税: 控除=基礎430,000+社保150,000=580,000 → 課税680,000 → 所得割68,000
-    //   調整控除=min(①基礎の差額50,000, ②680,000)×5%=2,500 → 65,500 + 均等割等5,500 = 71,000
-    // 負担=3,573+71,000+150,000=224,573 / 手取り=2,000,000-224,573=1,775,427
+    //   調整控除=min(①基礎の差額50,000, ②680,000)×5%=2,500 → 65,500 + 均等割等5,000 = 70,500
+    // 負担=3,573+70,500+150,000=224,073 / 手取り=2,000,000-224,073=1,775,927
     const s = mk([inc('salary', 2_000_000)], { insurance: { type: 'employee', actualAnnual: 150_000 } });
     const r = run8(s);
     expect(r.income.salaryIncome).toBe(1_260_000);
@@ -495,8 +495,8 @@ describe('令和8年分: 統合（手計算）', () => {
     expect(r.incomeTax.reconstruction).toBe(73);
     expect(r.incomeTax.total).toBe(3_573);
     expect(r.residentTax.adjustment).toBe(2_500);
-    expect(r.residentTax.total).toBe(71_000);
-    expect(r.takeHome).toBe(1_775_427);
+    expect(r.residentTax.total).toBe(70_500);
+    expect(r.takeHome).toBe(1_775_927);
     expect(r.notes.join()).toMatch(/令和9年度.*代用/); // 住民税の控除額が代用であることを明示
     expect(r.notes.join()).not.toMatch(/二次情報/); // 復興特別所得税は国税庁No.1521/2260で確認済み
   });
@@ -538,15 +538,15 @@ describe('令和8年分: 個人事業税（広島県）', () => {
   });
 });
 
-describe('令和8年分: 住民税の率（福山市）', () => {
-  it('所得割10%（市6%+県4%）・均等割+森林環境税=5,500円', () => {
+describe('令和8年分: 住民税の率（東京23区）', () => {
+  it('所得割10%（特別区民税6%+都民税4%）・均等割+森林環境税=5,000円', () => {
     expect(R8.residentTax.incomeRate).toBe(0.1);
-    expect(R8.residentTax.perCapita).toBe(5_500);
+    expect(R8.residentTax.perCapita).toBe(5_000);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 令和7年分（国税庁 年末調整のしかた R7 p.55-56 / No.1410）と、福山市の住民税（令和8年度分）
+// 令和7年分（国税庁 年末調整のしかた R7 p.55-56 / No.1410）と、東京23区の住民税（令和8年度分）
 // ---------------------------------------------------------------------------
 const R7 = getTaxYear(2025);
 const D7 = R7.deductions.incomeTax;
@@ -607,7 +607,7 @@ describe('令和7年分: 配偶者・扶養などの所得要件（58万円基�
   });
 });
 
-describe('住民税（福山市・令和8年度分）の控除', () => {
+describe('住民税（令和8年度分）の控除', () => {
   it.each([
     [0, 430_000], [24_000_000, 430_000], [24_000_001, 290_000], [24_500_000, 290_000],
     [24_500_001, 150_000], [25_000_000, 150_000], [25_000_001, 0],
@@ -655,7 +655,7 @@ describe('住民税（福山市・令和8年度分）の控除', () => {
     expect(autoWith(DR, 'residentTax', g, 850_000).get('workingStudent').amount).toBe(260_000);
     expect(autoWith(DR, 'residentTax', g, 850_001).get('workingStudent').amount).toBe(0);
   });
-  it('医療費控除: 福山市の算式（10万円または総所得金額等の5%の少ない額・限度200万円）', () => {
+  it('医療費控除: 住民税の算式（10万円または総所得金額等の5%の少ない額・限度200万円）', () => {
     expect(R7.medical).toMatchObject({ thresholdFixed: 100_000, thresholdRate: 0.05, cap: 2_000_000 });
   });
 });
@@ -666,7 +666,7 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
   // 所得税: 基礎(336万超489万以下)680,000+社保700,000=1,380,000 → 課税2,180,000 → 10%: 218,000-97,500=120,500
   //   復興2.1%: floor(2,530.5)=2,530 → 123,030（税額の端数処理は資料なしのため未実施）
   // 住民税: 基礎430,000+社保700,000=1,130,000 → 課税2,430,000 → 所得割243,000
-  //   調整控除: ②=2,430,000>200万 → ①50,000-(430,000)<5万 → 5万 → 50,000×5%=2,500 → 240,500 + 均等割等5,500 = 246,000
+  //   調整控除: ②=2,430,000>200万 → ①50,000-(430,000)<5万 → 5万 → 50,000×5%=2,500 → 240,500 + 均等割等5,000 = 245,500
   // 負担=123,030+246,000+700,000=1,069,030 / 手取り=5,000,000-1,069,030=3,930,970
   const r = calculate(mk([inc('salary', 5_000_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } }), R7);
   it('所得・課税所得', () => {
@@ -679,9 +679,9 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
     expect(r.incomeTax.reconstruction).toBe(2_530);
     expect(r.incomeTax.total).toBe(123_030);
     expect(r.residentTax.adjustment).toBe(2_500);
-    expect(r.residentTax.total).toBe(246_000);
-    expect(r.burden).toBe(1_069_030);
-    expect(r.takeHome).toBe(3_930_970);
+    expect(r.residentTax.total).toBe(245_500);
+    expect(r.burden).toBe(1_068_530);
+    expect(r.takeHome).toBe(3_931_470);
     expect(r.missing).toEqual([]);
   });
   it('前提の注記（端数処理・別表・住民税の概算）が出る', () => {
@@ -689,7 +689,7 @@ describe('令和7年分: 統合（手計算）— 所得税・住民税・手取
     expect(n).not.toMatch(/二次情報/);
     expect(n).toMatch(/端数処理の根拠が未登録/);
     expect(n).toMatch(/別表/);
-    expect(n).toMatch(/福山市/);
+    expect(n).toMatch(/東京23区/);
   });
   it('配偶者(所得0)がいると所得税・住民税の控除がそれぞれの表で入る', () => {
     const s = mk([inc('salary', 5_000_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } });
@@ -833,7 +833,7 @@ describe('社会保険料の概算（協会けんぽ・月ごとの料率）', (
   });
 });
 
-describe('住民税の調整控除（福山市の算式と差額一覧表）', () => {
+describe('住民税の調整控除（算式と差額一覧表）', () => {
   const adjCfg = R7.residentTax.adjustment;
   const adj = (state, totalIncome, taxable) => calcAdjustmentCredit(state, adjCfg, { items: [{ id: 'basic', amount: totalIncome > 25_000_000 ? 0 : 430_000 }] }, totalIncome, taxable);
   const base = mk([]);
@@ -884,21 +884,21 @@ describe('FX・先物（令和7年分 実データ: 所得税15%＋復興2.1%、
   const fx = (profit, carry = 0) => calculate(mk([inc('fx', profit)], { fxCarryLosses: carry ? [{ year: 2024, amount: carry }] : [] }), R7);
   it('利益100万円のみ: 手計算', () => {
     // 合計所得=1,000,000 / 所得税: 基礎(132万以下)950,000 → FX課税=50,000 → 15%=7,500 / 復興floor(157.5)=157 → 7,657
-    // 住民税: 基礎430,000 → FX課税570,000 → 5%=28,500 + 均等割等5,500 = 34,000 / 手取り=1,000,000-7,657-34,000=958,343
+    // 住民税: 基礎430,000 → FX課税570,000 → 5%=28,500 + 均等割等5,000 = 33,500 / 手取り=1,000,000-7,657-33,500=958,843
     const r = fx(1_000_000);
     expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, fx: 50_000, spillToFx: 950_000 });
     expect(r.incomeTax.fxTax).toBe(7_500);
     expect(r.incomeTax.total).toBe(7_657);
-    expect(r.residentTax.total).toBe(34_000);
-    expect(r.takeHome).toBe(958_343);
+    expect(r.residentTax.total).toBe(33_500);
+    expect(r.takeHome).toBe(958_843);
   });
   it('繰越損失30万円を控除し、使い切れない所得控除は余りとして表示', () => {
-    // FX所得=700,000 → 基礎控除950,000の方が大きく課税0 / 住民税: 700,000-430,000=270,000 → 13,500+5,500=19,000
+    // FX所得=700,000 → 基礎控除950,000の方が大きく課税0 / 住民税: 700,000-430,000=270,000 → 13,500+5,000=18,500
     const r = fx(1_000_000, 300_000);
     expect(r.income.fx).toMatchObject({ income: 700_000, carryUsed: 300_000, carryRemaining: 0 });
     expect(r.taxable.incomeTax).toMatchObject({ fx: 0, unusedDeduction: 250_000 });
     expect(r.incomeTax.total).toBe(0);
-    expect(r.residentTax.total).toBe(19_000);
+    expect(r.residentTax.total).toBe(18_500);
   });
   it('損失は他の所得と通算せず繰り越す', () => {
     const r = calculate(mk([inc('salary', 5_000_000), inc('fx', -200_000)], { insurance: { type: 'employee', actualAnnual: 700_000 } }), R7);
@@ -927,9 +927,9 @@ describe('暗号資産（雑所得・総合課税）', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 住民税の非課税判定（福山市 FUKUYAMA_RATE）。令和7年分（令和8年度分）の実データ
+// 住民税の非課税判定（TOKYO23_BOOKLET）。令和7年分（令和8年度分）の実データ
 // ---------------------------------------------------------------------------
-describe('住民税の非課税判定（福山市）', () => {
+describe('住民税の非課税判定', () => {
   // 本人のみ: 合計所得 ≦ 35万+10万=45万 で均等割・所得割とも非課税（扶養なしなら+21万・+32万はない）
   const rt = (incomes, patch) => calculate(mk(incomes, { insurance: { type: 'none', actualAnnual: null }, ...patch }), R7).residentTax;
   it('本人のみ: 合計所得450,000円まで非課税、450,001円から課税', () => {
@@ -937,7 +937,7 @@ describe('住民税の非課税判定（福山市）', () => {
     expect(rt([inc('salary', 1_100_000)])).toMatchObject({ exemption: 'all', total: 0 });
     const t = rt([inc('salary', 1_100_001)]);
     expect(t.exemption).toBeNull();
-    expect(t.perCapita).toBe(5_500);
+    expect(t.perCapita).toBe(5_000);
   });
   it('配偶者・扶養がいる場合は +21万円（均等割・所得割とも非課税）／+32万円（所得割のみ非課税）', () => {
     // 子1人（10歳・所得0）: n=2 → 非課税 ≦ 70万+10万+21万=1,010,000 / 所得割のみ非課税 ≦ 70万+10万+32万=1,120,000
@@ -945,7 +945,7 @@ describe('住民税の非課税判定（福山市）', () => {
     const at = (income) => rt([inc('business', income)], kid);
     expect(at(1_010_000).exemption).toBe('all');
     const levyOnly = at(1_010_001);
-    expect(levyOnly).toMatchObject({ exemption: 'levy', incomeLevy: 0, perCapita: 5_500, total: 5_500 });
+    expect(levyOnly).toMatchObject({ exemption: 'levy', incomeLevy: 0, perCapita: 5_000, total: 5_000 });
     expect(at(1_120_000).exemption).toBe('levy');
     expect(at(1_120_001).exemption).toBeNull();
   });
@@ -1011,9 +1011,9 @@ describe('確定申告の要否の参考表示（No.1900）', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 個人事業主の社会保険料: 福山市の国民健康保険税（令和8年度＝令和7年所得）。国民年金の額は未登録のため、テストでは架空の額を差し込む。
+// 個人事業主の社会保険料: 東京23区の国民健康保険料（東京23区。令和7年度の料率）。国民年金の額は未登録のため、テストでは架空の額を差し込む。
 // ---------------------------------------------------------------------------
-describe('国民健康保険税の概算（福山市）', () => {
+describe('国民健康保険料の概算（東京23区）', () => {
   const withPension = (monthly) => ({
     ...R7,
     socialInsurance: { estimate: { ...R7.socialInsurance.estimate, national: { ...R7.socialInsurance.estimate.national, pension: { monthly, ageMin: 20, ageMax: 59 } } } },
@@ -1022,49 +1022,46 @@ describe('国民健康保険税の概算（福山市）', () => {
   const me = (age) => ({ self: { ...defaultState().self, age } });
   const spouse = (o) => ({ spouse: { exists: true, age: 43, income: 0, disability: 'none', cohabiting: true, ...o } });
 
-  it('本人45歳・所得300万円（基礎控除43万円→2,570,000円）: 医療・支援・介護・子ども分の合計', () => {
-    // 医療 2,570,000×8.99%=231,043 + 均等割29,520 + 平等割19,680 = 280,243 → 280,200
-    // 支援 ×3.15%=80,955 + 10,680 + 6,480 = 98,115 → 98,100 / 介護 ×2.79%=71,703 + 9,960 + 4,800 = 86,463 → 86,400
-    // 子ども ×0.29%=7,453 + 均等割1,262+18歳以上79=1,341 + 平等割802 = 9,596 → 9,500 → 合計474,200
+  // 東京23区（令和7年度の特別区の標準的な料率）: 医療 所得割7.71%・均等割47,300円 / 支援金 2.69%・16,800円 / 介護 2.25%・16,600円（40〜64歳）。平等割なし。端数は1円未満切捨て
+  it('本人45歳・所得300万円（基礎控除43万円→2,570,000円）: 医療・支援金・介護分の合計', () => {
+    // 医療 2,570,000×7.71%=198,147 + 47,300 = 245,447 / 支援金 ×2.69%=69,133 + 16,800 = 85,933 / 介護 ×2.25%=57,825 + 16,600 = 74,425 → 405,805
     const r = kk(me(45));
-    expect(r.socialInsurance).toMatchObject({ total: 474_200, mode: 'estimate' });
+    expect(r.socialInsurance).toMatchObject({ total: 405_805, mode: 'estimate' });
     expect(r.notes.join()).toMatch(/法定軽減.*適用していません/); // 世帯所得が基準を超えるため
   });
-  it('介護分は40〜64歳のみ（39歳・65歳は介護分なし＝387,800円、40歳・64歳は474,200円）', () => {
-    expect(kk(me(39)).socialInsurance.total).toBe(387_800);
-    expect(kk(me(40)).socialInsurance.total).toBe(474_200);
-    expect(kk(me(64)).socialInsurance.total).toBe(474_200);
-    expect(kk(me(65)).socialInsurance.total).toBe(387_800);
-    expect(kk(me(74)).socialInsurance.total).toBe(387_800);
+  it('介護分は40〜64歳のみ（39歳・65歳は介護分なし＝331,380円、40歳・64歳は405,805円）', () => {
+    expect(kk(me(39)).socialInsurance.total).toBe(331_380);
+    expect(kk(me(40)).socialInsurance.total).toBe(405_805);
+    expect(kk(me(64)).socialInsurance.total).toBe(405_805);
+    expect(kk(me(65)).socialInsurance.total).toBe(331_380);
+    expect(kk(me(74)).socialInsurance.total).toBe(331_380);
   });
-  it('75歳以上は後期高齢者医療のため国保税なし', () => {
+  it('75歳以上は後期高齢者医療のため国保料なし', () => {
     const r = kk(me(75));
     expect(r.socialInsurance.total).toBe(0);
     expect(r.notes.join()).toMatch(/後期高齢者医療/);
   });
-  it('課税限度額: 所得2,000万円なら 医療67万＋支援26万＋介護17万＋子ども3万＝1,130,000円', () => {
-    expect(kk(me(45), 0, 20_000_000).socialInsurance.total).toBe(1_130_000);
+  it('賦課限度額: 所得2,000万円なら 医療66万＋支援金26万＋介護17万＝1,090,000円', () => {
+    expect(kk(me(45), 0, 20_000_000).socialInsurance.total).toBe(1_090_000);
   });
-  it('世帯: 本人45歳(所得300万)・配偶者43歳(所得0)・子10歳 → 565,900円', () => {
-    // 医療 231,043 + 3人×29,520=88,560 + 19,680 = 339,283 → 339,200 / 支援 80,955 + 32,040 + 6,480 = 119,475 → 119,400
-    // 介護(本人・配偶者の2人) 71,703 + 19,920 + 4,800 = 96,423 → 96,400 / 子ども 7,453 + (本人・配偶者の18歳以上 2×1,341=2,682、10歳は全額軽減) + 802 = 10,937 → 10,900
+  it('世帯: 本人45歳(所得300万)・配偶者43歳(所得0)・子10歳 → 550,605円', () => {
+    // 医療 198,147 + 3人×47,300=141,900 = 340,047 / 支援金 69,133 + 3×16,800=50,400 = 119,533 / 介護(本人・配偶者の2人) 57,825 + 2×16,600=33,200 = 91,025
     const r = kk({ ...me(45), ...spouse({}), dependents: [person({ age: 10 })] });
-    expect(r.socialInsurance.total).toBe(565_900);
+    expect(r.socialInsurance.total).toBe(550_605);
   });
-  it('未就学児（3歳）は均等割が5割軽減: 545,900円', () => {
-    // 医療 231,043 + (29,520×2+14,760=73,800) + 19,680 = 324,523 → 324,500 / 支援 80,955 + (21,360+5,340) + 6,480 = 114,135 → 114,100 / 介護 96,400 / 子ども 10,900
-    expect(kk({ ...me(45), ...spouse({}), dependents: [person({ age: 3 })] }).socialInsurance.total).toBe(545_900);
+  it('未就学児（3歳）は均等割が5割軽減: 518,555円', () => {
+    // 医療 198,147 + 47,300×2 + 47,300×0.5=23,650 = 316,397 / 支援金 69,133 + 33,600 + 8,400 = 111,133 / 介護 91,025
+    expect(kk({ ...me(45), ...spouse({}), dependents: [person({ age: 3 })] }).socialInsurance.total).toBe(518_555);
   });
-  it('配偶者の所得も所得割に入る（基礎控除は各人ごと）: 配偶者所得100万円 → 612,500円', () => {
+  it('配偶者の所得も所得割に入る（基礎控除は各人ごと）: 配偶者所得100万円 → 558,610円', () => {
     // 所得割の基礎: 2,570,000 + (1,000,000-430,000=570,000) = 3,140,000
-    // 医療 282,286 + 59,040 + 19,680 = 361,006 → 361,000 / 支援 98,910 + 21,360 + 6,480 = 126,750 → 126,700
-    // 介護 87,606 + 19,920 + 4,800 = 112,326 → 112,300 / 子ども 9,106 + 2,682 + 802 = 12,590 → 12,500
-    expect(kk({ ...me(45), ...spouse({ income: 1_000_000 }) }).socialInsurance.total).toBe(612_500);
+    // 医療 3,140,000×7.71%=242,094 + 94,600 = 336,694 / 支援金 ×2.69%=84,466 + 33,600 = 118,066 / 介護 ×2.25%=70,650 + 33,200 = 103,850
+    expect(kk({ ...me(45), ...spouse({ income: 1_000_000 }) }).socialInsurance.total).toBe(558_610);
   });
   it('国民年金（架空の月額10,000円）は20〜59歳の本人・配偶者が対象', () => {
-    expect(kk(me(45), 10_000).socialInsurance.total).toBe(474_200 + 120_000);
-    expect(kk({ ...me(45), ...spouse({}) }, 10_000).socialInsurance.total).toBe(525_700 + 240_000);
-    expect(kk({ ...me(45), ...spouse({ age: 60 }) }, 10_000).socialInsurance.total).toBe(525_700 + 120_000); // 60歳以上は第1号の対象外
+    expect(kk(me(45), 10_000).socialInsurance.total).toBe(405_805 + 120_000);
+    expect(kk({ ...me(45), ...spouse({}) }, 10_000).socialInsurance.total).toBe(486_505 + 240_000);
+    expect(kk({ ...me(45), ...spouse({ age: 60 }) }, 10_000).socialInsurance.total).toBe(486_505 + 120_000); // 60歳以上は第1号の対象外
     expect(kk(me(60), 10_000).socialInsurance.total - kk(me(60), 0).socialInsurance.total).toBe(0);
   });
   it('国民年金の保険料額が未登録のデータでは確定させない', () => {
@@ -1082,38 +1079,36 @@ describe('国民健康保険税の概算（福山市）', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 国民年金（月17,920円・日本年金機構）と国保税の法定軽減（7・5・2割・二次情報）
+// 国民年金（月17,920円・日本年金機構）と国保料の法定軽減（7・5・2割・二次情報）
 // ---------------------------------------------------------------------------
-describe('国民年金（日本年金機構）と国保税の法定軽減（二次情報）', () => {
+describe('国民年金（日本年金機構）と国保料の法定軽減（二次情報）', () => {
   const nat = (income, patch = {}) => calculate(mk([inc('business', income)], { insurance: { type: 'national', actualAnnual: null }, self: { ...defaultState().self, age: 45 }, ...patch }), R7);
   const PENSION = 17_920 * 12; // 215,040円
 
   it('国民年金は月17,920円×12か月（20〜59歳の本人）', () => {
-    // 所得300万円: 国保税474,200円（軽減なし）+ 国民年金215,040円
-    expect(nat(3_000_000).socialInsurance.total).toBe(474_200 + PENSION);
+    // 所得300万円: 国保料405,805円（軽減なし）+ 国民年金215,040円
+    expect(nat(3_000_000).socialInsurance.total).toBe(405_805 + PENSION);
     // 60歳以上は国民年金の第1号の対象外
-    expect(nat(3_000_000, { self: { ...defaultState().self, age: 60 } }).socialInsurance.total).toBe(474_200); // 60歳も介護分(40〜64歳)の対象。国民年金だけ第1号の対象外で0円
+    expect(nat(3_000_000, { self: { ...defaultState().self, age: 60 } }).socialInsurance.total).toBe(405_805); // 60歳も介護分(40〜64歳)の対象。国民年金だけ第1号の対象外で0円
   });
   it('7割軽減: 世帯の判定用所得が43万円以下（本人のみ）', () => {
-    // 所得割0（所得40万円は基礎控除43万円以下）。均等割・平等割を30%に: 医療(29,520+19,680)×0.3=14,760→14,700 / 支援(10,680+6,480)×0.3=5,148→5,100
-    // 介護(9,960+4,800)×0.3=4,428→4,400 / 子ども(1,341+802)×0.3=642.9→600 → 24,800
+    // 所得割0（所得40万円は基礎控除43万円以下）。均等割を30%に: 医療47,300×0.3=14,190 / 支援金16,800×0.3=5,040 / 介護16,600×0.3=4,980 → 24,210
     const r = nat(400_000);
-    expect(r.socialInsurance.total).toBe(24_800 + PENSION);
+    expect(r.socialInsurance.total).toBe(24_210 + PENSION);
     expect(r.socialInsurance.kokuho.rate).toBe(0.7);
   });
   it('5割軽減: 43万円超〜74万円（43万円+31万円×1人）以下', () => {
-    // 所得70万円: 基礎控除後270,000円 / 医療 24,273+(49,200×0.5=24,600)=48,873→48,800 / 支援 8,505+8,580=17,085→17,000
-    // 介護 7,533+7,380=14,913→14,900 / 子ども 783+1,071.5=1,854.5→1,800 → 82,500
-    expect(nat(700_000).socialInsurance.total).toBe(82_500 + PENSION);
+    // 所得70万円: 基礎控除後270,000円 / 医療 270,000×7.71%=20,817 + 47,300×0.5=23,650 = 44,467 / 支援金 7,263 + 8,400 = 15,663 / 介護 6,075 + 8,300 = 14,375 → 74,505
+    expect(nat(700_000).socialInsurance.total).toBe(74_505 + PENSION);
     expect(nat(740_000).socialInsurance.kokuho.rate).toBe(0.5);
     expect(nat(740_001).socialInsurance.kokuho.rate).toBe(0.2);
   });
-  it('2割軽減: 〜100万円（43万円+57万円×1人）以下。境界の1円差で保険税が段差的に増える', () => {
-    // 所得100万円: 基礎控除後570,000円 / 医療 51,243+39,360=90,603→90,600 / 支援 17,955+13,728=31,683→31,600 / 介護 15,903+11,808=27,711→27,700 / 子ども 1,653+1,714.4=3,367.4→3,300 → 153,200
-    // 所得1,000,001円: 軽減なし / 医療 51,243.09+49,200=100,443→100,400 / 支援 35,100 / 介護 30,600 / 子ども 3,700 → 169,800
-    expect(nat(1_000_000).socialInsurance.total).toBe(153_200 + PENSION);
+  it('2割軽減: 〜100万円（43万円+57万円×1人）以下。境界の1円差で保険料が段差的に増える', () => {
+    // 所得100万円: 基礎控除後570,000円 / 医療 570,000×7.71%=43,947 + 47,300×0.8=37,840 = 81,787 / 支援金 15,333 + 13,440 = 28,773 / 介護 12,825 + 13,280 = 26,105 → 136,665
+    // 所得1,000,001円: 軽減なし / 医療 570,001×7.71%=43,947.07+47,300 → 91,247 / 支援金 15,333.03+16,800 → 32,133 / 介護 12,825.02+16,600 → 29,425 → 152,805
+    expect(nat(1_000_000).socialInsurance.total).toBe(136_665 + PENSION);
     expect(nat(1_000_000).socialInsurance.kokuho.rate).toBe(0.2);
-    expect(nat(1_000_001).socialInsurance.total).toBe(169_800 + PENSION);
+    expect(nat(1_000_001).socialInsurance.total).toBe(152_805 + PENSION);
     expect(nat(1_000_001).socialInsurance.kokuho.rate).toBeNull();
   });
   it('世帯の所得で判定する: 配偶者の所得も合算し、被保険者数が増えると基準額も増える', () => {
@@ -1126,11 +1121,9 @@ describe('国民年金（日本年金機構）と国保税の法定軽減（二�
   });
   it('未就学児の均等割5割軽減は法定軽減の後の額に適用される', () => {
     // 所得40万円(7割軽減)・本人45歳・3歳の子: 世帯所得40万円 ≦ 43万円。被保険者2人
-    // 医療: 所得割0 + 平等割19,680×0.3=5,904 + 本人均等割29,520×0.3=8,856 + 3歳均等割29,520×0.3×0.5=4,428 = 19,188 → 19,100
-    // 支援: 6,480×0.3=1,944 + 10,680×0.3=3,204 + 10,680×0.3×0.5=1,602 = 6,750 → 6,700
-    // 介護(本人のみ): 4,800×0.3=1,440 + 9,960×0.3=2,988 = 4,428 → 4,400 / 子ども: 平等802×0.3=240.6 + 本人(1,262+79)×0.3=402.3 + 3歳(18歳未満は全額軽減)0 = 642.9 → 600
+    // 医療: 47,300×0.3=14,190 + 3歳 47,300×0.3×0.5=7,095 = 21,285 / 支援金: 5,040 + 2,520 = 7,560 / 介護(本人のみ): 4,980 → 33,825
     const r = nat(400_000, { dependents: [person({ age: 3 })] });
-    expect(r.socialInsurance.total).toBe(19_100 + 6_700 + 4_400 + 600 + PENSION);
+    expect(r.socialInsurance.total).toBe(33_825 + PENSION);
   });
   it('75歳以上は後期高齢者医療のため被保険者に数えない（基準額・保険税とも）', () => {
     const r = nat(400_000, { self: { ...defaultState().self, age: 76 } });
@@ -1167,14 +1160,14 @@ describe('上場株式等（申告分離課税）', () => {
   const ls = (profit, patch = {}) => calculate(mk([inc('listedStock', profit)], patch), R7);
   it('利益100万円のみ（令和7年分）: FXと同じ分離課税の率で手計算', () => {
     // 所得税: 基礎(132万以下)950,000 → 課税50,000 → 15%=7,500、復興floor(157.5)=157 → 7,657
-    // 住民税: 基礎430,000 → 課税570,000×5%=28,500 + 均等割等5,500 = 34,000 / 手取り=1,000,000-7,657-34,000=958,343
+    // 住民税: 基礎430,000 → 課税570,000×5%=28,500 + 均等割等5,000 = 33,500 / 手取り=1,000,000-7,657-33,500=958,843
     const r = ls(1_000_000);
     expect(r.income.listed).toMatchObject({ profit: 1_000_000, income: 1_000_000 });
     expect(r.income.comprehensive).toBe(0); // 総合課税には入らない
     expect(r.taxable.incomeTax).toMatchObject({ comprehensive: 0, listed: 50_000 });
     expect(r.incomeTax).toMatchObject({ listedTax: 7_500, total: 7_657 });
-    expect(r.residentTax.total).toBe(34_000);
-    expect(r.takeHome).toBe(958_343);
+    expect(r.residentTax.total).toBe(33_500);
+    expect(r.takeHome).toBe(958_843);
   });
   it('損失は総合課税の所得と通算せず、翌年以後3年間繰り越す', () => {
     const r = calculate(mk([inc('salary', 3_000_000), inc('listedStock', -200_000)]), R7);
@@ -1211,7 +1204,7 @@ describe('上場株式等（申告分離課税）', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 雑損控除: 国税庁 No.1110（住民税も福山市で同じ式）
+// 雑損控除: 国税庁 No.1110（住民税も同じ式）
 // ---------------------------------------------------------------------------
 describe('雑損控除', () => {
   // 事業所得300万円（白色）→ 総所得金額等3,000,000円 → ×10% = 300,000円
@@ -1282,7 +1275,7 @@ describe('合計所得金額は損失の繰越控除の適用前、総所得金�
     const r = calculate(s, rules25);
     // 単身の限度は 35万円+10万円 = 45万円。合計所得金額60万円は超える（均等割は課税）。総所得金額等30万円は45万円以下（所得割は非課税）
     expect(r.residentTax.exemption).toBe('levy');
-    expect(r.residentTax.perCapita).toBe(5_500);
+    expect(r.residentTax.perCapita).toBe(5_000);
     expect(r.residentTax.incomeLevy).toBe(0);
   });
 });

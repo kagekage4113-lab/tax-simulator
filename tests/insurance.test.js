@@ -1,4 +1,4 @@
-// 期待値は、国税庁「保険と税」（所得税）と福山市「所得控除の種類」別表1・2（住民税）の表から手計算。
+// 期待値は、国税庁「保険と税」（所得税）と地方税法の別表（住民税）の表から手計算。
 import { describe, expect, it } from 'vitest';
 import { earthquakeDeduction, lifeInsuranceDeduction } from '../src/calc/insuranceDeductions.js';
 import { calculate } from '../src/calc/engine.js';
@@ -73,7 +73,7 @@ describe('地震保険料控除（所得税）', () => {
   ])('地震%i円・旧長期%i円 → %i円', (q, o, expected) => expect(earthquakeDeduction(Q({ quake: q, oldLongTerm: o }), ITQ)).toBe(expected));
 });
 
-describe('生命保険料控除・地震保険料控除（住民税・福山市）', () => {
+describe('生命保険料控除・地震保険料控除（住民税）', () => {
   it.each([
     // 新: 1.2万円以下全額 / 3.2万円以下×1/2+6,000 / 5.6万円以下×1/4+14,000 / 超2.8万円
     [12_000, 12_000], [30_000, 21_000], [32_000, 22_000], [56_000, 28_000], [60_000, 28_000],

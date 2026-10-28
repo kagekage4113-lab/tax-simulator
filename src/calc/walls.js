@@ -24,7 +24,7 @@ export function wallDefinitions(state, rules) {
     steps.forEach((st, i) => {
       if (st.upTo == null) return;
       const next = steps[i + 1];
-      if (next.amount < st.amount) add({ id: `basicDeduction${kind}${i}`, metric: 'totalIncome', threshold: st.upTo, label: `基礎控除（${name}）が${man(st.amount)}→${man(next.amount)}に減る`, detail: `合計所得金額が${st.upTo.toLocaleString('ja-JP')}円を超えると`, source: kind === 'incomeTax' ? '国税庁 年末調整のしかた' : '福山市 所得控除の種類' });
+      if (next.amount < st.amount) add({ id: `basicDeduction${kind}${i}`, metric: 'totalIncome', threshold: st.upTo, label: `基礎控除（${name}）が${man(st.amount)}→${man(next.amount)}に減る`, detail: `合計所得金額が${st.upTo.toLocaleString('ja-JP')}円を超えると`, source: kind === 'incomeTax' ? '国税庁 年末調整のしかた' : '東京23区の住民税（令和8年度版）' });
     });
   }
   const sp = get(rules, 'deductions.incomeTax.spouse');
@@ -33,8 +33,8 @@ export function wallDefinitions(state, rules) {
   }
   const adj = get(rules, 'residentTax.adjustment');
   if (adj) {
-    add({ id: 'adjustmentThreshold', metric: 'taxableRT', threshold: adj.threshold, label: '住民税の調整控除の計算が変わる（減っていく）', detail: `住民税の課税所得が${adj.threshold.toLocaleString('ja-JP')}円を超えると、人的控除の差額から差し引いて減り、最低5万円になる`, source: '福山市 調整控除' });
-    add({ id: 'adjustmentLimit', metric: 'taxableRT', threshold: adj.upperLimit, label: '住民税の調整控除がなくなる', detail: `住民税の課税所得が${adj.upperLimit.toLocaleString('ja-JP')}円を超えると`, source: '福山市 調整控除' });
+    add({ id: 'adjustmentThreshold', metric: 'taxableRT', threshold: adj.threshold, label: '住民税の調整控除の計算が変わる（減っていく）', detail: `住民税の課税所得が${adj.threshold.toLocaleString('ja-JP')}円を超えると、人的控除の差額から差し引いて減り、最低5万円になる`, source: '地方税法 314条の6（調整控除）' });
+    add({ id: 'adjustmentLimit', metric: 'taxableRT', threshold: adj.upperLimit, label: '住民税の調整控除がなくなる', detail: `住民税の課税所得が${adj.upperLimit.toLocaleString('ja-JP')}円を超えると`, source: '地方税法 314条の6（調整控除）' });
   }
   const lim = residentNonTaxableLimits(state, rules);
   if (lim) {
@@ -43,23 +43,23 @@ export function wallDefinitions(state, rules) {
     const allLimit = Math.max(lim.special ?? 0, lim.all);
     lines.push({ t: allLimit, label: lim.special !== null && lim.special >= lim.all ? '住民税が非課税でなくなる（障がい者・未成年者・ひとり親・寡婦の基準）' : '住民税（均等割・所得割）が非課税でなくなる' });
     if (lim.levy > allLimit) lines.push({ t: lim.levy, label: '住民税の所得割が非課税でなくなる（均等割は先にかかる）' });
-    for (const l of lines) add({ id: `nonTaxable${l.t}`, metric: 'totalIncome', threshold: l.t, label: l.label, detail: `合計所得金額が${l.t.toLocaleString('ja-JP')}円を超えると`, source: '福山市 個人市民税' });
+    for (const l of lines) add({ id: `nonTaxable${l.t}`, metric: 'totalIncome', threshold: l.t, label: l.label, detail: `合計所得金額が${l.t.toLocaleString('ja-JP')}円を超えると`, source: '東京23区の住民税（令和8年度版）' });
   }
   const bt = get(rules, 'businessTax');
   if (bt && state.incomes.some((i) => i.category === 'business' && i.businessType !== 'unknown')) {
-    add({ id: 'businessTax', metric: 'businessNet', threshold: bt.mainDeduction, label: '個人事業税がかかり始める', detail: `事業所得が事業主控除${bt.mainDeduction.toLocaleString('ja-JP')}円を超えると`, source: '広島県 個人事業税' });
+    add({ id: 'businessTax', metric: 'businessNet', threshold: bt.mainDeduction, label: '個人事業税がかかり始める', detail: `事業所得が事業主控除${bt.mainDeduction.toLocaleString('ja-JP')}円を超えると`, source: '個人事業税（標準税率）' });
   }
   const ws = get(rules, 'deductions.incomeTax.workingStudent');
   if (state.self.workingStudent && ws) add({ id: 'workingStudent', metric: 'totalIncome', threshold: ws.incomeMax, label: '勤労学生控除がなくなる', detail: `合計所得金額が${ws.incomeMax.toLocaleString('ja-JP')}円を超えると`, source: '国税庁 年末調整のしかた' });
   const wsp = get(rules, 'deductions.incomeTax.widowSingleParentIncomeMax');
-  if (state.self.widowSingleParent !== 'none' && wsp) add({ id: 'widowSingleParent', metric: 'totalIncome', threshold: wsp, label: '寡婦控除・ひとり親控除がなくなる', detail: `合計所得金額が${wsp.toLocaleString('ja-JP')}円を超えると`, source: '福山市 所得控除の種類' });
+  if (state.self.widowSingleParent !== 'none' && wsp) add({ id: 'widowSingleParent', metric: 'totalIncome', threshold: wsp, label: '寡婦控除・ひとり親控除がなくなる', detail: `合計所得金額が${wsp.toLocaleString('ja-JP')}円を超えると`, source: '国税庁 No.1171・地方税法' });
 
   const nat = get(rules, 'socialInsurance.estimate.national');
   if (state.insurance.type === 'national' && state.insurance.actualAnnual == null && nat && nat.reduction) {
     const lim = kokuhoReductionLimits(state, nat);
     lim.tiers.forEach((t, i) => {
       const next = lim.tiers[i + 1];
-      add({ id: `kokuhoReduction${i}`, metric: 'householdIncome', threshold: t.limit, label: `国保税の法定軽減が${Math.round(t.rate * 10)}割から${next ? `${Math.round(next.rate * 10)}割` : 'なし'}に下がる`, detail: `世帯の判定用所得（基礎控除前の合計所得）が${t.limit.toLocaleString('ja-JP')}円を超えると（被保険者${lim.insured}人）`, source: '二次情報（福山市の公式資料は未確認）' });
+      add({ id: `kokuhoReduction${i}`, metric: 'householdIncome', threshold: t.limit, label: `国保料の法定軽減が${Math.round(t.rate * 10)}割から${next ? `${Math.round(next.rate * 10)}割` : 'なし'}に下がる`, detail: `世帯の判定用所得（基礎控除前の合計所得）が${t.limit.toLocaleString('ja-JP')}円を超えると（被保険者${lim.insured}人）`, source: '二次情報（公式資料は未確認）' });
     });
   }
   const fl = get(rules, 'filing.salaryEarner');

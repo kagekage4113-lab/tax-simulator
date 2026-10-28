@@ -58,7 +58,7 @@ describe('控除のクッションと「非課税」は別の話', () => {
 });
 
 import { wallDefinitions } from '../src/calc/walls.js';
-describe('壁の一覧: 住民税の非課税の限度（福山市）', () => {
+describe('壁の一覧: 住民税の非課税の限度', () => {
   it('ひとり親でも、人数による限度（35万円×4人+10万円+21万円=171万円）が135万円より大きければ、そちらまで非課税', () => {
     const s = mk();
     s.self.widowSingleParent = 'singleParent';
@@ -82,13 +82,12 @@ describe('所得割の調整措置（逆転防止・東京都北区の公表式�
   // 本人＋16歳未満の子3人（扶養控除なし・扶養人数には数える）、FXの利益のみ、令和7年分、東京23区
   const st = (fx) => {
     const s = mk();
-    s.residence.area = 'tokyo23';
     s.dependents = [1, 2, 3].map((i) => ({ id: `d${i}`, name: '', relationship: 'child', age: 10, cohabiting: true, income: 0, disability: 'none' }));
     s.incomes = [{ ...newIncome('fx'), amount: fx }];
     return s;
   };
   const t = rulesTokyo();
-  function rulesTokyo() { return getTaxYear(2025, 'tokyo23'); }
+  function rulesTokyo() { return getTaxYear(2025); }
   // 所得割の非課税の基準 A = 35万円×(1+3)+10万円+32万円 = 182万円。住民税の所得控除は基礎43万円のみ（子は16歳未満）
   it('基準ちょうど（182万円）は所得割が非課税（均等割のみ）', () => {
     const r = calculate(st(1_820_000), t);

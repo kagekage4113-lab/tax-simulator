@@ -5,21 +5,31 @@ import { defaultState, newIncome } from '../src/core/schema.js';
 import { validateState } from '../src/core/schema.js';
 import { applyHousehold } from '../src/interview/assess.js';
 import { getTaxYear } from '../src/data/taxYears/index.js';
+import { newPerson } from '../src/core/household.js';
 
 const storeOf = (state) => ({ get: () => state, update: (fn) => fn(state) });
+// テスト用の世帯: 親2人（事業収入・厚生年金）、本人39歳、子15歳と13歳。同居・生計・手帳は未回答のまま。
+function loadFixture(s) {
+  const mk = (kind, o) => ({ ...newPerson(kind), ...o });
+  s.self.age = 39;
+  s.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: [
+    mk('parent', { name: '親A', age: 72, incomeKind: 'business', revenue: 500_000, certificate: 'unknown', medical: true }),
+    mk('parent', { name: '親B', age: 73, incomeKind: 'pension', revenue: 1_940_000 }),
+    mk('child', { name: '子', age: 15 }),
+    mk('child', { name: '子', age: 13 }),
+  ] };
+  applyHousehold(s, getTaxYear(s.taxYear));
+}
 const click = (el, text) => [...el.querySelectorAll('button')].find((b) => b.textContent.includes(text)).click();
 
 describe('世帯（かんたん入力）の画面', () => {
-  it('無効のときは切り替えだけを表示し、有効にすると例の世帯を入れて判定が出る', () => {
+  it('サンプル入力のボタンはなく、世帯を入れると判定が出る', () => {
     const s = defaultState();
-    s.household.enabled = false; // 新規の既定はオン。オフのときは切り替えだけを表示する
-    const off = householdSection(storeOf(s));
-    expect(off.textContent).not.toMatch(/例の世帯/);
     s.household.enabled = true;
     const el = householdSection(storeOf(s));
-    click(el, '例の世帯を入れてみる');
+    expect(el.textContent).not.toMatch(/例の世帯|母72|透析/);
+    loadFixture(s);
     expect(s.household.people).toHaveLength(4);
-    expect(s.self.age).toBe(39);
     const again = householdSection(storeOf(s));
     expect(again.textContent).toMatch(/ひとり親控除/);
     expect(again.textContent).toMatch(/要確認/);
@@ -76,29 +86,82 @@ describe('世帯（かんたん入力）の画面', () => {
 import { dataSection } from '../src/ui/dataSection.js';
 import { buildExport } from '../src/io/exchange.js';
 
-describe('データの書き出し・読み込み（ダウンロードできない環境でも使える）', () => {
-  it('書き出しで内容が画面に出て、貼り付けて読み込める', async () => {
+describe('データの保存・読み込み（共有・ダウンロード・コピー・貼り付け）', () => {
+  const btn = (el, text) => [...el.querySelectorAll('button')].find((b) => b.textContent.includes(text));
+  const mkStore = (s) => { const t = { replaced: null, get: () => s, replace: (n) => { t.replaced = n; } }; return t; };
+  it('共有メニューが使える端末（スマホ）ではファイルを共有して保存する', async () => {
+    const s = defaultState();
+    const shared = [];
+    Object.defineProperty(globalThis.navigator, 'canShare', { configurable: true, value: () => true });
+    Object.defineProperty(globalThis.navigator, 'share', { configurable: true, value: async (d) => { shared.push(d); } });
+    const el = dataSection(mkStore(s));
+    btn(el, 'バックアップを保存').click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(shared).toHaveLength(1);
+    expect(shared[0].files[0].name).toMatch(/^tax-simulator-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(JSON.parse(await shared[0].files[0].text()).app).toBe('tax-simulator');
+    expect(el.textContent).toMatch(/保存しました/);
+    delete globalThis.navigator.canShare; delete globalThis.navigator.share;
+  });
+  it('共有できない環境ではダウンロードし、「テキストでコピー」で内容が欄に出て、貼り付けて読み込める', async () => {
     const s = defaultState();
     s.household.enabled = true;
-    s.household.people = [{ ...s.household, id: 'x' }].slice(0, 0);
-    let replaced = null;
-    const store = { get: () => s, replace: (n) => { replaced = n; } };
     globalThis.URL.createObjectURL ??= () => 'blob:x';
     globalThis.URL.revokeObjectURL ??= () => {};
+    const store = mkStore(s);
     const el = dataSection(store);
     const box = el.querySelector('textarea[readonly]');
     expect(box.hidden).toBe(true);
-    [...el.querySelectorAll('button')].find((b) => b.textContent === 'JSONを書き出す').click();
+    btn(el, 'バックアップを保存').click();
     await new Promise((r) => setTimeout(r, 10));
-    expect(box.hidden).toBe(false);
+    expect(el.textContent).toMatch(/保存しました/);
+    btn(el, 'テキストでコピー').click();
+    await new Promise((r) => setTimeout(r, 10));
     expect(JSON.parse(box.value).app).toBe('tax-simulator');
     const paste = el.querySelector('textarea:not([readonly])');
     paste.value = buildExport(s);
-    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
-    expect(replaced.household.enabled).toBe(true);
+    btn(el, '貼り付けた内容').click();
+    expect(store.replaced.household.enabled).toBe(true);
     paste.value = '{ばらばら';
-    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
+    btn(el, '貼り付けた内容').click();
     expect(el.textContent).toMatch(/読み込めませんでした/);
+  });
+  it('「コピーしたものを読み込む」はクリップボードの内容を読み込む', async () => {
+    const s = defaultState(); s.self.age = 51;
+    const store = mkStore(defaultState());
+    Object.defineProperty(globalThis.navigator, 'clipboard', { configurable: true, value: { readText: async () => buildExport(s), writeText: async () => {} } });
+    const el = dataSection(store);
+    btn(el, 'コピーしたものを読み込む').click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(store.replaced.self.age).toBe(51);
+    expect(el.textContent).toMatch(/読み込みました/);
+  });
+  it('ファイルの種類（拡張子）を限定せずに選べる', () => {
+    const el = dataSection(mkStore(defaultState()));
+    expect(el.querySelector('input[type=file]').hasAttribute('accept')).toBe(false);
+  });
+});
+
+describe('入力の初期化は「はい／いいえ」で確認する', () => {
+  const btn = (el, text) => [...el.querySelectorAll('button')].find((b) => b.textContent.includes(text));
+  it('押しただけでは消えない。「いいえ」で何も変えず、「はい」で初期化する', () => {
+    const s = defaultState(); s.self.age = 61;
+    let replaced = null;
+    const el = dataSection({ get: () => s, replace: (n) => { replaced = n; } });
+    const q = el.querySelector('.confirm');
+    expect(q.hidden).toBe(true);
+    btn(el, '入力を初期化').click();
+    expect(q.hidden).toBe(false);
+    expect(replaced).toBeNull();
+    expect(q.textContent).toMatch(/元に戻せません/);
+    btn(el, 'いいえ').click();
+    expect(q.hidden).toBe(true);
+    expect(replaced).toBeNull();
+    btn(el, '入力を初期化').click();
+    btn(el, 'はい、初期化する').click();
+    expect(q.hidden).toBe(true);
+    expect(replaced.self.age).toBe(defaultState().self.age);
+    expect(el.textContent).toMatch(/初期化しました/);
   });
 });
 
@@ -109,7 +172,7 @@ describe('住民税の注記', () => {
     s.incomes[0].amount = 3_000_000;
     const r = calculate(s, getTaxYear(2025));
     expect(r.notes.some((n) => n.includes('非課税判定は未反映'))).toBe(false);
-    expect(r.notes.some((n) => n.startsWith('住民税は福山市'))).toBe(true);
+    expect(r.notes.some((n) => n.startsWith('住民税は東京23区'))).toBe(true);
   });
 });
 
@@ -130,11 +193,11 @@ describe('いまの状況の画面', () => {
 });
 
 describe('未回答の赤い表示', () => {
-  it('例の世帯を入れると、未回答の欄が missing として示され、上部に件数の一覧が出る', () => {
+  it('世帯を入れると、未回答の欄が missing として示され、上部に件数の一覧が出る', () => {
     const s = defaultState();
     s.household.enabled = true;
     const st = storeOf(s);
-    click(householdSection(st), '例の世帯を入れてみる');
+    loadFixture(s);
     const el = householdSection(st);
     expect(el.querySelectorAll('.field.missing').length).toBeGreaterThan(3);
     expect(el.querySelector('.miss-box').textContent).toMatch(/まだ答えていない項目が\d+件/);
@@ -144,7 +207,7 @@ describe('未回答の赤い表示', () => {
     const s = defaultState();
     s.household.enabled = true;
     const st = storeOf(s);
-    click(householdSection(st), '例の世帯を入れてみる');
+    loadFixture(s);
     const el = householdSection(st);
     const first = el.querySelector('.field.missing .seg');
     first.querySelector('button').click(); // はい
@@ -175,24 +238,14 @@ describe('令和8年分だけに対応', () => {
   });
 });
 
-describe('住民税・国保の基準は東京23区だけ（福山市は画面から選べない）', () => {
-  it('設定画面に地域の選択欄や福山市は出ない。世帯が有効なときの重複した注記も出ない', async () => {
+describe('住民税・国保の基準は東京23区だけ', () => {
+  it('設定画面に地域の選択欄は出ない。世帯が有効なときの重複した注記も出ない', async () => {
     const { settingsSection } = await import('../src/ui/sections.js');
     const s = defaultState();
     const t = settingsSection(storeOf(s)).textContent;
     expect(t).not.toMatch(/福山/);
     expect(t).not.toMatch(/住民税・国保の基準/);
     expect(t).not.toMatch(/上の「世帯・家族/);
-  });
-  it('福山市の設定のJSONを読み込むと、東京23区に付け替えて注記を出す', async () => {
-    const { buildExport } = await import('../src/io/exchange.js');
-    const old = defaultState(); old.residence.area = 'fukuyama';
-    let replaced = null;
-    const el = dataSection({ get: () => old, replace: (n) => { replaced = n; } });
-    el.querySelector('textarea:not([readonly])').value = buildExport(old);
-    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
-    expect(replaced.residence.area).toBe('tokyo23');
-    expect(el.textContent).toMatch(/福山市（広島県）から東京23区（標準）に変えました/);
   });
 });
 

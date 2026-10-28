@@ -102,11 +102,6 @@ export function householdInputSection(store, rulesFor = rulesOf) {
     h('div', { class: 'row' }, Object.entries(PERSON_KINDS).map(([k, label]) => h('button', {
       type: 'button', class: 'btn', onClick: () => add(k), disabled: k === 'spouse' && hasSpouse,
     }, `＋ ${label}を追加`))),
-    h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn', onClick: () => set((x) => {
-      x.self.age = 39;
-      x.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: sampleHousehold() };
-      applyHousehold(x, rulesFor(x));
-    }, true) }, '例の世帯を入れてみる（母72・父73・子15と13）')),
     h('p', { class: 'hint' }, '判定は、あなたの申告（回答）に基づく目安です。控除の適用には証明書類が必要な場合があります。世帯の中で誰が扶養に入れるか（きょうだい・配偶者側との調整）は考慮せず、「この方をあなたの扶養に入れる」前提で計算します。'));
 
   el.refresh = (state) => {
@@ -190,7 +185,7 @@ function personCard(store, p, i, verdictBoxes, people, missingCount, insideMissi
 
   const unsureCert = p.certificate === 'unknown' || p.certificate === 'other';
   const certField = field('障害者手帳などはありますか', select(CERTIFICATES, p.certificate, (v) => { markIf(certField, v === 'unknown' || v === 'other'); upd('certificate', v); }),
-    { hint: '手帳の等級で一般障害者・特別障害者が決まります（国税庁 No.1160）。透析をされている方は、身体障害者手帳（腎臓機能障害）の等級を確認してください。' });
+    { hint: '手帳の等級で一般障害者・特別障害者が決まります（国税庁 No.1160）。' });
   markIf(certField, unsureCert);
   const kindField = field('収入の種類', select(INCOME_KINDS, p.incomeKind, (v) => upd('incomeKind', v, true)));
   markIf(kindField, p.incomeKind === 'unknown');
@@ -247,17 +242,6 @@ function totals(a) {
     diff === 0 && (c.taxable.incomeTax?.unusedDeduction ?? 0) > 0 ? h('p', { class: 'hint' }, `いまの所得では控除が${formatYen(c.taxable.incomeTax.unusedDeduction)}円余っているため、要確認がすべて当てはまっても税額は変わりません。`) : null,
     diff != null && diff !== 0 ? h('p', { class: 'hint' }, `要確認がすべて当てはまると、手取りは最大で${formatYen(diff)}円増えます。`) : null,
     a.asks.length ? h('details', { class: 'edit' }, h('summary', {}, `まだ確認が必要なこと（${a.asks.length}件）`), h('ul', { class: 'status-list' }, a.asks.map((t) => h('li', {}, t)))) : h('p', { class: 'hint' }, '確認が必要な項目はありません。'));
-}
-
-// 例の世帯（ユーザーの例）。同居・生計・手帳は未回答のままにして、「要確認」の見え方を確かめられるようにする。
-function sampleHousehold() {
-  const mk = (kind, o) => ({ ...newPerson(kind), ...o });
-  return [
-    mk('parent', { name: '母', age: 72, incomeKind: 'business', revenue: 500_000, certificate: 'unknown', medical: true }),
-    mk('parent', { name: '父', age: 73, incomeKind: 'pension', revenue: 1_940_000 }),
-    mk('child', { name: '子', age: 15 }),
-    mk('child', { name: '子', age: 13 }),
-  ];
 }
 
 const EXEMPT_LABEL = { all: '非課税', levy: '所得割のみ非課税（均等割は課税）' };

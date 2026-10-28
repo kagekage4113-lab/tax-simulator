@@ -1,6 +1,6 @@
-// 世帯（かんたん入力）の判定。期待値は国税庁・福山市の資料の表から手計算した値（コードから生成していない）。
+// 世帯（かんたん入力）の判定。期待値は国税庁・東京23区の資料と地方税法の表から手計算した値（コードから生成していない）。
 // 令和7年分: 所得税 ひとり親35万・老人扶養(同居老親)58万/(その他)48万・特別障害者40万/同居特別障害者75万、
-//            住民税(福山市 令和8年度) ひとり親30万・老人扶養 同居老親45万/その他38万・特別障害者30万/同居特別障害者53万。
+//            住民税(令和8年度) ひとり親30万・老人扶養 同居老親45万/その他38万・特別障害者30万/同居特別障害者53万。
 import { describe, expect, it } from 'vitest';
 import { assess, applyHousehold, scenarioState } from '../src/interview/assess.js';
 import { defaultState, newIncome } from '../src/core/schema.js';
@@ -10,7 +10,7 @@ import { getTaxYear } from '../src/data/taxYears/index.js';
 const rules = getTaxYear(2025);
 const person = (kind, o) => ({ ...newPerson(kind), ...o });
 
-// ユーザーの例: 母72（透析・事業収入50万）、父73（厚生年金のみ）、本人39、子15・13、配偶者なし
+// テスト用の世帯: 親2人（事業収入50万の72歳・厚生年金のみの73歳）、本人39、子15・13、配偶者なし
 function sample(over = {}) {
   const s = defaultState();
   s.taxYear = 2025;
@@ -210,29 +210,25 @@ describe('任意継続の健康保険', () => {
   });
 });
 
-import { AREAS, getTaxYear as gty, rulesOf } from '../src/data/taxYears/index.js';
-describe('地域（東京23区・福山市）', () => {
-  it('住民税の均等割は東京23区5,000円・福山市5,500円。控除額などの法定の値は同じ', () => {
-    const t = gty(2025, 'tokyo23'); const f = gty(2025);
+import { getTaxYear as gty, rulesOf } from '../src/data/taxYears/index.js';
+describe('住民税・国保の基準（東京23区だけ）', () => {
+  it('住民税の均等割は東京23区の5,000円。地域の切り替えはない', () => {
+    const t = gty(2025);
     expect(t.residentTax.perCapita).toBe(5_000);
-    expect(f.residentTax.perCapita).toBe(5_500);
-    expect(t.deductions).toBe(f.deductions);
-    expect(t.residentTax.nonTaxable).toEqual(f.residentTax.nonTaxable);
-    expect(Object.keys(AREAS)).toEqual(['tokyo23', 'fukuyama']);
+    expect(t.residentTax.scope).toBe('東京23区');
+    expect(t.socialInsurance.estimate.national.scope).toBe('東京23区');
   });
-  it('旧データ（地域の記載なし）は福山市として読み込み、新規の既定は東京23区', async () => {
+  it('新規の既定は東京都。旧データの residence.area は無視して読み込む', async () => {
     const { validateState } = await import('../src/core/schema.js');
-    const old = defaultState(); delete old.residence.area;
-    expect(validateState(old).state.residence.area).toBe('fukuyama');
-    expect(defaultState().residence.area).toBe('tokyo23');
-    expect(defaultState().residence.prefecture).toBe('東京都');
-    expect(validateState({ ...defaultState(), residence: { prefecture: '', city: '', area: 'mars' } }).ok).toBe(false);
+    const old = defaultState(); old.residence.area = 'oldArea';
+    const r = validateState(old);
+    expect(r.ok).toBe(true);
+    expect(r.state.residence.area).toBeUndefined();
+    expect(defaultState().residence).toEqual({ prefecture: '東京都', city: '' });
   });
-  it('rulesOf は state の年度と地域で選ぶ', () => {
+  it('rulesOf は state の年度で選ぶ', () => {
     const s = defaultState(); s.taxYear = 2026;
     expect(rulesOf(s).residentTax.scope).toBe('東京23区');
-    s.residence.area = 'fukuyama';
-    expect(rulesOf(s).residentTax.scope).toBe('福山市（広島県）');
   });
 });
 
@@ -277,9 +273,8 @@ describe('世帯の見取り図（誰の何の税金か）', () => {
       mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12', partnerId: partner ? 'father' : null },
       father: { livesTogether: true, supportedByMe: true },
     });
-    s.residence.area = 'tokyo23';
     s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
-    return overview(s, getTaxYear(2025, 'tokyo23'));
+    return overview(s, getTaxYear(2025));
   };
   const row = (ov, id) => ov.rows.find((r) => r.id === id);
 
@@ -311,7 +306,7 @@ describe('世帯の見取り図（誰の何の税金か）', () => {
   it('所得を確定できない家族がいれば、世帯全員が非課税かは判定しない（null）', () => {
     const s = sample({ father: { incomeKind: 'unknown', livesTogether: true, supportedByMe: true } });
     s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
-    const ov = overview(s, getTaxYear(2025, 'tokyo23'));
+    const ov = overview(s, getTaxYear(2025));
     expect(ov.allNonTaxable).toBeNull();
   });
   it('配偶者の相手側の指定（母→父）だけでも、父側から夫婦として数える', () => {
@@ -322,7 +317,7 @@ describe('世帯の見取り図（誰の何の税金か）', () => {
 
 import { missingFacts } from '../src/interview/assess.js';
 describe('未回答の項目（赤く示す）', () => {
-  it('例の世帯: 同居・生計・事実婚・子の扶養・手帳・年金額が未回答として挙がる', () => {
+  it('テスト世帯: 同居・生計・事実婚・子の扶養・手帳・年金額が未回答として挙がる', () => {
     const s = sample();
     s.household.people[1].revenue = 0; // 父の年金額が未入力
     const m = missingFacts(s);
@@ -353,16 +348,16 @@ describe('世帯 = 住民票の世帯が同じ人', () => {
   it('住民票の世帯が別（世帯分離）の人は「世帯全員が非課税か」から除く（同居でも別世帯にできる）', () => {
     // 夫婦の指定なし: 父は課税（住民税43,500円）。父が別世帯なら、残り（あなた・母・子）は全員非課税
     const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' }, father: { livesTogether: true, supportedByMe: true, sameHousehold: false } });
-    s.residence.area = 'tokyo23'; s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
-    const ov = overview(s, getTaxYear(2025, 'tokyo23'));
+    s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
+    const ov = overview(s, getTaxYear(2025));
     expect(ov.outside.map((r) => r.id)).toEqual(['father']);
     expect(ov.allNonTaxable).toBe(true);
     s.household.people[1].sameHousehold = true;
-    expect(overview(s, getTaxYear(2025, 'tokyo23')).allNonTaxable).toBe(false);
+    expect(overview(s, getTaxYear(2025)).allNonTaxable).toBe(false);
   });
   it('未回答のときは「同居しているか」で代用する', () => {
     const s = sample({ father: { livesTogether: false, supportedByMe: true } });
     s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
-    expect(overview(s, getTaxYear(2025, 'tokyo23')).outside.map((r) => r.id)).toEqual(['father']);
+    expect(overview(s, getTaxYear(2025)).outside.map((r) => r.id)).toEqual(['father']);
   });
 });

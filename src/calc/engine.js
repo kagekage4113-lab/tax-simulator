@@ -324,7 +324,7 @@ export function filingGuide(state, rules, v) {
   return { ...base, status: 'likelyNotRequired', reason: `給与以外の所得の合計が${sideIncome.toLocaleString('ja-JP')}円で${cfg.sideIncomeMax.toLocaleString('ja-JP')}円以下のため、所得税の確定申告が不要となる可能性があります。` };
 }
 
-// 住民税の非課税の基準額（福山市）。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
+// 住民税の非課税の基準額。扶養人数＝同一生計配偶者＋扶養親族（16歳未満を含む）。
 export function residentNonTaxableLimits(state, rules) {
   const nt = get(rules, 'residentTax.nonTaxable');
   if (!nt) return null;
@@ -375,7 +375,7 @@ function calcResidentExemption(state, rules, totalIncome, netIncome = totalIncom
   return null;
 }
 
-// 住民税の調整控除（福山市の算式）。人的控除額の差（所得税−住民税）の合計①と合計課税所得金額②から求め、所得割から控除する。
+// 住民税の調整控除（地方税法314条の6）。人的控除額の差（所得税−住民税）の合計①と合計課税所得金額②から求め、所得割から控除する。
 //   ②≦200万円: min(①,②)×5% / 200万円<②≦2,500万円: max(①−(②−200万円), 5万円)×5% / 2,500万円超: なし
 export function calcAdjustmentCredit(state, adj, residentDeductions, totalIncome, taxableComprehensive) {
   if (taxableComprehensive > adj.upperLimit) return 0;
@@ -502,7 +502,7 @@ function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes })
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
   if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };
-  if (e.model === 'fukuyamaKokuho') return { total: totalIncome === null ? null : fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate', kokuho: totalIncome === null ? null : kokuhoReduction(state, e, totalIncome) };
+  if (e.model === 'kokuhoStandard') return { total: totalIncome === null ? null : kokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate', kokuho: totalIncome === null ? null : kokuhoReduction(state, e, totalIncome) };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
   return { total: mulFloor(baseVal, e.rate ?? 0) + (e.fixed ?? 0), mode: 'estimate' };
@@ -514,9 +514,9 @@ const roundHalfDown = (x) => {
   return x - f > 0.5 + 1e-9 ? f + 1 : f;
 };
 
-// 国民健康保険税（福山市）＋国民年金の概算（個人事業主）。世帯＝本人・配偶者・扶養親族の全員が同じ国保に加入している前提。
+// 国民健康保険料＋国民年金の概算（個人事業主）。世帯＝本人・配偶者・扶養親族の全員が同じ国保に加入している前提。
 // 所得は各人の合計所得金額で代用し、加入月数は12か月、法定軽減（7・5・2割）は未反映。国民年金の保険料額が未登録の間は null。
-function fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes) {
+function kokuhoAnnual(e, state, totalIncome, need, notes) {
   if (e.pension == null) { need('socialInsurance.estimate.national.pension'); return null; }
   const members = [{ age: state.self.age, income: totalIncome }];
   if (state.spouse.exists) members.push({ age: state.spouse.age, income: state.spouse.income });
@@ -543,8 +543,8 @@ function fukuyamaKokuhoAnnual(e, state, totalIncome, need, notes) {
   }
   (e.advisories || []).forEach((a) => notes.push(a));
   const pensionMembers = [state.self, ...(state.spouse.exists ? [state.spouse] : [])].filter((m) => m.age >= e.pension.ageMin && m.age <= e.pension.ageMax);
-  notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険税（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。${e.reduction ? (kokuho.rate ? `世帯の判定用所得が基準以下のため、均等割・平等割の${Math.round(kokuho.rate * 10)}割軽減を反映しています（給与・年金所得者は本人の給与収入のみで数えています）。` : '法定軽減（7・5・2割）は、世帯の判定用所得が基準を超えるため適用していません。') : '法定軽減（7・5・2割）は反映していません。'}`);
-  if (members.length !== insured.length) notes.push('75歳以上の方は後期高齢者医療制度のため、国民健康保険税の対象から除いています。');
+  notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険料（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。${e.reduction ? (kokuho.rate ? `世帯の判定用所得が基準以下のため、均等割・平等割の${Math.round(kokuho.rate * 10)}割軽減を反映しています（給与・年金所得者は本人の給与収入のみで数えています）。` : '法定軽減（7・5・2割）は、世帯の判定用所得が基準を超えるため適用していません。') : '法定軽減（7・5・2割）は反映していません。'}`);
+  if (members.length !== insured.length) notes.push('75歳以上の方は後期高齢者医療制度のため、国民健康保険の対象から除いています。');
   return tax + pensionMembers.length * e.pension.monthly * 12;
 }
 
