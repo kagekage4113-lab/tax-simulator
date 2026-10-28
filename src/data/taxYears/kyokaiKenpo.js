@@ -1,6 +1,8 @@
 // 全国健康保険協会（協会けんぽ）令和8年3月分（4月納付分）からの健康保険・厚生年金保険の保険料額表。
-// 等級表（標準報酬月額と報酬月額の範囲）は広島・福岡・大阪・東京の4支部で同一であることを確認済み（全50等級）。
+// 等級表（標準報酬月額と報酬月額の範囲）は全47支部で同一であることを確認済み（全50等級）。
 // 報酬月額が min 以上 max 未満のとき標準報酬月額は standard。min が null は下限なし、max が null は上限なし。
+import { HEALTH_R8_ALL, HEALTH_SAME_AS_R7 } from './kyokaiKenpoPrefectures.js';
+
 export const KYOKAI_KENPO_GRADES = [
   { grade: 1, standard: 58000, min: null, max: 63000 },
   { grade: 2, standard: 68000, min: 63000, max: 73000 },
@@ -58,9 +60,13 @@ export const KYOKAI_KENPO_GRADES = [
 export const KYOKAI_KENPO_PENSION_RANGE = { min: 88_000, max: 650_000 };
 
 // 令和7年3月分（4月納付分）からの料率（広島・東京・大阪のリーフレット）。介護保険料率は 11.56%−9.97% = 1.59%（3支部とも同じ）。子ども・子育て支援金はなし。
-const HEALTH_R7 = { '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024 };
-// 令和8年3月分（4月納付分）からの料率（広島・福岡・大阪・東京の保険料額表）。介護保険料率1.62%、子ども・子育て支援金0.23%（令和8年4月分〜）。
-const HEALTH_R8 = { '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013, '東京都': 0.0985 };
+// 令和7年度の料率は、リーフレットで確認した3支部と、全国版の見出しが「令和7年3月分〜適用」の7支部（令和8年度と同じ料率）だけが確定している。
+// 残りの支部は令和7年度の料率が資料にないため、令和8年度の料率で代用する（HEALTH_R7_PROXY。計算結果の注記に出す）。
+const HEALTH_R7_KNOWN = { '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024, ...Object.fromEntries(HEALTH_SAME_AS_R7.map((k) => [k, HEALTH_R8_ALL[k]])) };
+const HEALTH_R7_PROXY = Object.keys(HEALTH_R8_ALL).filter((k) => !(k in HEALTH_R7_KNOWN));
+const HEALTH_R7 = { ...HEALTH_R8_ALL, ...HEALTH_R7_KNOWN };
+// 令和8年3月分（4月納付分）からの料率（全国版の保険料額表）。介護保険料率1.62%、子ども・子育て支援金0.23%（令和8年4月分〜）。
+const HEALTH_R8 = HEALTH_R8_ALL; // 全47支部（全国版 保険料額表）
 
 const COMMON = {
   model: 'kyokaiKenpo',
@@ -77,14 +83,14 @@ export const KYOKAI_KENPO_2025 = {
   ...COMMON,
   schedule: [
     // 令和7年1〜2月分は令和6年度の料率（資料なし）のため、令和7年3月分からの料率で代用している。
-    { months: 12, label: '令和7年3月分〜の料率（1〜2月分は令和6年度料率が未登録のため代用）', healthRateByPrefecture: HEALTH_R7, careRate: 0.0159, childSupportRate: 0 },
+    { months: 12, label: '令和7年3月分〜の料率（1〜2月分は令和6年度料率が未登録のため代用）', healthRateByPrefecture: HEALTH_R7, proxyPrefectures: HEALTH_R7_PROXY, careRate: 0.0159, childSupportRate: 0 },
   ],
 };
 
 export const KYOKAI_KENPO_2026 = {
   ...COMMON,
   schedule: [
-    { months: 2, label: '令和8年1〜2月分（令和7年度の料率）', healthRateByPrefecture: HEALTH_R7, careRate: 0.0159, childSupportRate: 0 },
+    { months: 2, label: '令和8年1〜2月分（令和7年度の料率）', healthRateByPrefecture: HEALTH_R7, proxyPrefectures: HEALTH_R7_PROXY, careRate: 0.0159, childSupportRate: 0 },
     { months: 1, label: '令和8年3月分（令和8年度の料率・支援金なし）', healthRateByPrefecture: HEALTH_R8, careRate: 0.0162, childSupportRate: 0 },
     { months: 9, label: '令和8年4〜12月分（令和8年度の料率・支援金あり）', healthRateByPrefecture: HEALTH_R8, careRate: 0.0162, childSupportRate: 0.0023 },
   ],

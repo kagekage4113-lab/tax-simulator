@@ -73,10 +73,11 @@ export function settingsSection(store) {
     field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
-    field('お住まいの地域（住民税・国保税の基準）', select(Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, a.label])), s.residence.area, (v) => set((x) => { x.residence.area = v; x.residence.prefecture = AREAS[v].prefecture; }, true)),
-      { hint: '住民税の均等割・国民健康保険料・個人事業税の基準です。ここにない市区町村は、近い方で概算してください（均等割の額・非課税の限度額・国保料は自治体で違うことがあります）。所得割の税率10%や控除額は全国共通です。' }),
-    field('協会けんぽの支部の都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
-      { hint: '会社員の社会保険料（協会けんぽ）の料率にだけ使います。広島・福岡・大阪・東京以外は4都府県の平均で概算します。' }),
+    field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
+      { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。' }),
+    h('details', { class: 'edit' }, h('summary', {}, '住民税・国保の基準（くわしく）'),
+      field('住民税・国保税の基準にする地域', select(Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, a.label])), s.residence.area, (v) => set((x) => { x.residence.area = v; }, true)),
+        { hint: '標準は東京23区です。均等割・非課税の限度額・国保料は自治体で少し、国保は大きく違うことがあります（国保は「実額を入力」で解決できます）。' })),
     ...(s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [field('申告方式（事業・不動産の収入があるとき）', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true)))] : []),
     ...(s.filing.type === 'blue' && s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),

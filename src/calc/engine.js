@@ -579,15 +579,18 @@ function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
   const pref = state.residence.prefecture;
   let total = 0;
   let usedAverage = false;
+  const proxied = new Set();
   for (const p of e.schedule) {
     const rates = Object.values(p.healthRateByPrefecture);
     const prefRate = p.healthRateByPrefecture[pref];
     if (prefRate === undefined) usedAverage = true;
+    else if (p.proxyPrefectures && p.proxyPrefectures.includes(pref)) proxied.add(p.label);
     const healthRate = prefRate ?? rates.reduce((a, b) => a + b, 0) / rates.length;
     const share = (std * (healthRate + (kaigoOn ? p.careRate : 0) + p.childSupportRate) + pensionStd * e.pension.rate) * e.employeeShare;
     total += roundHalfDown(share) * p.months;
   }
   notes.push('社会保険料は協会けんぽの料率による概算です（賞与なし・12か月均等の報酬として計算。健保組合・共済や賞与の有無で異なります。雇用保険料は含みません）。');
+  if (proxied.size) notes.push(`${pref}の協会けんぽの${[...proxied].join('・')}の料率は資料にないため、令和8年度の料率で代用しています（実際との差は年数千円程度）。`);
   if (usedAverage) notes.push(`お住まいの都道府県（${pref || '未選択'}）の協会けんぽ料率が未登録の期間があるため、登録済み支部（${Object.keys(e.schedule[e.schedule.length - 1].healthRateByPrefecture).join('・')}）の健康保険料率の平均を使っています。`);
   if (kaigoOn) notes.push('40〜64歳のため介護保険料を含めています。');
   return total;

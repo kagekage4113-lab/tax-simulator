@@ -46,6 +46,7 @@ export const SRC = {
   KYOKAI_TOKYO: { id: 'KYOKAI_TOKYO', title: '協会けんぽ 東京支部 令和8年3月分（4月納付分）からの保険料額表（健康保険9.85%・介護1.62%・子ども・子育て支援金0.23%・厚生年金18.300%）', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_tokyo.pdf' },
   NTA_GLOSSARY: { id: 'NTA_GLOSSARY', title: '国税庁 専門用語集［令和8年4月1日現在法令等］：総所得金額等（損失の繰越控除の適用後）と合計所得金額（適用前）の定義。申告分離課税の所得を含む', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/yogo/senmon.htm', localFile: 'docs/tax-sources/nta_glossary_2026-04-01.pdf' },
   CHIHOZEI_314_6: { id: 'CHIHOZEI_314_6', title: '地方税法 第314条の6 調整控除（税研ウェブサービス 法令集）：合計課税所得金額200万円以下は 人的控除額の差の合計額と合計課税所得金額の少ない方×3%（市町村民税分。道府県民税分は別条で2%）', url: 'https://www.zeiken.co.jp/hourei/HHCHI000000/314-6.html', localFile: 'docs/tax-sources/chihozei-law_art314-6_adjustment-credit_zeiken.pdf' },
+  KYOKAI_ALL: { id: 'KYOKAI_ALL', title: '協会けんぽ 令和8年3月分（4月納付分）からの健康保険・厚生年金保険の保険料額表 全国版（47支部のxlsx）：都道府県別の健康保険料率、介護保険料率1.62%・子ども・子育て支援金率0.23%・厚生年金18.300%は全国共通。見出しの「適用開始」により、令和7年3月分〜の料率が令和8年度と同じ支部が分かる', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_all-prefectures.xlsx' },
 };
 
 // 所得税の速算表（NTA_2260）。課税される所得金額（1,000円未満切捨後）に対する税額 = 所得金額×税率−控除額。

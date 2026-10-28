@@ -11,7 +11,7 @@ export const taxYear2026 = {
   year: 2026,
   label: '令和8年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.KITA_MEASURE, SRC.TSUYAMA_ADJ, SRC.NTA_1411, SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.FUKUYAMA_R8_REFORM, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R8_P3, SRC.NTA_R8_P55, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA, SRC.KYOKAI_HIROSHIMA, SRC.KYOKAI_FUKUOKA, SRC.KYOKAI_OSAKA],
+  sources: [SRC.KYOKAI_ALL, SRC.KITA_MEASURE, SRC.TSUYAMA_ADJ, SRC.NTA_1411, SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.FUKUYAMA_R8_REFORM, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R8_P3, SRC.NTA_R8_P55, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA, SRC.KYOKAI_HIROSHIMA, SRC.KYOKAI_FUKUOKA, SRC.KYOKAI_OSAKA],
   advisories: [
     '令和8年分の社会保険料は協会けんぽの料率（1〜2月は令和7年度、3月以降は令和8年度、支援金は4月分から）を月ごとに当てはめた概算です（賞与は未反映）。',
     '令和9年度（令和8年分の所得に対する住民税）の控除額は資料がないため、令和8年度の値（福山市）で代用した概算です。改正があれば差が出ます。',
@@ -124,7 +124,7 @@ export const taxYear2026 = {
     '配当控除（総合課税を選択した配当）・雑損失の繰越控除・災害減免法との選択・上場株式等以外の株式等（一般株式等）の課税は未対応',
     'FX・先物：繰越控除の要件（連続した付表付き確定申告）は注記のみで、実際に満たしているかは確認しない。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
     '暗号資産：根拠のFAQは令和4年12月現在の法令等。その後の改正の有無は未確認。取得価額の計算（総平均法・移動平均法）・事業所得への区分は入力側で行う（損益は経費控除後の実額を入力）',
-    '社会保険料：国保の法定軽減の公的資料（二次情報で登録）、令和7年度の国民年金額、雇用保険、協会けんぽの他支部（資料のない都道府県は登録済み支部の平均で概算）、賞与',
+    '社会保険料：国保の法定軽減の公的資料（二次情報で登録）、令和7年度の国民年金額、雇用保険、協会けんぽの令和7年度の料率（47支部のうち3支部＋7支部のみ確定。他は令和8年度の料率で代用して注記）、賞与',
     '住民税の調整控除：ひとり親は性別の入力がないため男性の差額（1万円）で計算',
   ],
 };

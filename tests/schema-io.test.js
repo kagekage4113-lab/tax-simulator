@@ -37,8 +37,8 @@ describe('設定データの構造', () => {
       expect(ty.socialInsurance.estimate.employee.schedule.reduce((a, p) => a + p.months, 0)).toBe(12);
       expect(ty.advisories.length).toBeGreaterThan(0); // 代用・概算の前提は注意書きに残す
     }
-    expect(getTaxYear(2025).socialInsurance.estimate.employee.schedule[0].healthRateByPrefecture).toEqual({ '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024 });
-    expect(getTaxYear(2026).socialInsurance.estimate.employee.schedule[2].healthRateByPrefecture).toEqual({ '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013, '東京都': 0.0985 });
+    expect(getTaxYear(2025).socialInsurance.estimate.employee.schedule[0].healthRateByPrefecture).toMatchObject({ '広島県': 0.0997, '東京都': 0.0991, '大阪府': 0.1024 });
+    expect(getTaxYear(2026).socialInsurance.estimate.employee.schedule[2].healthRateByPrefecture).toMatchObject({ '広島県': 0.0978, '福岡県': 0.1011, '大阪府': 0.1013, '東京都': 0.0985, '北海道': 0.1028 });
     // 国民年金は日本年金機構（令和8年度17,920円）。国保の法定軽減は二次情報と明記
     const nat = getTaxYear(2026).socialInsurance.estimate.national;
     expect(nat.pension).toMatchObject({ monthly: 17_920 });
