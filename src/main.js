@@ -5,6 +5,7 @@ import { dataSection } from './ui/dataSection.js';
 import { deductionsSection, incomesSection, resultSection, settingsSection } from './ui/sections.js';
 import { simulationSection } from './ui/simulation.js';
 import { householdSection } from './ui/household.js';
+import { situationSection } from './ui/situation.js';
 import { applyHousehold } from './interview/assess.js';
 import { getTaxYear } from './data/taxYears/index.js';
 
@@ -15,6 +16,7 @@ const status = h('span', { class: 'save-status', role: 'status' }, '');
 const notice = store.notice ? h('p', { class: 'banner' }, store.notice) : null;
 const result = resultSection();
 const simulation = simulationSection(store);
+const situation = situationSection(store);
 
 // 結果が画面外にあるとき、手取りと負担の要約を下部に固定表示する（結果欄が見えている間は隠す）
 const bar = h('button', { type: 'button', class: 'summary-bar', hidden: true, 'aria-label': '結果の欄へ移動' },
@@ -59,6 +61,7 @@ store.subscribe((state, e) => {
   if (state.household.enabled) applyHousehold(state, getTaxYear(state.taxYear));
   if (e.structural) rebuild();
   else if (household) household.refresh(state);
+  situation.refresh();
   result.update(state);
   simulation.update(state, e);
 });
@@ -76,7 +79,7 @@ app.append(
       h('p', {}, '入力は、この端末のブラウザの中だけに保存され、外部へ送信されません。「データ保存・復元」でファイルに書き出せます。金額は概算の目安です。')),
     status),
   ...(notice ? [notice] : []),
-  h('main', {}, dynamic, result, simulation, dataSection(store)),
+  h('main', {}, dynamic, situation, result, simulation, dataSection(store)),
   bar,
   h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。'),
 );

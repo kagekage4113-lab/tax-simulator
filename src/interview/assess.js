@@ -226,3 +226,18 @@ export function applyHousehold(state, rules) {
   state.dependents = S.dependents;
   return before !== key();
 }
+
+// 家族それぞれの所得が、扶養などの所得基準まであと何円か（基準以下のときだけ余裕、超えていれば負の値）。
+export function familyMargins(state, rules) {
+  const dIT = rules.deductions?.incomeTax;
+  if (!dIT) return [];
+  const out = [];
+  for (const p of state.household.people) {
+    if (p.supportedByMe === false) continue;
+    const limit = p.kind === 'spouse' ? dIT.spouse?.spouseIncomeMax : dIT.dependent?.incomeMax;
+    const inc = personIncome(p, rules, state.taxYear);
+    if (limit == null || inc.value === null) continue;
+    out.push({ id: p.id, name: p.name, kind: p.kind, income: inc.value, limit, margin: limit - inc.value });
+  }
+  return out;
+}

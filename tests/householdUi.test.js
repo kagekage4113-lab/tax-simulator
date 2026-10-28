@@ -110,3 +110,19 @@ describe('住民税の注記', () => {
     expect(r.notes.some((n) => n.startsWith('住民税は福山市'))).toBe(true);
   });
 });
+
+import { situationSection } from '../src/ui/situation.js';
+describe('いまの状況の画面', () => {
+  it('FXの利益があと何円まで変わらないかと、税額0円と非課税は別という説明を表示する', async () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'none', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...s.incomes[0], category: 'salary', amount: 660_000 }];
+    const el = situationSection(storeOf(s));
+    const text = el.textContent;
+    expect(text).toMatch(/所得税がかかり始める/);
+    expect(text).toMatch(/住民税の「非課税」でなくなる/);
+    expect(text).toMatch(/税額0円」と「非課税」は別/);
+    expect(text).toMatch(/確認できていません|未確認/);
+  });
+});

@@ -113,9 +113,10 @@ svg.chart { width: 100%; height: auto; touch-action: pan-y; }
   .summary-bar { display: none !important; }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 20px; align-items: start; }
   main > .dynamic { grid-column: 1; grid-row: 1; }
-  main > #sec-sim { grid-column: 1; grid-row: 2; }
-  main > #sec-data { grid-column: 1; grid-row: 3; }
-  main > #sec-result { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; margin-top: 0; }
+  main > #sec-situation { grid-column: 1; grid-row: 2; }
+  main > #sec-sim { grid-column: 1; grid-row: 3; }
+  main > #sec-data { grid-column: 1; grid-row: 4; }
+  main > #sec-result { grid-column: 2; grid-row: 1 / span 4; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; margin-top: 0; }
   #app { padding-bottom: 32px; }
 }
 
