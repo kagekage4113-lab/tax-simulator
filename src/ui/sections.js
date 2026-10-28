@@ -70,9 +70,7 @@ export function settingsSection(store) {
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
     field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
-      { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。広島・福岡・大阪以外は3府県の平均で概算します。住民税の税率・控除は現在、福山市の値です。' }),
-    field('市区町村', h('input', { type: 'text', value: s.residence.city, maxlength: 100, placeholder: '例：渋谷区', onInput: (e) => set((x) => { x.residence.city = e.target.value; }) }),
-      { hint: '住民税・国民健康保険税の税率と控除は、現在は福山市の値で計算します（他の自治体の値は未対応です）。' }),
+      { hint: '会社員の社会保険料（協会けんぽ）の料率にだけ使います。広島・福岡・大阪以外は3府県の平均で概算します。住民税・国民健康保険税は、市区町村にかかわらず福山市の値を標準として使います（他の市区町村では、均等割の額・非課税の限度額・国保税が少し、または大きく違うことがあります）。' }),
     field('申告方式', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true))),
     ...(s.filing.type === 'blue' ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
