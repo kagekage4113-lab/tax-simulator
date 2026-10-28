@@ -58,6 +58,7 @@ export const INCOME_CATEGORIES = [
   {
     id: 'crypto',
     label: '暗号資産（雑所得）',
+    legacy: true, // 計算は「雑所得」と同じ。新しく選ぶ欄には出さない（以前の保存データは、そのまま読み込む）
     taxMethod: TAX_METHOD.COMPREHENSIVE,
     computeModule: 'miscIncome', // 雑所得として総合課税。雑所得の赤字は他の所得と通算しない（雑所得内では通算する）
     inputKind: 'revenue',

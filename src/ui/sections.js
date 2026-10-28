@@ -109,7 +109,7 @@ function dependentCard(store, d, i) {
 export function incomesSection(store) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
-  const catOptions = Object.fromEntries(INCOME_CATEGORIES.map((c) => [c.id, c.label + (c.supported ? '' : '（未対応）')]));
+  const catOptionsFor = (current) => Object.fromEntries(INCOME_CATEGORIES.filter((c) => !c.legacy || c.id === current).map((c) => [c.id, c.label + (c.supported ? '' : '（未対応）')]));
 
   const cards = s.incomes.map((inc, i) => {
     const cat = getIncomeCategory(inc.category);
@@ -124,7 +124,7 @@ export function incomesSection(store) {
         h('strong', {}, inc.name || cat.label),
         h('span', {}, badge(TAX_METHOD_LABEL[tm] || '課税方式未選択'), ' ', cat.supported ? null : badge('簡易扱い', 'warn')),
         h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.incomes.splice(i, 1); }, true) }, '削除')),
-      field('収入区分', select(catOptions, inc.category, (v) => set((x) => {
+      field('収入区分', select(catOptionsFor(inc.category), inc.category, (v) => set((x) => {
         const it = x.incomes[i]; it.category = v;
         const c = getIncomeCategory(v);
         if (c.taxMethod) it.taxMethod = c.taxMethod;
@@ -144,6 +144,7 @@ export function incomesSection(store) {
       cat.id === 'listedStock' ? info('上場株式等（株式・公募投資信託・国債など）の譲渡益と、申告分離課税を選んだ配当を、取得費・手数料を引いた年間の損益で入力します。所得税15%・住民税5%（ほかに復興特別所得税）の申告分離課税で、損失は上場株式等の中でだけ通算できます。NISA口座内の損益は非課税なので入力しないでください（NISAの損失は通算・繰越できません）。特定口座（源泉徴収あり）で申告しないことを選んだ分も入力は不要です。総合課税を選ぶ配当（配当控除の対象）は未対応です。') : null,
       cat.id === 'securities' ? info('上場株式等以外の株式等（一般株式等など）は簡易扱いです。NISA口座内の売却益・配当は非課税なので入力しないでください（NISAの損失は損益通算・繰越控除できません。国税庁No.1535）。特定口座（源泉徴収あり）で確定申告をしないことを選んだ分も入力は不要です（国税庁No.1900）。申告する場合の所得は、課税方式を選んで直接入力してください（分離課税の税額は計算に含めません）。') : null,
       inc.category === 'fx' ? info('先物取引に係る雑所得等（国内のFX、商品先物、株価指数先物・オプションなど）が対象で、所得税15%・住民税5%の申告分離課税です。損失は同じ区分の中でだけ通算できます。海外業者のFXや、暗号資産のレバレッジ取引・デリバティブは対象外（総合課税の雑所得）なので、「雑所得」や「暗号資産」に入力してください。年間の決済損益（スワップポイントなどを含む）は業者の年間取引報告書の実額を入力し、取引にかかった必要経費があれば、下の「必要経費の合計」に入れてください（所得＝損益−必要経費。どこまでが経費になるかはご自身で確認してください）。') : null,
+      inc.category === 'misc' ? info('副業の収入、暗号資産の売却益などを入れます（原則として総合課税の雑所得）。収入には売上（暗号資産は売却額）、経費には必要経費（暗号資産は譲渡原価・手数料など）を入力します。赤字は他の所得と通算できません。暗号資産の証拠金取引（レバレッジ取引）も、ここに入力します。') : null,
       inc.category === 'crypto' ? info('暗号資産の売却・暗号資産同士の交換・商品購入の利益は、原則として雑所得（総合課税）です。収入には売却額、経費には譲渡原価と手数料などを入力します（取得価額は総平均法または移動平均法で計算した額）。赤字は他の所得と通算できません。証拠金取引（レバレッジ取引）も総合課税です。年間の収入が300万円を超えると、帳簿書類の保存の有無で区分が変わります（国税庁FAQ）。') : null,
       inc.category === 'salary' ? info('給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
     );

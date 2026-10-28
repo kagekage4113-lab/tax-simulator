@@ -296,3 +296,15 @@ describe('健康保険の扶養の表示（確認の画面）', () => {
     expect(situationSection(storeOf(s)).textContent).not.toMatch(/健康保険の扶養/);
   });
 });
+
+describe('収入区分の選択肢', () => {
+  it('暗号資産は新しく選ぶ欄に出さない。以前の「暗号資産」の収入は、そのまま選択肢に残る', async () => {
+    const { incomesSection } = await import('../src/ui/sections.js');
+    const s = defaultState();
+    s.incomes = [{ ...newIncome('salary'), amount: 1 }, { ...newIncome('crypto'), amount: 1 }];
+    const el = incomesSection(storeOf(s));
+    const selects = [...el.querySelectorAll('select')].filter((x) => [...x.options].some((o) => o.value === 'salary'));
+    expect([...selects[0].options].map((o) => o.value)).not.toContain('crypto');
+    expect([...selects[1].options].map((o) => o.value)).toContain('crypto');
+  });
+});

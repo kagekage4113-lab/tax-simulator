@@ -1349,3 +1349,16 @@ describe('所得金額調整控除（子ども・特別障害者等を有する�
     expect(none.taxable.residentTax.comprehensive).toBe(7_120_000); // 調整なしなら 755万 − 43万
   });
 });
+
+describe('雑所得と暗号資産は同じ計算（暗号資産は新しく選ぶ欄に出さない）', () => {
+  const same = (cat) => calculate(mk([inc(cat, 1_000_000, 300_000)]), R7);
+  it('同じ収入・経費なら、所得・税額・手取りが完全に一致する', () => {
+    const a = same('misc'); const b = same('crypto');
+    expect(a.income.total).toBe(b.income.total);
+    expect([a.incomeTax.total, a.residentTax.total, a.takeHome]).toEqual([b.incomeTax.total, b.residentTax.total, b.takeHome]);
+  });
+  it('雑所得でも収入が300万円を超えたら、事業所得との区分の注記を出す（暗号資産以外の基準は未確認と明記）', () => {
+    expect(calculate(mk([inc('misc', 3_000_000, 0)]), R7).notes.join()).not.toMatch(/雑所得の年間収入が/);
+    expect(calculate(mk([inc('misc', 3_000_001, 0)]), R7).notes.join()).toMatch(/雑所得の年間収入が3,000,000円を超えています.*暗号資産以外の副業の区分の基準は未確認/);
+  });
+});
