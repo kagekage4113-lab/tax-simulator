@@ -174,3 +174,24 @@ describe('令和8年分だけに対応', () => {
     expect(el.textContent).toMatch(/令和7年分のデータを令和8年分として読み込みました/);
   });
 });
+
+describe('住民税・国保の基準は東京23区だけ（福山市は画面から選べない）', () => {
+  it('設定画面に地域の選択欄や福山市は出ない。世帯が有効なときの重複した注記も出ない', async () => {
+    const { settingsSection } = await import('../src/ui/sections.js');
+    const s = defaultState();
+    const t = settingsSection(storeOf(s)).textContent;
+    expect(t).not.toMatch(/福山/);
+    expect(t).not.toMatch(/住民税・国保の基準/);
+    expect(t).not.toMatch(/上の「世帯・家族/);
+  });
+  it('福山市の設定のJSONを読み込むと、東京23区に付け替えて注記を出す', async () => {
+    const { buildExport } = await import('../src/io/exchange.js');
+    const old = defaultState(); old.residence.area = 'fukuyama';
+    let replaced = null;
+    const el = dataSection({ get: () => old, replace: (n) => { replaced = n; } });
+    el.querySelector('textarea:not([readonly])').value = buildExport(old);
+    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
+    expect(replaced.residence.area).toBe('tokyo23');
+    expect(el.textContent).toMatch(/福山市（広島県）から東京23区（標準）に変えました/);
+  });
+});

@@ -22,6 +22,8 @@ export const AREAS = {
   fukuyama: { label: '福山市（広島県）', prefecture: '広島県' },
 };
 export const DEFAULT_AREA = 'tokyo23';
+// 画面で使う地域。福山市の値は、計算ロジックの検証（手計算のテスト）用に内部に残してあり、画面からは選べない。
+export const UI_AREAS = ['tokyo23'];
 
 const derived = new Map();
 function forTokyo23(base) {

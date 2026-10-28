@@ -1,14 +1,20 @@
 import { h } from './dom.js';
 import { buildExport, parseImport } from '../io/exchange.js';
 import { defaultState } from '../core/schema.js';
-import { DEFAULT_YEAR, UI_YEARS, yearLabel } from '../data/taxYears/index.js';
+import { AREAS, DEFAULT_AREA, DEFAULT_YEAR, UI_AREAS, UI_YEARS, yearLabel } from '../data/taxYears/index.js';
 
 // 画面が対応する年以外のデータは、対応する年（令和8年分）として読み込む。付け替えたときは注記を返す。
 function adoptYear(state) {
-  if (UI_YEARS.includes(state.taxYear)) return '';
-  const old = state.taxYear;
-  state.taxYear = DEFAULT_YEAR;
-  return `（${yearLabel(old)}のデータを${yearLabel(DEFAULT_YEAR)}として読み込みました）`;
+  const notes = [];
+  if (!UI_YEARS.includes(state.taxYear)) {
+    notes.push(`${yearLabel(state.taxYear)}のデータを${yearLabel(DEFAULT_YEAR)}として読み込みました`);
+    state.taxYear = DEFAULT_YEAR;
+  }
+  if (!UI_AREAS.includes(state.residence.area)) {
+    notes.push(`住民税・国保の基準を${AREAS[state.residence.area]?.label || state.residence.area}から${AREAS[DEFAULT_AREA].label}に変えました`);
+    state.residence.area = DEFAULT_AREA;
+  }
+  return notes.length ? `（${notes.join('。')}）` : '';
 }
 
 export function dataSection(store) {

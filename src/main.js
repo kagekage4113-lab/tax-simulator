@@ -8,7 +8,7 @@ import { householdInputSection, householdReviewSection } from './ui/household.js
 import { situationSection } from './ui/situation.js';
 import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
-import { DEFAULT_YEAR, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
+import { AREAS, DEFAULT_AREA, DEFAULT_YEAR, UI_AREAS, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
 
 const store = createStore();
 const app = document.getElementById('app');
@@ -19,6 +19,12 @@ if (!UI_YEARS.includes(store.get().taxYear)) {
   const old = store.get().taxYear;
   store.update((x) => { x.taxYear = DEFAULT_YEAR; });
   yearNotice = `${yearLabel(old)}の保存データを、${yearLabel(DEFAULT_YEAR)}として読み込みました。税額は${yearLabel(DEFAULT_YEAR)}の制度で計算し直されます。`;
+}
+// 住民税・国保の基準は東京23区だけ。以前の保存データの地域（福山市など）は、標準の東京23区に付け替える
+if (!UI_AREAS.includes(store.get().residence.area)) {
+  const old = AREAS[store.get().residence.area]?.label || store.get().residence.area;
+  store.update((x) => { x.residence.area = DEFAULT_AREA; });
+  yearNotice = [yearNotice, `住民税・国保の基準を、${old}から${AREAS[DEFAULT_AREA].label}に変えました（住民税・国保は標準の値で計算します。国保は実額入力が確実です）。`].filter(Boolean).join(' ');
 }
 
 const status = h('span', { class: 'save-status', role: 'status' }, '');

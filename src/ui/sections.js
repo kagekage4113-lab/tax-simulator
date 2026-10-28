@@ -6,7 +6,7 @@ import {
 } from '../core/schema.js';
 import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
-import { AREAS, UI_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
+import { UI_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 import { calculate } from '../calc/engine.js';
 
@@ -79,19 +79,14 @@ export function settingsSection(store) {
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
     field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
-      { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。' }),
-    h('details', { class: 'edit' }, h('summary', {}, '住民税・国保の基準（くわしく）'),
-      field('住民税・国保税の基準にする地域', select(Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, a.label])), s.residence.area, (v) => set((x) => { x.residence.area = v; }, true)),
-        { hint: '標準は東京23区です。均等割・非課税の限度額・国保料は自治体で少し、国保は大きく違うことがあります（国保は「実額を入力」で解決できます）。' })),
+      { hint: '会社員の社会保険料（協会けんぽ）の料率に使います。住民税・国保は、東京23区の標準的な値で計算します。' }),
     ...(s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [field('申告方式（事業・不動産の収入があるとき）', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true)))] : []),
     ...(s.filing.type === 'blue' && s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
         { hint: '55万円・65万円は複式簿記での記帳が必要で、65万円はe-Tax提出または電子帳簿保存も必要です。条件を満たすかはご自身の申告として扱います。' }),
     ] : []),
     ...(s.household.enabled ? [] : insuranceFields(store)),
-    s.household.enabled
-      ? h('p', { class: 'note' }, '本人・配偶者・扶養親族は、上の「世帯・家族（かんたん入力）」の回答から計算しています。')
-      : h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal),
+    ...(s.household.enabled ? [] : [h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal)]),
   ]);
 }
 
