@@ -67,7 +67,9 @@ footer { color: var(--muted); font-size: .78rem; text-align: center; margin-top:
 .hero p { margin: 0; }
 .hero-label { font-size: .82rem; color: var(--muted); }
 .hero-num { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.tbl.cmp th, .tbl.cmp td { font-size: .85rem; }
+.tbl.cmp th, .tbl.cmp td { font-size: .78rem; padding: 6px 2px; }
+.tbl.cmp tr.strong th, .tbl.cmp tr.strong td { font-size: .88rem; }
+.tbl.cmp th:first-child { white-space: nowrap; width: 1%; text-align: left; }
 .tbl.cmp thead th { color: var(--muted); font-weight: 600; text-align: right; }
 .wall-list { padding-left: 1.4em; font-size: .88rem; }
 .wall-list li { margin: 8px 0; }
@@ -192,3 +194,6 @@ tr.out th, tr.out td { opacity: .6; }
 .confirm[hidden] { display: none; }
 .confirm-q { margin: 0 0 8px; font-weight: 600; }
 .sep { border: 0; border-top: 1px solid var(--line); margin: 14px 0 6px; }
+
+/* 表がはみ出すときは、ページ全体ではなく表の中だけを横にスクロールする */
+.tbl-wrap { overflow-x: auto; max-width: 100%; }

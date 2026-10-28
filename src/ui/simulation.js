@@ -9,6 +9,9 @@ import { rulesOf } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 
 const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
+// 比較表は幅が狭いので「円」を付けず、見出しで単位を示す
+const num = (v) => (v == null ? '—' : formatYen(v));
+const snum = (v) => (v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatYen(Math.abs(v))}`);
 const signed = (v) => (v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatYen(Math.abs(v))}円`);
 const pct = (v) => (v == null ? '—' : `${(Math.round(v * 10) / 10).toFixed(1)}%`);
 const NEW_CATEGORIES = ['salary', 'business', 'realEstate', 'misc', 'crypto', 'fx', 'listedStock'];
@@ -66,13 +69,13 @@ export function simulationSection(store, rulesFor = rulesOf) {
   const missingNote = (missing) => (missing && missing.length
     ? h('p', { class: 'warn' }, `税制データが未登録のため、比較できない項目があります：${[...new Set(missing.map(missingLabel))].join('、')}`) : null);
   const notesList = (notes) => (notes && notes.length ? h('details', { class: 'sub' }, h('summary', {}, '計算の前提'), h('ul', { class: 'status-list' }, notes.map((n) => h('li', {}, n)))) : null);
-  const cmpTable = (mb, ma, diff, hasBusinessTax) => h('table', { class: 'tbl cmp' },
-    h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, '変更前'), h('th', {}, '変更後'), h('th', {}, '増減'))),
+  const cmpTable = (mb, ma, diff, hasBusinessTax) => h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl cmp' },
+    h('thead', {}, h('tr', {}, h('th', {}, '（円）'), h('th', {}, '変更前'), h('th', {}, '変更後'), h('th', {}, '増減'))),
     h('tbody', {}, [
       ['収入', 'revenue'], ['所得（合計）', 'income'], ['所得税', 'incomeTax'], ['住民税', 'residentTax'],
       ...(hasBusinessTax ? [['個人事業税', 'businessTax']] : []), ['社会保険料', 'socialInsurance'],
-      ['年間負担合計', 'burden', true], ['年間手取り', 'takeHome', true],
-    ].map(([label, k, strong]) => h('tr', { class: strong ? 'strong' : '' }, h('th', {}, label), h('td', { class: 'r' }, yen(mb[k])), h('td', { class: 'r' }, yen(ma[k])), h('td', { class: 'r' }, signed(diff[k]))))));
+      ['負担合計', 'burden', true], ['手取り', 'takeHome', true],
+    ].map(([label, k, strong]) => h('tr', { class: strong ? 'strong' : '' }, h('th', {}, label), h('td', { class: 'r' }, num(mb[k])), h('td', { class: 'r' }, num(ma[k])), h('td', { class: 'r' }, snum(diff[k])))))));
 
   // ---- A. 追加収入 ----
   const A = panel('あと○円稼いだら？（追加収入の比較・限界負担率）', 'sim-income', null);
@@ -170,15 +173,17 @@ export function simulationSection(store, rulesFor = rulesOf) {
     const t = fxTiming(state, rules, { unrealized: ui.fxUnreal, realize: ui.fxRealize });
     const sel = t.evaluate(Math.min(ui.fxRealize, ui.fxUnreal));
     if (!t.now.ok) return setChildren(D.output, h('p', { class: 'warn' }, '現在の入力では、税制データが未登録の項目があり計算できません。結果欄の注意を確認してください。'));
-    const col = (e) => [yen(e.thisBurden), yen(e.nextBurden), yen(e.totalBurden)];
-    const cols = [['全額来年', t.now], [`今年 ${formatYen(sel.realize)}円`, sel], ['全額今年', t.all]];
+    const col = (e) => [num(e.thisBurden), num(e.nextBurden), num(e.totalBurden)];
+    const manLabel = (n) => `${Math.round(n / 1000) / 10}万円`;
+    const cols = [['全額来年', t.now], [`今年${manLabel(sel.realize)}`, sel], ['全額今年', t.all]];
     const saving = t.all.totalBurden - t.best.totalBurden;
     setChildren(D.output, 
       h('p', { class: 'note' }, `今年の所得控除の余り：所得税 ${yen(t.slack?.incomeTax)}／住民税 ${yen(t.slack?.residentTax)}。この範囲までのFX利益には、その税目の税金がかかりません（控除の使い残しを活かせます）。`),
       t.carry.used > 0 || t.carry.remaining > 0 ? h('p', { class: 'note' }, `繰越損失：今年の現在の損益で ${yen(t.carry.used)} を消化、翌年へ ${yen(t.carry.remaining)} が残ります。`) : null,
-      h('table', { class: 'tbl cmp' },
-        h('thead', {}, h('tr', {}, h('th', {}, '税金・社会保険料の負担'), cols.map(([label]) => h('th', {}, label)))),
-        h('tbody', {}, ['今年', '来年（同条件と仮定）', '2年の合計'].map((label, i) => h('tr', { class: i === 2 ? 'strong' : '' }, h('th', {}, label), cols.map(([, e]) => h('td', { class: 'r' }, col(e)[i])))))),
+      h('p', { class: 'hint' }, '税金・社会保険料の負担（円）。来年は同条件と仮定。'),
+      h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl cmp' },
+        h('thead', {}, h('tr', {}, h('th', {}, ''), cols.map(([label]) => h('th', {}, label)))),
+        h('tbody', {}, ['今年', '来年', '2年合計'].map((label, i) => h('tr', { class: i === 2 ? 'strong' : '' }, h('th', {}, label), cols.map(([, e]) => h('td', { class: 'r' }, col(e)[i]))))))),
       h('div', { class: 'hero' },
         h('p', { class: 'hero-label' }, '2年間の負担が最小になる利確額'),
         h('p', { class: 'hero-num' }, `今年 ${formatYen(t.best.realize)}円 ／ 来年 ${formatYen(ui.fxUnreal - t.best.realize)}円`),
@@ -237,8 +242,8 @@ export function simulationSection(store, rulesFor = rulesOf) {
     const every = Math.max(1, Math.round(100_000 / step));
     const rows = sw.points.filter((_, i) => i % every === 0);
     return h('details', { class: 'sub' }, h('summary', {}, 'グラフのデータを表で見る'),
-      h('table', { class: 'tbl' }, h('thead', {}, h('tr', {}, h('th', {}, '追加収入'), h('th', {}, '負担の増加'), h('th', {}, '手取りの増加'))),
-        h('tbody', {}, rows.map((p) => h('tr', {}, h('td', { class: 'r' }, yen(p.add)), h('td', { class: 'r' }, signed(p.burden - sw.points[0].burden)), h('td', { class: 'r' }, signed(p.gain)))))));
+      h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl' }, h('thead', {}, h('tr', {}, h('th', {}, '追加収入'), h('th', {}, '負担の増加'), h('th', {}, '手取りの増加'))),
+        h('tbody', {}, rows.map((p) => h('tr', {}, h('td', { class: 'r' }, yen(p.add)), h('td', { class: 'r' }, signed(p.burden - sw.points[0].burden)), h('td', { class: 'r' }, signed(p.gain))))))));
   }
 
   // 主役は「あと○円稼いだら？」。経費・壁のグラフ・FXの利確は「くわしい比較」に畳む
