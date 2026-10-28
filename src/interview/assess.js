@@ -11,6 +11,7 @@ import { defaultState, newIncome } from '../core/schema.js';
 import { formatYen } from '../core/money.js';
 import { newPerson } from '../core/household.js';
 import { publicPensionIncome } from '../calc/pension.js';
+import { situation } from '../calc/situation.js';
 
 const REL = { child: 'child', parent: 'parent', other: 'other' };
 const resolve = (v, scenario) => (v === null || v === undefined ? scenario === 'optimistic' : v);
@@ -241,3 +242,57 @@ export function familyMargins(state, rules) {
   }
   return out;
 }
+
+// 世帯の見取り図: 家族それぞれが「本人として」いくら税金を払い、住民税が非課税か。誰が課税かで、世帯の状況（世帯全員が非課税か）が決まる。
+// 家族は、本人の所得（年金・事業・給与などから換算）だけで、控除は基礎控除・本人の障害・配偶者（同一生計配偶者）のみで判定する簡易計算。
+// 社会保険料控除などは入れない（家族の保険料は入力がないため）。配偶者は partnerId（または相手側の partnerId）で結ぶ。
+export function overview(state, rules) {
+  const S = scenarioState(state, rules, 'confirmed');
+  const rMe = calculate(S, rules);
+  const people = state.household.people;
+  const partnerOf = (p) => people.find((q) => q.id === p.partnerId) || people.find((q) => q.partnerId === p.id) || null;
+  const certDisability = (cert) => certClass(cert, 'confirmed').cls;
+  const rows = [];
+  const mine = rMe.residentTax;
+  rows.push({
+    id: 'me', name: 'あなた', age: state.self.age, income: rMe.income.total,
+    incomeTax: rMe.incomeTax ? rMe.incomeTax.total : null, residentTax: mine ? mine.total : null, exemption: mine ? mine.exemption : undefined,
+    known: rMe.takeHome !== null,
+  });
+  for (const p of people) {
+    const inc = personIncome(p, rules, state.taxYear);
+    const row = { id: p.id, name: p.name || PERSON_LABEL[p.kind], age: p.age, income: inc.value, known: inc.value !== null };
+    if (inc.value === null) { rows.push({ ...row, incomeTax: null, residentTax: null, exemption: undefined }); continue; }
+    const m = defaultState();
+    m.taxYear = state.taxYear;
+    m.residence = { ...state.residence };
+    m.insurance = { type: 'none', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    m.self.age = p.age;
+    m.self.disability = certDisability(p.certificate);
+    m.incomes = inc.value > 0 ? [{ ...newIncome('other'), taxMethod: 'comprehensive', amount: inc.value }] : [];
+    const q = p.kind === 'spouse' ? null : partnerOf(p);
+    if (p.kind === 'spouse') {
+      m.spouse = { exists: true, age: state.self.age, income: rMe.income.total ?? 0, disability: certDisability(state.household.me.certificate), cohabiting: true };
+    } else if (q) {
+      const qi = personIncome(q, rules, state.taxYear);
+      m.spouse = { exists: true, age: q.age, income: qi.value ?? 0, disability: certDisability(q.certificate), cohabiting: true };
+    }
+    const r = calculate(m, rules);
+    rows.push({ ...row, partner: !!(q || p.kind === 'spouse'), incomeTax: r.incomeTax ? r.incomeTax.total : null, residentTax: r.residentTax ? r.residentTax.total : null, exemption: r.residentTax ? r.residentTax.exemption : undefined });
+  }
+  const isAll = (r) => r.exemption === 'all';
+  const unknown = rows.filter((r) => !r.known || r.exemption === undefined);
+  const taxable = rows.filter((r) => r.known && r.exemption !== undefined && !isAll(r));
+  const allNonTaxable = unknown.length ? null : taxable.length === 0;
+  let margin = null;
+  if (allNonTaxable && rMe.takeHome !== null) {
+    const m = situation(S, rules, 'fx').marks.find((x) => x.id === 'residentNonTaxable');
+    margin = m ? m.margin : null;
+  }
+  // 親どうし（または家族の誰か）が夫婦と指定されていないとき、非課税の判定が変わりうる組があるか
+  const parents = people.filter((p) => p.kind === 'parent');
+  const unpaired = parents.length >= 2 && parents.every((p) => !p.partnerId && !people.some((q) => q.partnerId === p.id));
+  return { rows, allNonTaxable, taxable, unknown, margin, unpaired };
+}
+
+const PERSON_LABEL = { spouse: '配偶者', child: '子', parent: '親', other: '親族' };

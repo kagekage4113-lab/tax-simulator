@@ -268,3 +268,54 @@ describe('東京23区の国民健康保険料（令和7年度の特別区の標�
     expect(calculate(s, rulesOf(s)).socialInsurance.total).toBe(1_305_040);
   });
 });
+
+import { overview } from '../src/interview/assess.js';
+describe('世帯の見取り図（誰の何の税金か）', () => {
+  // 母（事業所得50万円・身体障害者手帳1級）、父（年金194万円→所得84万円）、本人、子15・13。令和7年分・東京23区
+  const mkOv = (partner) => {
+    const s = sample({
+      mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12', partnerId: partner ? 'father' : null },
+      father: { livesTogether: true, supportedByMe: true },
+    });
+    s.residence.area = 'tokyo23';
+    s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
+    return overview(s, getTaxYear(2025, 'tokyo23'));
+  };
+  const row = (ov, id) => ov.rows.find((r) => r.id === id);
+
+  it('母は障害者の基準（合計所得135万円以下）で非課税。子（未成年）も非課税', () => {
+    const ov = mkOv(false);
+    expect(row(ov, 'mother').exemption).toBe('all');
+    expect(row(ov, 'k1').exemption).toBe('all');
+    expect(row(ov, 'k2').exemption).toBe('all');
+  });
+  it('夫婦と指定しないと、父（所得84万円）は課税: 所得割 (84万−基礎43万=41万)×10% − 調整控除2,500円 = 38,500円 ＋ 均等割5,000円 = 43,500円', () => {
+    const ov = mkOv(false);
+    expect(row(ov, 'father').exemption).toBeNull();
+    expect(row(ov, 'father').residentTax).toBe(43_500);
+    expect(ov.allNonTaxable).toBe(false);
+    expect(ov.taxable.map((r) => r.id)).toEqual(['father']);
+    expect(ov.unpaired).toBe(true);
+  });
+  it('夫婦と指定すると、母（所得50万円≦58万円）が同一生計配偶者として数えられ、父の限度は 35万円×2+10万円+21万円 = 101万円 ≧ 84万円 で非課税', () => {
+    const ov = mkOv(true);
+    expect(row(ov, 'father').exemption).toBe('all');
+    expect(row(ov, 'father').residentTax).toBe(0);
+    expect(ov.allNonTaxable).toBe(true);
+    expect(ov.unpaired).toBe(false);
+  });
+  it('世帯全員が非課税のとき、本人のFXが あと何円まで非課税か を返す（本人＋母＋子2＝扶養4人: 35万円×4+10万円+21万円 = 171万円、いまの所得35万円 → あと136万円）', () => {
+    const ov = mkOv(true);
+    expect(ov.margin).toBe(1_360_000);
+  });
+  it('所得を確定できない家族がいれば、世帯全員が非課税かは判定しない（null）', () => {
+    const s = sample({ father: { incomeKind: 'unknown', livesTogether: true, supportedByMe: true } });
+    s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
+    const ov = overview(s, getTaxYear(2025, 'tokyo23'));
+    expect(ov.allNonTaxable).toBeNull();
+  });
+  it('配偶者の相手側の指定（母→父）だけでも、父側から夫婦として数える', () => {
+    const ov = mkOv(true); // mother.partnerId = 'father' のみ指定
+    expect(row(ov, 'father').partner).toBe(true);
+  });
+});

@@ -4,7 +4,7 @@ import { h, field, select, checkbox, badge } from './dom.js';
 import { gaugeField } from './gaugeField.js';
 import { CERTIFICATES, INCOME_KINDS, PERSON_KINDS, newPerson } from '../core/household.js';
 import { insuranceFields } from './sections.js';
-import { assess, applyHousehold, importLegacyPeople, man } from '../interview/assess.js';
+import { assess, applyHousehold, importLegacyPeople, man, overview } from '../interview/assess.js';
 import { rulesOf } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 
@@ -51,6 +51,7 @@ export function householdSection(store, rulesFor = rulesOf) {
   const hh = s.household;
   const verdictBoxes = new Map(); // who('me' | 人のid) → 判定欄
   const totalsBox = h('div', { class: 'hh-totals' });
+  const overviewBox = h('div', { class: 'hh-overview' });
 
   const el = h('details', { class: 'card', id: 'sec-household', open: true },
     h('summary', {}, '世帯・家族（かんたん入力・試作）'));
@@ -69,7 +70,7 @@ export function householdSection(store, rulesFor = rulesOf) {
 
   if (!hh.enabled) return Object.assign(el, { refresh() {} });
 
-  body.append(totalsBox);
+  body.append(totalsBox, overviewBox);
 
   // あなた
   const meBox = h('div', {});
@@ -86,7 +87,7 @@ export function householdSection(store, rulesFor = rulesOf) {
       ? tri('お子さんを、元の配偶者など他の人の扶養に入れていませんか（入れている＝はい）', hh.me.childClaimedElsewhere, (v) => set((x) => { x.household.me.childClaimedElsewhere = v; })) : null));
 
   // 家族
-  hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes)));
+  hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes, hh.people)));
 
   const add = (kind) => set((x) => { x.household.people.push(newPerson(kind)); applyHousehold(x, rulesFor(x)); }, true);
   body.append(
@@ -110,12 +111,13 @@ export function householdSection(store, rulesFor = rulesOf) {
       if (box) box.replaceChildren(verdictList(c));
     }
     totalsBox.replaceChildren(totals(a));
+    overviewBox.replaceChildren(overviewView(overview(state, rules)));
   };
   el.refresh(s);
   return el;
 }
 
-function personCard(store, p, i, verdictBoxes) {
+function personCard(store, p, i, verdictBoxes, people) {
   const set = (fn, structural = false) => store.update(fn, { structural });
   const upd = (key, val, structural) => set((x) => { x.household.people[i][key] = val; }, structural);
   const box = h('div', {});
@@ -142,7 +144,10 @@ function personCard(store, p, i, verdictBoxes) {
     ...incomeFields,
     field('障害者手帳などはありますか', select(CERTIFICATES, p.certificate, (v) => upd('certificate', v)),
       { hint: '手帳の等級で一般障害者・特別障害者が決まります（国税庁 No.1160）。透析をされている方は、身体障害者手帳（腎臓機能障害）の等級を確認してください。' }),
-    checkbox('通院・入院などの医療費を払っている', p.medical, (v) => upd('medical', v))));
+    checkbox('通院・入院などの医療費を払っている', p.medical, (v) => upd('medical', v)),
+    p.kind === 'spouse' || p.kind === 'child' ? null : field('この家族の中の配偶者（夫婦で生計を一にしている相手）',
+      select({ '': 'いない・この中にはいない', ...Object.fromEntries(people.filter((q) => q.id !== p.id && q.kind !== 'spouse' && q.kind !== 'child').map((q) => [q.id, `${PERSON_KINDS[q.kind]}${q.name ? `：${q.name}` : ''}（${q.age}歳）`])) }, p.partnerId || '', (v) => upd('partnerId', v || null, false)),
+      { hint: '親どうしが夫婦なら、お互いを選びます。所得が基準以下の配偶者は「同一生計配偶者」として、相手の住民税の非課税の限度に数えられます。' })));
 }
 
 function totals(a) {
@@ -173,3 +178,25 @@ function sampleHousehold() {
     mk('child', { name: '子', age: 13 }),
   ];
 }
+
+const EXEMPT_LABEL = { all: '非課税', levy: '所得割のみ非課税（均等割は課税）' };
+function overviewView(ov) {
+  const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
+  const stateOf = (r) => (!r.known || r.exemption === undefined ? '不明' : r.exemption ? EXEMPT_LABEL[r.exemption] : '課税');
+  const rows = ov.rows.map((r) => h('tr', {}, h('th', {}, `${r.name}（${r.age}歳）`), h('td', { class: 'r' }, r.income == null ? '—' : yen(r.income)), h('td', { class: 'r' }, yen(r.incomeTax)), h('td', { class: 'r' }, yen(r.residentTax)), h('td', {}, stateOf(r))));
+  return h('div', { class: 'hh-box' },
+    h('h3', {}, '世帯の見取り図（誰の、何の税金か）'),
+    h('p', { class: 'hint' }, '家族それぞれを「本人として」見た目安です（本人の所得・基礎控除・本人の障害・配偶者だけで計算し、社会保険料控除などは入れていません）。'),
+    h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl cmp' },
+      h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, '所得'), h('th', {}, '所得税'), h('th', {}, '住民税'), h('th', {}, '住民税の状態'))),
+      h('tbody', {}, rows))),
+    ov.allNonTaxable === true ? h('p', {}, h('strong', {}, '世帯全員が住民税非課税です。'), ov.margin != null ? `あなたのFXの利益があと${manShort(ov.margin)}までなら、あなたが非課税のまま（世帯全員が非課税のまま）です。` : '') : null,
+    ov.allNonTaxable === false ? h('p', { class: 'warn' }, `住民税が課税なのは ${ov.taxable.map((r) => r.name).join('、')} です。世帯全員が非課税ではありません。`) : null,
+    ov.allNonTaxable === null ? h('p', { class: 'hint' }, `${ov.unknown.map((r) => r.name).join('、')} の所得が確定できないため、世帯全員が非課税かどうかは判定できません。`) : null,
+    ov.unpaired ? h('p', { class: 'hint' }, '親どうしが夫婦なら、各人の「回答を編集する」を開き、「この家族の中の配偶者」でお互いを選んでください。所得が基準以下の配偶者がいると、相手の非課税の限度が大きくなり、結果が変わることがあります。') : null,
+    h('details', { class: 'edit' }, h('summary', {}, '本人だけで決まるもの／世帯で決まるもの'),
+      h('p', { class: 'hint' }, '【本人だけ】所得税・住民税の税額。住民税の非課税の判定（本人の所得と、本人の扶養人数・同一生計配偶者の人数で決まる限度額との比較）。'),
+      h('p', { class: 'hint' }, '【世帯が関わる】国民健康保険料（加入者の人数・所得の合計、軽減の判定）。介護保険料の段階や、70歳以上の高額療養費の区分は、一般に、本人と世帯の住民税の課税状況（世帯全員が非課税か）で決まります。住民票の世帯が同居の家族と同じか別かでも変わります。これらの金額は、資料が未入手のため、このアプリでは計算していません。上の「世帯全員が非課税か」は、その判定の材料です。'),
+      h('p', { class: 'hint' }, '誰を扶養に入れるか、世帯をどう分けるかの判断はしません。現在の入力から、どうなるかだけを示します。')));
+}
+const manShort = (n) => (n >= 10_000 ? `${Math.round(n / 1000) / 10}万円` : `${formatYen(n)}円`);
