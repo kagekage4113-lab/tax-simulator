@@ -64,7 +64,7 @@ export function dataSection(store) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       show('保存しました（ダウンロードフォルダに入ります）。保存されないときは、下の「テキストでコピー」を使ってください。個人情報を含むため、保管にご注意ください。', 'ok');
     } catch {
-      box.hidden = false; box.select();
+      openFallback(); box.hidden = false; box.select();
       show('ファイルにできませんでした。下の欄の内容をコピーして、メモなどに貼り付けて残してください。', 'error');
     }
   } }, 'バックアップを保存');
@@ -74,7 +74,7 @@ export function dataSection(store) {
     box.value = text;
     const copied = await copyText(text);
     show(copied ? 'コピーしました。メモなどに貼り付けて残してください。' : '下の欄の内容を選んでコピーしてください。', copied ? 'ok' : '');
-    if (!copied) { box.hidden = false; box.select(); }
+    if (!copied) { openFallback(); box.hidden = false; box.select(); }
   } }, 'テキストでコピー');
 
   // 読み込み: 端末のファイル（拡張子を問わない。スマホのファイル選択で灰色になって選べないことを避ける）
@@ -100,15 +100,21 @@ export function dataSection(store) {
   });
   const resetBtn = h('button', { type: 'button', class: 'btn danger', onClick: reset.open }, '入力を初期化');
 
+  const fallback = h('details', { class: 'edit' }, h('summary', {}, 'うまく保存・読み込みできないとき'),
+    h('p', { class: 'hint' }, 'ファイルにできない環境向けです。「テキストでコピー」でコピーしてメモなどに貼っておき、戻すときは「コピーしたものを読み込む」（または下の欄に貼り付け）を使います。'),
+    h('div', { class: 'row' }, copyBtn, clipBtn),
+    box,
+    pasteBox,
+    h('div', { class: 'row' }, pasteBtn));
+  const openFallback = () => { fallback.open = true; };
+
   return h('details', { class: 'card', id: 'sec-data', open: false },
     h('summary', {}, 'データの保存・読み込み'),
     h('div', { class: 'body' },
       h('p', { class: 'note' }, '入力内容は、この端末のブラウザの中に自動で保存されます（外部には送りません）。機種変更やブラウザのデータ削除に備えて、ときどきバックアップを残しておくと安心です。'),
       h('div', { class: 'row' }, saveBtn, loadBtn, fileInput),
-      h('div', { class: 'row' }, copyBtn, clipBtn),
       msg,
-      box,
-      h('details', { class: 'edit' }, h('summary', {}, '貼り付けて読み込む'), pasteBox, h('div', { class: 'row' }, pasteBtn)),
+      fallback,
       h('hr', { class: 'sep' }),
       h('div', { class: 'row' }, resetBtn),
       reset.box));
