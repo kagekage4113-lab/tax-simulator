@@ -3,6 +3,7 @@
 import { h, field, select, checkbox, badge } from './dom.js';
 import { gaugeField } from './gaugeField.js';
 import { CERTIFICATES, INCOME_KINDS, PERSON_KINDS, newPerson } from '../core/household.js';
+import { insuranceFields } from './sections.js';
 import { assess, applyHousehold, importLegacyPeople, man } from '../interview/assess.js';
 import { getTaxYear } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
@@ -78,8 +79,11 @@ export function householdSection(store, rulesFor = getTaxYear) {
     h('div', { class: 'item-head' }, h('strong', {}, 'あなた')),
     meBox,
     gaugeField({ compact: true, label: '年齢（12月31日時点）', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
+    ...insuranceFields(store),
     field('障害者手帳などはありますか', select(CERTIFICATES, hh.me.certificate, (v) => set((x) => { x.household.me.certificate = v; }))),
-    !hasSpouse ? tri('事実上の婚姻関係（事実婚・同棲など、夫婦と同様の事情）にある人はいますか', hh.me.partner, (v) => set((x) => { x.household.me.partner = v; })) : null));
+    !hasSpouse ? tri('事実上の婚姻関係（事実婚・同棲など、夫婦と同様の事情）にある人はいますか', hh.me.partner, (v) => set((x) => { x.household.me.partner = v; })) : null,
+    !hasSpouse && hh.people.some((p) => p.kind === 'child')
+      ? tri('お子さんを、元の配偶者など他の人の扶養に入れていませんか（入れている＝はい）', hh.me.childClaimedElsewhere, (v) => set((x) => { x.household.me.childClaimedElsewhere = v; })) : null));
 
   // 家族
   hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes)));
@@ -91,7 +95,7 @@ export function householdSection(store, rulesFor = getTaxYear) {
     }, `＋ ${label}を追加`))),
     h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn', onClick: () => set((x) => {
       x.self.age = 39;
-      x.household = { enabled: true, me: { certificate: 'none', partner: null }, people: sampleHousehold() };
+      x.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: sampleHousehold() };
       applyHousehold(x, rulesFor(x.taxYear));
     }, true) }, '例の世帯を入れてみる（母72・父73・子15と13）')),
     h('p', { class: 'hint' }, '判定は、あなたの申告（回答）に基づく目安です。控除の適用には証明書類が必要な場合があります。世帯の中で誰が扶養に入れるか（きょうだい・配偶者側との調整）は考慮せず、「この方をあなたの扶養に入れる」前提で計算します。'));
@@ -118,7 +122,7 @@ function personCard(store, p, i, verdictBoxes) {
   verdictBoxes.set(p.id, box);
   const incomeFields = [];
   if (p.incomeKind === 'salary') incomeFields.push(gaugeField({ compact: true, label: '年間の給与収入（額面）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v) }));
-  if (p.incomeKind === 'pension') incomeFields.push(gaugeField({ compact: true, label: '年金の年間受取額（年金振込通知書・源泉徴収票の金額）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v), hint: '年金収入から所得への換算（公的年金等控除）の表は未登録のため、所得は確定できず「要確認」になります。' }));
+  if (p.incomeKind === 'pension') incomeFields.push(gaugeField({ compact: true, label: '年金の年間受取額（年金振込通知書・源泉徴収票の金額）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v), hint: '年金収入から公的年金等控除を引いて所得を求めます（国税庁 No.1600。年金以外の所得はない前提）。' }));
   if (p.incomeKind === 'business') incomeFields.push(
     gaugeField({ compact: true, label: '年間の売上', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v) }),
     gaugeField({ compact: true, label: '年間の経費（分からなければ0円。売上と利益のどちらでも判定できる場合があります）', value: p.expenses, max: 5_000_000, onChange: (v) => upd('expenses', v) }));
@@ -164,7 +168,7 @@ function sampleHousehold() {
   const mk = (kind, o) => ({ ...newPerson(kind), ...o });
   return [
     mk('parent', { name: '母', age: 72, incomeKind: 'business', revenue: 500_000, certificate: 'unknown', medical: true }),
-    mk('parent', { name: '父', age: 73, incomeKind: 'pension', revenue: 0 }),
+    mk('parent', { name: '父', age: 73, incomeKind: 'pension', revenue: 1_940_000 }),
     mk('child', { name: '子', age: 15 }),
     mk('child', { name: '子', age: 13 }),
   ];

@@ -19,7 +19,7 @@ describe('結果画面', () => {
     expect(c['住民税（翌年度分）']).toBe('246,000円'); // 調整控除2,500円を含む
     expect(c['年間手取り']).toBe('3,930,970円');
     expect(el.textContent).toMatch(/端数処理/); // 前提の注記が画面に出る
-    expect(el.textContent).not.toMatch(/税制データが未登録のため/);
+    expect(el.textContent).not.toMatch(/未登録または未入力のため/);
   });
   it('令和8年分: 給与300万・社保なし → 手計算で手取り2,787,971円（住民税の控除額は令和8年度で代用と明記）', () => {
     // 給与所得=3,000,000-(0.3*3,000,000+80,000=980,000)=2,020,000 / 所得税: 基礎1,040,000 → 課税980,000 → 5%=49,000 / 復興floor(1,029)=1,029 → 50,029
@@ -101,7 +101,7 @@ describe('結果画面', () => {
     expect(c['年間手取り']).toBe('—');
     expect(c['所得税（復興税含む）']).toBe('—');
     expect(c['年間収入']).toBe('5,000,000円');
-    expect(el.textContent).toMatch(/税制データが未登録のため/);
+    expect(el.textContent).toMatch(/未登録または未入力のため/);
     expect(el.textContent).toMatch(/所得税の税率表/);
   });
 });

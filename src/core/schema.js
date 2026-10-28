@@ -16,6 +16,7 @@ export const FILING_TYPE = { white: '白色申告', blue: '青色申告' };
 export const BLUE_DEDUCTIONS = [10, 55, 65];
 export const INSURANCE_TYPE = {
   employee: '会社員（健康保険・厚生年金）',
+  voluntary: '会社の健康保険の任意継続（退職後）',
   national: '個人事業主など（国民健康保険・国民年金）',
   dependent: '家族の健康保険の被扶養者',
   none: 'その他・未加入',
@@ -77,7 +78,7 @@ export function defaultState() {
     self: { age: 30, disability: 'none', widowSingleParent: 'none', workingStudent: false },
     spouse: { exists: false, age: 30, income: 0, disability: 'none', cohabiting: true },
     dependents: [],
-    insurance: { type: 'employee', actualAnnual: null }, // actualAnnual: 実額（円）。null=概算を使う
+    insurance: { type: 'employee', actualAnnual: null, monthlyPremium: null, nationalPension: false }, // actualAnnual: 実額（円）。null=概算を使う／monthlyPremium: 任意継続の毎月の保険料／nationalPension: 国民年金を別に払っているか（任意継続のとき）
     filing: { type: 'white', blueDeduction: 65 },
     incomes: [newIncome('salary')],
     listedCarryLosses: [], // 上場株式等の繰越損失（fxCarryLosses と同じ形式）
@@ -162,6 +163,8 @@ export function validateState(input) {
   s.insurance = {
     type: oneOf(ins.type, Object.keys(INSURANCE_TYPE), 'insurance.type', 'employee'),
     actualAnnual: yen(ins.actualAnnual ?? null, 'insurance.actualAnnual', { nullable: true }),
+    monthlyPremium: yen(ins.monthlyPremium ?? null, 'insurance.monthlyPremium', { nullable: true }),
+    nationalPension: bool(ins.nationalPension ?? false, 'insurance.nationalPension', false),
   };
 
   const f = isObj(input.filing) ? input.filing : (err('filing', '不正です'), {});

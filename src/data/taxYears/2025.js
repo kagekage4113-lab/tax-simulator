@@ -2,7 +2,7 @@
 // 住民税は「令和7年中の所得に対する令和8年度分」で、福山市の令和8年度の控除額（FUKUYAMA_DED）を使う。
 import {
   CASUALTY, LISTED, FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FURUSATO, FX, HIROSHIMA_BUSINESS_TAX, INSURANCE_IT_2025, INSURANCE_RT, MEDICAL,
-  INCOME_TAX_BRACKETS, OWNER_COLUMNS, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
+  INCOME_TAX_BRACKETS, OWNER_COLUMNS, PUBLIC_PENSION, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
 } from './local.js';
 import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
 
@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -52,6 +52,7 @@ export const taxYear2025 = {
   // 社会保険料の概算。会社員=協会けんぽ、個人事業主=福山市の国保税＋国民年金（国民年金は未登録）。雇用保険料は未登録。
   socialInsurance: { estimate: { employee: KYOKAI_KENPO_2025, national: FUKUYAMA_KOKUHO } },
   businessTax: HIROSHIMA_BUSINESS_TAX,
+  publicPension: PUBLIC_PENSION, // NTA_1600
   fx: FX, // NTA_1521
   filing: { salaryEarner: FILING_SALARY_EARNER }, // NTA_1900
   crypto: CRYPTO, // NTA_CRYPTO_FAQ
@@ -84,7 +85,8 @@ export const taxYear2025 = {
       disability: { general: 270_000, special: 400_000, specialCohabiting: 750_000 },
       widow: 270_000,
       singleParent: 350_000,
-      widowSingleParentIncomeMax: 5_000_000, // 福山市の資料の要件。所得税側は国税庁の資料で未確認
+      widowSingleParentIncomeMax: 5_000_000, // 合計所得金額500万円以下（NTA_1171。住民税側は福山市の資料）
+      singleParentChildIncomeMax: 580_000, // ひとり親の子の総所得金額等の基準（NTA_1171：令和7年分58万円、令和8年分62万円）
       insurance: INSURANCE_IT_2025, // NTA_INSURANCE
       workingStudent: { amount: 270_000, incomeMax: 850_000 }, // NTA_R8_P3 p.4「改正前」列
     },
@@ -97,7 +99,9 @@ export const taxYear2025 = {
     '給与所得控除：収入660万円未満は別表第五による金額との差が出る場合がある（別表の資料なし）',
     '所得税・住民税の税額の端数処理（100円未満切捨など。課税所得の1,000円未満切捨は確認済み）',
     '特定親族の年齢要件（住民税の資料の定義を所得税にも適用。国税庁の資料は未確認）',
-    'ひとり親・寡婦控除の所得要件（住民税の資料の要件を所得税にも適用）',
+    '寡婦控除の自動判定（国税庁 No.1170 は保管のみ。「夫」との離婚・死別などの要件は未実装。手入力の選択のみ）',
+    '公的年金等控除：年金以外の所得はない前提（1,000万円以下の区分）で計算。遺族年金・個人年金など公的年金等以外は対象外',
+    '任意継続の健康保険：保険料は本人の入力値（標準報酬月額の上限・料率からの概算は未対応）',
     '所得税の勤労学生控除・扶養親族等の所得要件は、令和8年分資料の「改正前」列から令和7年分に適用',
     '個人事業税の端数処理・月割適用・事業の種類ごとの業種一覧・損失繰越',
     '住民税の非課税判定、国外居住親族・16歳未満の扱い',

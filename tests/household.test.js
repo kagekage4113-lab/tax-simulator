@@ -18,10 +18,10 @@ function sample(over = {}) {
   s.incomes[0].amount = 5_000_000;
   s.household = {
     enabled: true,
-    me: { certificate: 'none', partner: null },
+    me: { certificate: 'none', partner: null, childClaimedElsewhere: null },
     people: [
       person('parent', { id: 'mother', age: 72, incomeKind: 'business', revenue: 500_000, certificate: 'unknown', medical: true, ...over.mother }),
-      person('parent', { id: 'father', age: 73, incomeKind: 'pension', revenue: 0, ...over.father }),
+      person('parent', { id: 'father', age: 73, incomeKind: 'pension', revenue: 1_940_000, ...over.father }),
       person('child', { id: 'k1', age: 15 }),
       person('child', { id: 'k2', age: 13 }),
     ],
@@ -44,11 +44,19 @@ describe('世帯: 未回答は確定させない', () => {
     expect(dis.amounts.max).toEqual({ it: 750_000, rt: 530_000 }); // 同居特別障害者
   });
 
-  it('父は年金収入から所得を換算できないため要確認（公的年金等控除の表が未登録）', () => {
+  it('父は年金収入194万円: 65歳以上は 収入−110万円 = 84万円（No.1600）で、基準58万円を超えるため対象外', () => {
     const a = assess(sample(), rules);
     const father = line(a, 'father', 'dependent');
-    expect(father.status).toBe('maybe');
-    expect(father.conds.some((c) => c.s === 'unknown' && c.t.includes('公的年金等控除'))).toBe(true);
+    expect(father.status).toBe('no');
+    expect(father.amounts.max).toEqual({ it: 0, rt: 0 });
+    expect(father.conds.some((c) => c.s === 'ng' && c.t.includes('84万円'))).toBe(true);
+  });
+
+  it('年金収入が110万円以下（65歳以上）なら所得0円で扶養の候補になる', () => {
+    const a = assess(sample({ father: { revenue: 1_100_000, supportedByMe: true, livesTogether: true } }), rules);
+    const father = line(a, 'father', 'dependent');
+    expect(father.status).toBe('applies');
+    expect(father.amounts.now).toEqual({ it: 580_000, rt: 450_000 });
   });
 
   it('子15歳は扶養控除の対象外（16歳未満）。ひとり親控除は事実婚の回答待ちなら要確認', () => {
@@ -63,6 +71,7 @@ describe('世帯: 未回答は確定させない', () => {
   it('事実婚の相手がいない・生計の回答がそろうと確定する', () => {
     const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' } });
     s.household.me.partner = false;
+    s.household.me.childClaimedElsewhere = false;
     const a = assess(s, rules);
     expect(line(a, 'me', 'singleParent').status).toBe('applies');
     expect(line(a, 'me', 'singleParent').amounts.now).toEqual({ it: 350_000, rt: 300_000 });
@@ -111,9 +120,10 @@ describe('世帯: 手取りの上限と確定分', () => {
   it('applyHousehold は確定分だけを state に反映し、変化がなければ false', () => {
     const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' } });
     s.household.me.partner = false;
+    s.household.me.childClaimedElsewhere = false;
     expect(applyHousehold(s, rules)).toBe(true);
     expect(s.self.widowSingleParent).toBe('singleParent');
-    expect(s.dependents.map((d) => d.id)).toEqual(['mother', 'k1', 'k2']); // 父は所得を確定できないため含めない
+    expect(s.dependents.map((d) => d.id)).toEqual(['mother', 'k1', 'k2']); // 父は「生活費を負担」が未回答のため含めない
     expect(s.dependents[0].disability).toBe('special');
     expect(applyHousehold(s, rules)).toBe(false);
   });
@@ -121,6 +131,7 @@ describe('世帯: 手取りの上限と確定分', () => {
   it('確定分の state は、旧入力で同じ人を入れた場合と同じ結果になる（同値）', () => {
     const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' } });
     s.household.me.partner = false;
+    s.household.me.childClaimedElsewhere = false;
     const S = scenarioState(s, rules, 'confirmed');
     const legacy = defaultState();
     legacy.taxYear = 2025; legacy.self.age = 39; legacy.incomes[0].amount = 5_000_000;
@@ -132,5 +143,69 @@ describe('世帯: 手取りの上限と確定分', () => {
     ];
     const pick = (x) => ({ self: x.self, spouse: x.spouse, dependents: x.dependents.map(({ id, ...r }) => r) });
     expect(pick(S)).toEqual(pick(legacy));
+  });
+});
+
+describe('ひとり親控除の子の条件（No.1171）', () => {
+  const base = () => {
+    const s = defaultState();
+    s.taxYear = 2025; s.self.age = 39; s.incomes[0].amount = 5_000_000;
+    s.household = { enabled: true, me: { certificate: 'none', partner: false, childClaimedElsewhere: false }, people: [person('child', { id: 'k', age: 15 })] };
+    return s;
+  };
+  it('子の所得が基準（令和7年分58万円）以下なら対象、超えると対象外', () => {
+    const s = base();
+    s.household.people[0].incomeKind = 'other'; s.household.people[0].revenue = 580_000;
+    expect(line(assess(s, rules), 'me', 'singleParent').status).toBe('applies');
+    s.household.people[0].revenue = 580_001;
+    expect(line(assess(s, rules), 'me', 'singleParent').status).toBe('no');
+  });
+  it('令和8年分の基準は62万円', () => {
+    const s = base(); s.taxYear = 2026;
+    s.household.people[0].incomeKind = 'other'; s.household.people[0].revenue = 620_000;
+    expect(line(assess(s, getTaxYear(2026)), 'me', 'singleParent').status).toBe('applies');
+    s.household.people[0].revenue = 620_001;
+    expect(line(assess(s, getTaxYear(2026)), 'me', 'singleParent').status).toBe('no');
+  });
+  it('子が他の人の扶養親族等になっていると対象外、未回答なら要確認', () => {
+    const s = base();
+    s.household.me.childClaimedElsewhere = true;
+    expect(line(assess(s, rules), 'me', 'singleParent').status).toBe('no');
+    s.household.me.childClaimedElsewhere = null;
+    expect(line(assess(s, rules), 'me', 'singleParent').status).toBe('maybe');
+  });
+  it('合計所得金額が500万円を超えると金額は0円（エンジンが判定）', () => {
+    const s = base(); s.incomes[0].amount = 8_000_000;
+    const l = line(assess(s, rules), 'me', 'singleParent');
+    expect(l.status).toBe('no');
+    expect(l.amounts.now).toEqual({ it: 0, rt: 0 });
+  });
+});
+
+import { calculate } from '../src/calc/engine.js';
+describe('任意継続の健康保険', () => {
+  const st = () => { const s = defaultState(); s.taxYear = 2025; s.incomes[0].amount = 3_000_000; s.insurance.type = 'voluntary'; return s; };
+  it('毎月の保険料×12に、別に払う国民年金（月17,920円×12）を加える', () => {
+    const s = st(); s.insurance.monthlyPremium = 25_000;
+    expect(calculate(s, rules).socialInsurance.total).toBe(300_000);
+    s.insurance.nationalPension = true;
+    expect(calculate(s, rules).socialInsurance.total).toBe(300_000 + 215_040);
+  });
+  it('毎月の保険料が未入力なら確定させない（手取りは null、理由を missing に出す）', () => {
+    const r = calculate(st(), rules);
+    expect(r.socialInsurance.total).toBeNull();
+    expect(r.takeHome).toBeNull();
+    expect(r.missing).toContain('socialInsurance.voluntaryPremium');
+  });
+  it('国民年金の対象年齢（20〜59歳）外なら含めない', () => {
+    const s = st(); s.self.age = 62; s.insurance.monthlyPremium = 20_000; s.insurance.nationalPension = true;
+    expect(calculate(s, rules).socialInsurance.total).toBe(240_000);
+  });
+  it('旧データ（任意継続の項目なし）も読み込める', async () => {
+    const { validateState } = await import('../src/core/schema.js');
+    const old = defaultState(); delete old.insurance.monthlyPremium; delete old.insurance.nationalPension;
+    const r = validateState(old);
+    expect(r.ok).toBe(true);
+    expect(r.state.insurance.monthlyPremium).toBeNull();
   });
 });

@@ -437,10 +437,27 @@ function calcBusinessTax({ state, rules, need, round, notes }) {
   return { total: round(Math.floor(sum + 1e-6), 'businessTax'), income, taxable, note: '当年所得に対して翌年に納付' };
 }
 
+// 任意継続（会社の健康保険を退職後も続ける）。保険料は本人の入力（毎月の納付額×12）。国民年金は、別に払っている場合に年額を加える。
+// 被扶養者（子など）がいても任意継続の保険料は変わらない（保険料は標準報酬月額と料率で決まり、人数割りがない）。
+function voluntaryInsurance(state, need, notes) {
+  const premium = state.insurance.monthlyPremium;
+  if (premium == null) { need('socialInsurance.voluntaryPremium'); return { total: null, mode: 'estimate' }; }
+  let total = premium * 12;
+  if (state.insurance.nationalPension) {
+    const pen = need('socialInsurance.estimate.national.pension');
+    if (!pen) return { total: null, mode: 'estimate' };
+    if (state.self.age >= pen.ageMin && state.self.age <= pen.ageMax) total += pen.monthly * 12;
+    else notes.push(`国民年金は${pen.ageMin}〜${pen.ageMax}歳が納付の対象のため、含めていません。`);
+  }
+  notes.push('任意継続の保険料は、入力された毎月の保険料×12か月です。国民年金は令和8年度の月額を年分にかかわらず当てはめた概算です。');
+  return { total, mode: 'estimate' };
+}
+
 function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes }) {
   const actual = state.insurance.actualAnnual;
   if (actual != null) return { total: actual, mode: 'actual' };
   if (state.insurance.type === 'dependent' || state.insurance.type === 'none') return { total: 0, mode: 'estimate' };
+  if (state.insurance.type === 'voluntary') return voluntaryInsurance(state, need, notes);
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
   if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };

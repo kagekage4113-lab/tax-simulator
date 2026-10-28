@@ -31,6 +31,10 @@ export const SRC = {
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
   KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },
   FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
+  NTA_1160: { id: 'NTA_1160', title: '国税庁 タックスアンサー No.1160 障害者控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1160.htm', localFile: 'docs/tax-sources/nta_tax-answer-1160_disability-deduction_2026-04-01.pdf' },
+  NTA_1170: { id: 'NTA_1170', title: '国税庁 タックスアンサー No.1170 寡婦控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm', localFile: 'docs/tax-sources/nta_tax-answer-1170_widow-deduction_2026-04-01.pdf' },
+  NTA_1171: { id: 'NTA_1171', title: '国税庁 タックスアンサー No.1171 ひとり親控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm', localFile: 'docs/tax-sources/nta_tax-answer-1171_single-parent-deduction_2026-04-01.pdf' },
+  NTA_1600: { id: 'NTA_1600', title: '国税庁 タックスアンサー No.1600 公的年金等の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm', localFile: 'docs/tax-sources/nta_tax-answer-1600_public-pension_2026-04-01.pdf' },
 };
 
 // 所得税の速算表（NTA_2260）。課税される所得金額（1,000円未満切捨後）に対する税額 = 所得金額×税率−控除額。
@@ -271,4 +275,29 @@ export const FILING_SALARY_EARNER = { salaryRevenueMax: 20_000_000, sideIncomeMa
 export const MEDICAL = {
   // 福山市「所得控除の種類」の医療費控除（10万円または総所得金額等の5%の少ない額、限度額200万円）。所得税でも同じ仕組みだが国税庁の資料は未確認。
   thresholdFixed: 100_000, thresholdRate: 0.05, cap: 2_000_000,
+};
+
+// 公的年金等に係る雑所得の速算表（令和2年分以後。NTA_1600）。年金収入 a に対する所得 = floor(a×rate) − sub。
+// a ≦ zeroMax は0円。rows は a < lt を満たす最初の行を使う（lt: null は最後の行）。
+// tiers は「公的年金等に係る雑所得以外の合計所得金額」の区分（1,000万円以下／2,000万円以下／2,000万円超）。
+const R_ = (lt, rate, sub) => ({ lt, rate, sub });
+export const PUBLIC_PENSION = {
+  source: 'NTA_1600',
+  tiers: [
+    {
+      otherIncomeMax: 10_000_000,
+      under65: { zeroMax: 600_000, rows: [R_(1_300_000, 1, 600_000), R_(4_100_000, 0.75, 275_000), R_(7_700_000, 0.85, 685_000), R_(10_000_000, 0.95, 1_455_000), R_(null, 1, 1_950_000)] },
+      over65: { zeroMax: 1_100_000, rows: [R_(3_300_000, 1, 1_100_000), R_(4_100_000, 0.75, 275_000), R_(7_700_000, 0.85, 685_000), R_(10_000_000, 0.95, 1_455_000), R_(null, 1, 1_950_000)] },
+    },
+    {
+      otherIncomeMax: 20_000_000,
+      under65: { zeroMax: 500_000, rows: [R_(1_300_000, 1, 500_000), R_(4_100_000, 0.75, 175_000), R_(7_700_000, 0.85, 585_000), R_(10_000_000, 0.95, 1_355_000), R_(null, 1, 1_855_000)] },
+      over65: { zeroMax: 1_000_000, rows: [R_(3_300_000, 1, 1_000_000), R_(4_100_000, 0.75, 175_000), R_(7_700_000, 0.85, 585_000), R_(10_000_000, 0.95, 1_355_000), R_(null, 1, 1_855_000)] },
+    },
+    {
+      otherIncomeMax: null,
+      under65: { zeroMax: 400_000, rows: [R_(1_300_000, 1, 400_000), R_(4_100_000, 0.75, 75_000), R_(7_700_000, 0.85, 485_000), R_(10_000_000, 0.95, 1_255_000), R_(null, 1, 1_755_000)] },
+      over65: { zeroMax: 900_000, rows: [R_(3_300_000, 1, 900_000), R_(4_100_000, 0.75, 75_000), R_(7_700_000, 0.85, 485_000), R_(10_000_000, 0.95, 1_255_000), R_(null, 1, 1_755_000)] },
+    },
+  ],
 };

@@ -39,7 +39,7 @@ export const newPerson = (kind) => ({
 
 export const defaultHousehold = () => ({
   enabled: false,
-  me: { certificate: 'none', partner: null }, // partner: 事実上婚姻関係と同様の事情にある人がいるか
+  me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, // partner: 事実上婚姻関係と同様の事情にある人がいるか／childClaimedElsewhere: 子が他の人（元の配偶者など）の扶養親族等になっているか
   people: [],
 });
 
@@ -54,6 +54,7 @@ export function validateHousehold(raw, { err, yen, oneOf, bool, str }) {
   out.me = {
     certificate: oneOf(me.certificate ?? 'none', Object.keys(CERTIFICATES), 'household.me.certificate', 'none'),
     partner: tri(me.partner, 'household.me.partner'),
+    childClaimedElsewhere: tri(me.childClaimedElsewhere, 'household.me.childClaimedElsewhere'),
   };
   if (raw.people !== undefined && !Array.isArray(raw.people)) { err('household.people', '配列ではありません'); return out; }
   const list = raw.people || [];

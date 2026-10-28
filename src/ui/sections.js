@@ -15,6 +15,26 @@ const PREFECTURES = ['北海道','青森県','岩手県','宮城県','秋田県'
 const section = (title, id, children, { open = true, note } = {}) =>
   h('details', { class: 'card', id, open }, h('summary', {}, title), note ? h('p', { class: 'note' }, note) : null, h('div', { class: 'body' }, children));
 
+// 健康保険・社会保険料の入力欄（かんたん入力の「あなた」欄でも使う）
+export function insuranceFields(store) {
+  const s = store.get();
+  const set = (fn, structural = false) => store.update(fn, { structural });
+  const v = s.insurance.type === 'voluntary';
+  return [
+    field('あなたの健康保険', select(INSURANCE_TYPE, s.insurance.type, (t) => set((x) => { x.insurance.type = t; }, true)),
+      v ? { hint: 'お子さんなどを被扶養者にしても、任意継続の保険料は変わりません。税金の「扶養」とは別の制度です。' } : s.insurance.type === 'national' ? { hint: '国民健康保険税は世帯の加入者の人数や所得で決まります。この計算では、本人・配偶者・扶養親族が同じ国保に入る前提です。' } : {}),
+    ...(v ? [
+      gaugeField({ compact: true, label: '任意継続の毎月の保険料（納付書・通知書の額）', value: s.insurance.monthlyPremium ?? 0, max: 100_000, step: 1000, onChange: (n) => set((x) => { x.insurance.monthlyPremium = n; }), hint: '入力するまで、社会保険料と手取りは確定しません。' }),
+      checkbox('国民年金も払っている（任意継続では厚生年金に入れないため、通常は別に払います）', s.insurance.nationalPension, (on) => set((x) => { x.insurance.nationalPension = on; })),
+    ] : [
+      checkbox('年間の社会保険料の実額を入力する（未入力時は概算）', s.insurance.actualAnnual != null, (on) => set((x) => { x.insurance.actualAnnual = on ? 0 : null; }, true)),
+      ...(s.insurance.actualAnnual != null ? [
+        gaugeField({ label: '年間の社会保険料（実額）', value: s.insurance.actualAnnual, max: 3_000_000, onChange: (n) => set((x) => { x.insurance.actualAnnual = n; }) }),
+      ] : []),
+    ]),
+  ];
+}
+
 const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
 
 // ---- 1. 年度・申告条件 ----
@@ -58,11 +78,7 @@ export function settingsSection(store) {
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
         { hint: '55万円・65万円は複式簿記での記帳が必要で、65万円はe-Tax提出または電子帳簿保存も必要です。条件を満たすかはご自身の申告として扱います。' }),
     ] : []),
-    field('社会保険の加入状況', select(INSURANCE_TYPE, s.insurance.type, (v) => set((x) => { x.insurance.type = v; }))),
-    checkbox('年間の社会保険料の実額を入力する（未入力時は概算）', s.insurance.actualAnnual != null, (on) => set((x) => { x.insurance.actualAnnual = on ? 0 : null; }, true)),
-    ...(s.insurance.actualAnnual != null ? [
-      gaugeField({ label: '年間の社会保険料（実額）', value: s.insurance.actualAnnual, max: 3_000_000, onChange: (v) => set((x) => { x.insurance.actualAnnual = v; }) }),
-    ] : []),
+    ...(s.household.enabled ? [] : insuranceFields(store)),
     s.household.enabled
       ? h('p', { class: 'note' }, '本人・配偶者・扶養親族は、上の「世帯・家族（かんたん入力）」の回答から計算しています。')
       : h('details', { class: 'sub' }, h('summary', {}, '本人・配偶者・扶養親族'), ...personal),
@@ -202,6 +218,7 @@ const MISSING_LABEL = {
   'businessTax.mainDeduction': '個人事業税の事業主控除',
   'businessTax.rates': '個人事業税の税率',
   'socialInsurance.estimate.national.pension': '国民年金の保険料額',
+  'socialInsurance.voluntaryPremium': '任意継続の毎月の保険料（未入力）',
   'deductions.residentTax': '住民税の所得控除額（配偶者・扶養・障害者など）',
   'deductions.incomeTax': '所得税の人的控除の金額',
   'deductions.incomeTax.specificRelative.ageMin': '特定親族の年齢要件',
@@ -230,7 +247,7 @@ export function resultSection(rulesFor = getTaxYear) {
 
     if (r.missing.length) {
       kids.push(h('p', { class: 'warn' },
-        `${yearLabel(s.taxYear)}の次の税制データが未登録のため、確定できない金額があります（—と表示）：`,
+        `${yearLabel(s.taxYear)}の次の項目が未登録または未入力のため、確定できない金額があります（—と表示）：`,
         h('br'), [...new Set(r.missing.map(missingLabel))].join('、')));
     }
     kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},

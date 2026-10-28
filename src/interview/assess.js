@@ -10,6 +10,7 @@ import { autoPersonalDeductions } from '../calc/autoDeductions.js';
 import { defaultState, newIncome } from '../core/schema.js';
 import { formatYen } from '../core/money.js';
 import { newPerson } from '../core/household.js';
+import { publicPensionIncome } from '../calc/pension.js';
 
 const REL = { child: 'child', parent: 'parent', other: 'other' };
 const resolve = (v, scenario) => (v === null || v === undefined ? scenario === 'optimistic' : v);
@@ -35,7 +36,11 @@ export function personIncome(p, rules, taxYear) {
       const r = calculate({ ...defaultState(), taxYear, insurance: { type: 'none', actualAnnual: 0 }, incomes: [{ ...newIncome('salary'), amount: p.revenue }] }, rules);
       return r.income.salaryIncome == null ? { value: null, reason: '給与所得控除の表が未登録です' } : { value: r.income.salaryIncome };
     }
-    case 'pension': return { value: null, reason: '公的年金等控除の表が未登録のため、年金収入から所得を計算できません' };
+    case 'pension': {
+      const v = publicPensionIncome(p.revenue, p.age, rules.publicPension);
+      return v === null ? { value: null, reason: '公的年金等控除の表が未登録のため、年金収入から所得を計算できません' }
+        : { value: v, note: '年金収入から公的年金等控除を引いた額（年金以外の所得はない前提）' };
+    }
     default: return { value: null, reason: '収入が分からないため、所得を確定できません' };
   }
 }
@@ -54,9 +59,12 @@ function peopleFacts(state, rules, scenario) {
   });
 }
 
-// ひとり親控除の条件（国税庁 No.1170 の「ひとり親に該当しない」前提と、福山市の資料の要件）。子の所得基準は No.1171 未入手のため、所得0の子のみ確認済みとして扱う。
+// ひとり親控除の条件（国税庁 No.1171：12月31日に婚姻していない、事実婚の相手がいない、生計を一にする子がいる
+// （総所得金額等が基準以下で、他の人の扶養親族等になっていない）、合計所得金額500万円以下）。
 function singleParentConds(state, facts, rules, totalIncome) {
   const hh = state.household;
+  const dIT = rules.deductions?.incomeTax;
+  const childMax = dIT?.singleParentChildIncomeMax;
   const conds = [];
   const hasSpouse = hh.people.some((p) => p.kind === 'spouse');
   conds.push(hasSpouse ? { s: 'ng', t: '配偶者がいる（ひとり親は、12月31日に婚姻していない人などが対象）' } : { s: 'ok', t: '配偶者はいない' });
@@ -64,12 +72,16 @@ function singleParentConds(state, facts, rules, totalIncome) {
     : hh.me.partner === true ? { s: 'ng', t: '事実上婚姻関係と同様の事情にある人がいる（対象外）' }
       : { s: 'unknown', t: '事実上婚姻関係と同様の事情にある人がいないか未回答' });
   const kids = facts.filter((f) => f.p.kind === 'child');
-  const okKid = kids.find((f) => f.p.supportedByMe === true && f.inc.value === 0);
-  const maybeKid = kids.find((f) => f.p.supportedByMe !== false && !(f.p.supportedByMe === true && f.inc.value === 0));
-  if (okKid) conds.push({ s: 'ok', t: `生計を一にする子がいる（${okKid.p.name || `${okKid.p.age}歳`}・所得なし）` });
-  else if (maybeKid) conds.push({ s: 'unknown', t: '生計を一にする子がいるか、子の所得が基準以下か未確認（子の所得基準の資料 No.1171 は未登録）' });
-  else conds.push({ s: 'ng', t: '生計を一にする子がいない' });
-  const max = rules.deductions?.incomeTax?.widowSingleParentIncomeMax;
+  const incomeOk = (f) => (childMax == null || f.inc.value === null ? null : f.inc.value <= childMax);
+  const okKid = kids.find((f) => f.p.supportedByMe === true && incomeOk(f) === true);
+  const maybeKid = kids.find((f) => f.p.supportedByMe !== false && incomeOk(f) !== false && !(f.p.supportedByMe === true && incomeOk(f) === true));
+  if (okKid) conds.push({ s: 'ok', t: `生計を一にする子がいる（${okKid.p.name || `${okKid.p.age}歳`}・所得${man(okKid.inc.value)}、基準${man(childMax)}以下）` });
+  else if (maybeKid) conds.push({ s: 'unknown', t: '生計を一にする子がいるか、子の所得が基準以下か未確認' });
+  else conds.push({ s: 'ng', t: kids.length ? `生計を一にする子がいない、または子の所得が基準（${man(childMax)}）を超える` : '生計を一にする子がいない' });
+  conds.push(hh.me.childClaimedElsewhere === false ? { s: 'ok', t: '子は他の人の扶養親族等になっていない' }
+    : hh.me.childClaimedElsewhere === true ? { s: 'ng', t: '子が他の人の扶養親族等になっている（対象外）' }
+      : { s: 'unknown', t: '子が他の人（元の配偶者など）の扶養親族等になっていないか未回答' });
+  const max = dIT?.widowSingleParentIncomeMax;
   if (max != null) {
     conds.push(totalIncome == null ? { s: 'unknown', t: `あなたの合計所得金額が${man(max)}以下か（収入を入力すると判定されます）` }
       : totalIncome <= max ? { s: 'ok', t: `あなたの合計所得金額は${man(max)}以下` } : { s: 'ng', t: `あなたの合計所得金額が${man(max)}を超える` });
