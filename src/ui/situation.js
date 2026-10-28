@@ -54,9 +54,11 @@ export function situationSection(store, rulesFor = getTaxYear) {
       h('tr', {}, h('th', {}, '使い切れていない所得控除（所得税）'), h('td', { class: 'r' }, yen(b.unusedIT))),
       h('tr', {}, h('th', {}, '住民税の非課税'), h('td', { class: 'r' }, b.exemption === 'all' ? '非課税' : b.exemption === 'levy' ? '所得割のみ非課税' : '課税')))));
 
+    const levy = now.marks.find((x) => x.id === 'residentLevy');
     const rows = now.marks.filter((m) => {
       if (m.id === 'residentNonTaxable') return b.exemption === 'all';
-      if (m.id === 'residentLevyNonTaxable') return b.exemption !== null;
+      // 所得割の非課税の限度と「所得割がかかり始める」位置が同じなら、重複するので出さない
+      if (m.id === 'residentLevyNonTaxable') return b.exemption !== null && !(levy && levy.margin === m.margin && !!levy.already === !!m.already);
       return true;
     });
     const list = h('div', { class: 'verdicts' });
@@ -78,7 +80,7 @@ export function situationSection(store, rulesFor = getTaxYear) {
       if (fam.length) {
         kids.push(h('h3', {}, '家族側の余裕（扶養の所得基準まで）'));
         kids.push(h('ul', { class: 'status-list' }, fam.map((f) => h('li', {},
-          `${f.name || (f.kind === 'spouse' ? '配偶者' : '家族')}：所得${man(f.income)}。`,
+          `${f.name || (f.kind === 'spouse' ? '配偶者' : '家族')}：所得${f.income === 0 ? '0円' : man(f.income)}。`,
           f.margin >= 0 ? `基準（${man(f.limit)}）まであと${manR(f.margin)}。` : `基準（${man(f.limit)}）を${manR(-f.margin)}超えています。`))));
       }
     }
