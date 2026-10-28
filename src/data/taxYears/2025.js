@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_FORM_T3, SRC.FUKUYAMA_R8_REFORM, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -99,8 +99,8 @@ export const taxYear2025 = {
     '給与所得控除：収入660万円未満は別表第五による金額との差が出る場合がある（別表の資料なし）',
     '所得税・住民税の税額の端数処理（100円未満切捨など。課税所得の1,000円未満切捨は確認済み）',
     '特定親族の年齢要件（住民税の資料の定義を所得税にも適用。国税庁の資料は未確認）',
-    '総合課税の所得から引ききれない所得控除を、FX・先物（分離課税）の所得から差し引く扱い：保管している公的資料では未確認（一般的な取り扱いとして実装。所得税・住民税とも）',
-    '住民税の非課税の判定は、分離課税のFXの所得も含めた合計所得金額で行う（同上、資料の明記は未確認）',
+    '総合課税の所得から引ききれない所得控除を、FX・先物（分離課税）の所得から差し引く扱い：申告書第三表の様式（所得から差し引かれる金額を各分離課税の所得に振り分ける欄）で構造を確認。手引きの文章による裏づけと、差し引く順序（様式は上場株式等→先物取引の順。税率が同じため税額は変わらない）は未確認。住民税側の資料は未確認',
+    '住民税の非課税の判定にFXなど分離課税の所得を含める扱い：福山市の資料は合計所得金額を「総所得金額等の合計金額」と定義するのみで、分離課税を含むかの明記は未確認',
     '寡婦控除の自動判定（国税庁 No.1170 は保管のみ。「夫」との離婚・死別などの要件は未実装。手入力の選択のみ）',
     '公的年金等控除：年金以外の所得はない前提（1,000万円以下の区分）で計算。遺族年金・個人年金など公的年金等以外は対象外',
     '任意継続の健康保険：保険料は本人の入力値（標準報酬月額の上限・料率からの概算は未対応）',

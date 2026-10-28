@@ -56,3 +56,23 @@ describe('控除のクッションと「非課税」は別の話', () => {
     expect(r.marks.find((x) => x.id === 'incomeTax').margin).toBeLessThan(1_710_000); // 所得税の控除は基礎95万円のみ
   });
 });
+
+import { wallDefinitions } from '../src/calc/walls.js';
+describe('壁の一覧: 住民税の非課税の限度（福山市）', () => {
+  it('ひとり親でも、人数による限度（35万円×4人+10万円+21万円=171万円）が135万円より大きければ、そちらまで非課税', () => {
+    const s = mk();
+    s.self.widowSingleParent = 'singleParent';
+    s.dependents = [1, 2, 3].map((i) => ({ id: `d${i}`, name: '', relationship: 'child', age: 10, cohabiting: true, income: 0, disability: 'none' }));
+    const walls = wallDefinitions(s, rules).filter((w) => w.id.startsWith('nonTaxable'));
+    expect(walls[0].threshold).toBe(1_710_000);
+    // 所得割のみ非課税の限度: 35万円×4+10万円+32万円 = 182万円
+    expect(walls[1].threshold).toBe(1_820_000);
+  });
+  it('扶養がいない障がい者などは135万円まで非課税', () => {
+    const s = mk();
+    s.self.disability = 'general';
+    const walls = wallDefinitions(s, rules).filter((w) => w.id.startsWith('nonTaxable'));
+    expect(walls).toHaveLength(1);
+    expect(walls[0].threshold).toBe(1_350_000);
+  });
+});

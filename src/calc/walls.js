@@ -39,9 +39,10 @@ export function wallDefinitions(state, rules) {
   const lim = residentNonTaxableLimits(state, rules);
   if (lim) {
     const lines = [];
-    if (lim.special !== null) lines.push({ t: lim.special, label: '住民税が非課税でなくなる（障がい者・未成年者・ひとり親・寡婦の基準）' });
-    else lines.push({ t: lim.all, label: '住民税（均等割・所得割）が非課税でなくなる' });
-    if (lim.special === null && lim.levy > lim.all) lines.push({ t: lim.levy, label: '住民税の所得割が非課税でなくなる（均等割は先にかかる）' });
+    // 障がい者・未成年者・ひとり親・寡婦の基準（special）と、人数による基準（all）のうち、どちらか大きい方まで均等割・所得割とも非課税
+    const allLimit = Math.max(lim.special ?? 0, lim.all);
+    lines.push({ t: allLimit, label: lim.special !== null && lim.special >= lim.all ? '住民税が非課税でなくなる（障がい者・未成年者・ひとり親・寡婦の基準）' : '住民税（均等割・所得割）が非課税でなくなる' });
+    if (lim.levy > allLimit) lines.push({ t: lim.levy, label: '住民税の所得割が非課税でなくなる（均等割は先にかかる）' });
     for (const l of lines) add({ id: `nonTaxable${l.t}`, metric: 'totalIncome', threshold: l.t, label: l.label, detail: `合計所得金額が${l.t.toLocaleString('ja-JP')}円を超えると`, source: '福山市 個人市民税' });
   }
   const bt = get(rules, 'businessTax');
