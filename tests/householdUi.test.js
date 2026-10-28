@@ -280,3 +280,19 @@ describe('控除と余裕（クッション）の画面', () => {
     expect(el.textContent).toMatch(/合計所得が489万円を超えると104万円から67万円に下がります/);
   });
 });
+
+import { situationSection } from '../src/ui/situation.js';
+describe('健康保険の扶養の表示（確認の画面）', () => {
+  it('任意継続で家族がいると、130万円の壁までの余裕と注記を出す。国保のときは出さない', () => {
+    const s = defaultState();
+    s.insurance = { ...s.insurance, type: 'voluntary', monthlyPremium: 20_000 };
+    s.household.enabled = true;
+    s.household.people = [{ ...newPerson('spouse'), age: 40, incomeKind: 'salary', revenue: 1_000_000 }];
+    const t = situationSection(storeOf(s)).textContent;
+    expect(t).toMatch(/健康保険の扶養（いわゆる130万円の壁）/);
+    expect(t).toMatch(/基準（130万円未満）まであと30万円/);
+    expect(t).toMatch(/106万円の壁.*2026年10月に撤廃/);
+    s.insurance = { ...s.insurance, type: 'national', actualAnnual: 0 };
+    expect(situationSection(storeOf(s)).textContent).not.toMatch(/健康保険の扶養/);
+  });
+});

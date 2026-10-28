@@ -243,6 +243,31 @@ export function familyMargins(state, rules) {
   return out;
 }
 
+// 健康保険の扶養（いわゆる130万円の壁）。あなたが会社の健康保険（会社員・任意継続）に入っているときだけ、家族を被扶養者にできる。
+// 基準は「年間の見込み収入」（所得ではない）。収入に換算できないとき（所得金額で入力している人など）は出さない（推測しない）。
+export function socialDependentMargins(state, rules) {
+  const d = rules.socialInsurance?.dependent;
+  if (!d || !['employee', 'voluntary'].includes(state.insurance.type)) return [];
+  const out = [];
+  for (const p of state.household.people) {
+    if (p.kind === 'other') continue;
+    let income = null;
+    let note = null;
+    switch (p.incomeKind) {
+      case 'none': income = 0; break;
+      case 'salary': case 'pension': income = p.revenue; break;
+      case 'business': income = Math.max(0, p.revenue - p.expenses); note = '事業の収入は経費を引いた額で見ています（数え方は資料で未確認）'; break;
+      default: break;
+    }
+    if (income === null) continue;
+    const elder = p.age >= d.elderOrDisabled.minAge;
+    const youth = !elder && p.kind !== 'spouse' && p.age >= d.youth.minAge && p.age <= d.youth.maxAge;
+    const limit = elder ? d.elderOrDisabled.limit : youth ? d.youth.limit : d.limit;
+    out.push({ id: p.id, name: p.name, kind: p.kind, income, limit, margin: limit - 1 - income, within: income < limit, elder, youth, note, salaryOnly: p.incomeKind === 'salary' });
+  }
+  return out;
+}
+
 // 世帯の見取り図: 家族それぞれが「本人として」いくら税金を払い、住民税が非課税か。誰が課税かで、世帯の状況（世帯全員が非課税か）が決まる。
 // 家族は、本人の所得（年金・事業・給与などから換算）だけで、控除は基礎控除・本人の障害・配偶者（同一生計配偶者）のみで判定する簡易計算。
 // 社会保険料控除などは入れない（家族の保険料は入力がないため）。配偶者は partnerId（または相手側の partnerId）で結ぶ。

@@ -2,7 +2,7 @@
 // 住民税は「令和7年中の所得に対する令和8年度分」で、東京23区の令和8年度の控除額を使う。
 import {
   CASUALTY, LISTED, TOKYO23_RESIDENT, RESIDENT_BASIC_R8NENDO, RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, TOKYO23_KOKUHO, FURUSATO, FX, TOKYO_BUSINESS_TAX, INSURANCE_IT_2025, INSURANCE_RT, MEDICAL,
-  INCOME_TAX_BRACKETS, OWNER_COLUMNS, PUBLIC_PENSION, RECON_RATE, SALARY_ADJUSTMENT, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
+  INCOME_TAX_BRACKETS, OWNER_COLUMNS, PUBLIC_PENSION, RECON_RATE, SALARY_ADJUSTMENT, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SOCIAL_INSURANCE_DEPENDENT, SRC,
 } from './local.js';
 import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
 
@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.KYOKAI_ALL, SRC.KITA_MEASURE, SRC.TSUYAMA_ADJ, SRC.NTA_1411, SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.TOKYO23_BOOKLET, SRC.TOKUBETSUKU_KOKUHO_R7, SRC.KYOKAI_TOKYO, SRC.NTA_GLOSSARY, SRC.CHIHOZEI_314_6, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NENKIN_FUYO, SRC.NENKIN_KEIYAKU, SRC.MHLW_KAKUDAI_QA, SRC.MHLW_KABE, SRC.KYOKAI_ALL, SRC.KITA_MEASURE, SRC.TSUYAMA_ADJ, SRC.NTA_1411, SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.TOKYO23_BOOKLET, SRC.TOKUBETSUKU_KOKUHO_R7, SRC.KYOKAI_TOKYO, SRC.NTA_GLOSSARY, SRC.CHIHOZEI_314_6, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -50,7 +50,7 @@ export const taxYear2025 = {
   },
   medical: MEDICAL,
   // 社会保険料の概算。会社員=協会けんぽ、個人事業主=東京23区の国保料＋国民年金（国民年金は未登録）。雇用保険料は未登録。
-  socialInsurance: { estimate: { employee: KYOKAI_KENPO_2025, national: TOKYO23_KOKUHO } },
+  socialInsurance: { estimate: { employee: KYOKAI_KENPO_2025, national: TOKYO23_KOKUHO }, dependent: SOCIAL_INSURANCE_DEPENDENT },
   businessTax: TOKYO_BUSINESS_TAX,
   publicPension: PUBLIC_PENSION, // NTA_1600
   salaryAdjustment: SALARY_ADJUSTMENT, // NTA_1411（所得税）・津山市（住民税。算式は同じ）
@@ -115,6 +115,7 @@ export const taxYear2025 = {
     'ふるさと納税：上限額は一般的な算式による目安（二次情報）。総務省の公式資料は未確認。住宅ローン控除（住民税側）・セルフメディケーション税制・分離課税は考慮しない',
     '住宅ローン控除：自動計算は行わない（区分が多く確定申告書等作成コーナーが自動計算するため、手入力の税額控除を使用）。所得税から引ききれない分の住民税からの控除は未反映',
     '配当控除（総合課税を選択した配当）・雑損失の繰越控除・災害減免法との選択・上場株式等以外の株式等（一般株式等）の課税は未対応',
+    '健康保険の扶養の収入基準（130万円など）：日本年金機構の資料で確認。任意継続の被扶養者の取り扱い（全国健康保険協会の資料）・事業収入の数え方・障害者（180万円）の判定は未確認',
     'FX・先物の必要経費：所得＝決済損益−必要経費として計算するが、何が必要経費になるか（手数料・情報料・取引環境など）は国税庁No.1521・1522に記載がなく、入力は利用者の判断',
     'FX・先物：繰越控除の要件（連続した付表付き確定申告）は注記のみで、実際に満たしているかは確認しない。実物の受渡しになる取引・暗号資産のデリバティブは分離課税の対象外',
     '暗号資産：根拠のFAQは令和4年12月現在の法令等。その後の改正の有無は未確認。取得価額の計算（総平均法・移動平均法）・事業所得への区分は入力側で行う（損益は経費控除後の実額を入力）',

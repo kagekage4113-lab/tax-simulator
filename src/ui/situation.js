@@ -3,7 +3,7 @@ import { h, field, select } from './dom.js';
 import { formatYen } from '../core/money.js';
 import { rulesOf } from '../data/taxYears/index.js';
 import { SITUATION_TARGETS, situation } from '../calc/situation.js';
-import { familyMargins, scenarioState, man } from '../interview/assess.js';
+import { familyMargins, scenarioState, socialDependentMargins, man } from '../interview/assess.js';
 
 const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
 const manR = (n) => (n >= 10_000 ? `${Math.round(n / 1000) / 10}万円` : `${formatYen(n)}円`);
@@ -82,6 +82,16 @@ export function situationSection(store, rulesFor = rulesOf) {
           `${f.name || (f.kind === 'spouse' ? '配偶者' : '家族')}：所得${f.income === 0 ? '0円' : man(f.income)}。`,
           f.margin >= 0 ? `基準（${man(f.limit)}）まであと${manR(f.margin)}。` : `基準（${man(f.limit)}）を${manR(-f.margin)}超えています。`))));
       }
+    }
+
+    const sd = hh.enabled ? socialDependentMargins(state, rules) : [];
+    if (sd.length) {
+      kids.push(h('h3', {}, '健康保険の扶養（いわゆる130万円の壁）'));
+      kids.push(h('ul', { class: 'status-list' }, sd.map((f) => h('li', {},
+        `${f.name || (f.kind === 'spouse' ? '配偶者' : '家族')}：年間収入${f.income === 0 ? '0円' : man(f.income)}。`,
+        f.within ? `基準（${man(f.limit)}未満${f.elder ? '・60歳以上' : f.youth ? '・19〜22歳' : ''}）まであと${manR(f.margin)}。` : `基準（${man(f.limit)}未満）に達しています。`,
+        f.note ? ` ${f.note}。` : ''))));
+      kids.push(h('p', { class: 'hint' }, 'あなたの健康保険の被扶養者にできるかの目安です。収入は所得ではなく「年間の見込み収入」で、公的年金・失業給付なども含みます（日本年金機構）。同居なら、あなたの収入の半分未満、別居なら、あなたからの仕送り額未満であることも必要です。障害者の基準（180万円未満）は障害厚生年金の受給要件に当たる程度の障害が対象で、手帳の等級とは別に判定されるため、ここでは60歳以上のみ180万円としています。給与収入だけの人は、労働条件通知書などの賃金から見込む年収で判定できます（令和8年4月から。契約期間が1年未満・シフト制などは対象外）。なお、106万円の壁（勤務先の社会保険に自分で入る基準）の賃金要件は2026年10月に撤廃されました。'));
     }
 
     kids.push(h('details', { class: 'edit' }, h('summary', {}, '見方と前提（「税額0円」と「非課税」は別です）'),

@@ -361,3 +361,42 @@ describe('世帯 = 住民票の世帯が同じ人', () => {
     expect(overview(s, getTaxYear(2025)).outside.map((r) => r.id)).toEqual(['father']);
   });
 });
+
+import { socialDependentMargins } from '../src/interview/assess.js';
+describe('健康保険の扶養（130万円・150万円・180万円）', () => {
+  // 基準は年間の見込み収入が「未満」（NENKIN_FUYO）。あなたが会社の健康保険（会社員・任意継続）のときだけ表示する。
+  const mk2 = (people, type = 'employee') => {
+    const s = defaultState(); s.taxYear = 2026; s.insurance = { ...s.insurance, type };
+    s.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: people.map((o) => ({ ...newPerson(o.kind || 'spouse'), ...o })) };
+    return s;
+  };
+  const R = getTaxYear(2026);
+  it('原則130万円未満: 129万9,999円まで扶養、130万円で到達（あと0円は余裕なし）', () => {
+    const [a] = socialDependentMargins(mk2([{ kind: 'spouse', age: 40, incomeKind: 'salary', revenue: 1_299_999 }]), R);
+    expect(a).toMatchObject({ limit: 1_300_000, within: true, margin: 0 });
+    const [b] = socialDependentMargins(mk2([{ kind: 'spouse', age: 40, incomeKind: 'salary', revenue: 1_300_000 }]), R);
+    expect(b.within).toBe(false);
+  });
+  it('60歳以上は180万円未満、19〜22歳（配偶者以外）は150万円未満、配偶者は19〜22歳でも130万円', () => {
+    expect(socialDependentMargins(mk2([{ kind: 'parent', age: 60, incomeKind: 'pension', revenue: 1_000_000 }]), R)[0]).toMatchObject({ limit: 1_800_000, margin: 799_999, elder: true });
+    expect(socialDependentMargins(mk2([{ kind: 'child', age: 20, incomeKind: 'salary', revenue: 1_400_000 }]), R)[0]).toMatchObject({ limit: 1_500_000, within: true, youth: true });
+    expect(socialDependentMargins(mk2([{ kind: 'child', age: 23, incomeKind: 'salary', revenue: 1_400_000 }]), R)[0]).toMatchObject({ limit: 1_300_000, within: false });
+    expect(socialDependentMargins(mk2([{ kind: 'spouse', age: 21, incomeKind: 'none' }]), R)[0].limit).toBe(1_300_000);
+  });
+  it('年金収入は所得ではなく収入額で見る（年金194万円・73歳は180万円に達している）', () => {
+    expect(socialDependentMargins(mk2([{ kind: 'parent', age: 73, incomeKind: 'pension', revenue: 1_940_000 }]), R)[0]).toMatchObject({ income: 1_940_000, within: false });
+  });
+  it('国保・その他のときは出さない。収入に換算できない人（所得金額での入力・不明・その他の親族）も出さない', () => {
+    const p = [{ kind: 'spouse', age: 40, incomeKind: 'none' }];
+    expect(socialDependentMargins(mk2(p, 'national'), R)).toEqual([]);
+    expect(socialDependentMargins(mk2(p, 'voluntary'), R)).toHaveLength(1);
+    expect(socialDependentMargins(mk2([{ kind: 'spouse', age: 40, incomeKind: 'other', revenue: 500_000 }]), R)).toEqual([]);
+    expect(socialDependentMargins(mk2([{ kind: 'spouse', age: 40, incomeKind: 'unknown' }]), R)).toEqual([]);
+    expect(socialDependentMargins(mk2([{ kind: 'other', age: 40, incomeKind: 'none' }]), R)).toEqual([]);
+  });
+  it('出典を登録している（日本年金機構・厚生労働省）', () => {
+    const ids = R.sources.map((x) => x.id);
+    expect(ids).toEqual(expect.arrayContaining(['NENKIN_FUYO', 'NENKIN_KEIYAKU', 'MHLW_KAKUDAI_QA']));
+    expect(R.socialInsurance.dependent.monthlyEquivalent).toBe(108_333);
+  });
+});

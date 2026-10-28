@@ -1,5 +1,9 @@
 // 年度をまたいで共通に使う、自治体・都道府県の資料からの値。出典は docs/tax-sources/ に保存。
 export const SRC = {
+  NENKIN_FUYO: { id: 'NENKIN_FUYO', title: '日本年金機構「従業員（健康保険・厚生年金保険の被保険者）が家族を被扶養者にするとき、被扶養者に異動があったときの手続き」（更新日2026年9月30日）：被扶養者の収入要件（年間収入130万円未満。60歳以上または障害者は180万円未満。19歳以上23歳未満は150万円未満。同居は被保険者の収入の半分未満、別居は仕送り額未満）', url: 'https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html', localFile: 'docs/tax-sources/nenkin_hifuyosha-nintei_updated-2026-09-30.pdf' },
+  NENKIN_KEIYAKU: { id: 'NENKIN_KEIYAKU', title: '日本年金機構「労働契約内容による年間収入での被扶養者の認定の取り扱いについて」（更新日2026年5月1日）：令和8年4月1日以降、給与収入のみの人は労働条件通知書等の賃金から見込まれる年間収入で判定できる（契約期間が1年未満・シフト制・手当の金額が不明確な場合は対象外）', url: 'https://www.nenkin.go.jp/oshirase/taisetu/jigyosho/2026/202605/0501.html', localFile: 'docs/tax-sources/nenkin_keiyaku-naiyou-nenkan-shunyu_updated-2026-05-01.pdf' },
+  MHLW_KAKUDAI_QA: { id: 'MHLW_KAKUDAI_QA', title: '厚生労働省 社会保険適用拡大特設サイト「適用拡大Q&A」：短時間労働者の加入要件は、週の所定労働時間20時間以上・学生でない・2か月を超える雇用見込み・勤務先の規模（現在51人以上、2027年10月から36人以上）。賃金要件（月額8.8万円＝年収約106万円）は2026年10月に撤廃（印刷日2026年10月28日）', url: 'https://www.mhlw.go.jp/tekiyoukakudai/qa/', localFile: 'docs/tax-sources/mhlw_tekiyo-kakudai-qa_printed-2026-10-28.pdf' },
+  MHLW_KABE: { id: 'MHLW_KABE', title: '厚生労働省「「年収の壁」への対応」（印刷日2026年10月28日）：106万円・130万円の壁の概要、被扶養者認定の取り扱いの変更（事業主の証明、労働契約内容による年間収入、19歳以上23歳未満の150万円）', url: 'https://www.mhlw.go.jp/stf/taiou_001_00002.html', localFile: 'docs/tax-sources/mhlw_nenshu-no-kabe_printed-2026-10-28.pdf' },
   NTA_R7_P55: { id: 'NTA_R7_P55', title: '令和7年分 年末調整のしかた（国税庁） 55〜56ページ「速算表」「参考」各控除額の表', localFile: 'docs/tax-sources/2025_nencho-guide_nta_p55-56_tables.pdf' },
   NTA_R8_P3: { id: 'NTA_R8_P3', title: '令和8年分 年末調整のしかた（国税庁） 3〜4ページ「昨年と比べて変わった点」（「改正前」列は令和7年分の所得要件として参照）', localFile: 'docs/tax-sources/2026_nencho-guide_nta_p3-4_changes.pdf' },
   NTA_R8_P55: { id: 'NTA_R8_P55', title: '令和8年分 年末調整のしかた（国税庁） 55〜56ページ「速算表」「参考」各控除額の表', localFile: 'docs/tax-sources/2026_nencho-guide_nta_p55-56_tables.pdf' },
@@ -229,6 +233,16 @@ export const STANDARD_BUSINESS_TAX = {
   mainDeduction: 2_900_000,
   blueDeductionApplies: false,
   rates: { type1: 0.05, type2: 0.04, type3: 0.05, type3b: 0.03 },
+};
+
+// 健康保険の被扶養者の収入要件（NENKIN_FUYO）。収入は「年間の見込み収入」（過去の収入ではない）で、給与のほか公的年金・雇用保険の給付・傷病手当金なども含む。
+// 年間収入が limit「未満」（月額108,333円以下の目安）。同居は被保険者の収入の半分未満、別居は仕送り額未満も必要（金額の判定はしない）。
+export const SOCIAL_INSURANCE_DEPENDENT = {
+  limit: 1_300_000,
+  elderOrDisabled: { minAge: 60, limit: 1_800_000 }, // 60歳以上または障害者（障害厚生年金の受給要件に該当する程度）
+  youth: { minAge: 19, maxAge: 22, limit: 1_500_000 }, // 19歳以上23歳未満（被保険者の配偶者を除く）。扶養認定日が令和7年10月1日以降
+  monthlyEquivalent: 108_333,
+  sources: ['NENKIN_FUYO', 'NENKIN_KEIYAKU', 'MHLW_KAKUDAI_QA'],
 };
 
 // 生命保険料控除・地震保険料控除の表。表は [{ upTo, rate, add }]（控除額 = 支払保険料×rate + add）。
