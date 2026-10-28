@@ -38,6 +38,11 @@ export const SRC = {
   NTA_FORM_T3: { id: 'NTA_FORM_T3', title: '国税庁 確定申告書 第三表（分離課税用）様式（令和7年分以降用）：「所得から差し引かれる金額（第一表の㉚）」と、総合課税・譲渡・株式・配当・先物取引などの「課税される所得金額」の対応分を並べた様式', localFile: 'docs/tax-sources/nta_form_income-tax-return-table3-separate-taxation_R7.pdf' },
   FUKUYAMA_R8_REFORM: { id: 'FUKUYAMA_R8_REFORM', title: '福山市「2026年度（令和8年度）から適用される主な市・県民税の税制改正点」（掲載日2025年6月16日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/368918.html', localFile: 'docs/tax-sources/fukuyama_r8-reform-highlights_updated-2025-06-16.pdf' },
   SOUMU_R4_ISSUES: { id: 'SOUMU_R4_ISSUES', title: '総務省自治税務局市町村税課「個人住民税の諸課題」（政府税制調査会 資料1、令和4年10月25日）：非課税限度額の基準（35万円×世帯人員数＋10万円＋21万円／32万円、級地区分・調整措置の注記）、分離課税の税率表（先物取引に係る雑所得等は所得税15%・住民税5%）', localFile: 'docs/tax-sources/soumu_tax-commission-2022-10-25_individual-resident-tax-issues.pdf' },
+  TOKYO23_BOOKLET: { id: 'TOKYO23_BOOKLET', title: '「令和8年度版 東京23区の住民税」（特別区長会・東京都主税局等のパンフレット）：均等割（特別区民税3,000円＋都民税1,000円＋森林環境税1,000円）、所得割（特別区民税6%＋都民税4%）、非課税の基準、総所得金額等・合計所得金額の定義、税率表（先物取引に係る雑所得等は特別区民税3%＋都民税2%）', localFile: 'docs/tax-sources/tokyo23_resident-tax-booklet_R8.pdf' },
+  TOKUBETSUKU_KOKUHO_R7: { id: 'TOKUBETSUKU_KOKUHO_R7', title: '「令和7年度 特別区国民健康保険料一覧表」（令和7年4月1日現在）：基礎賦課分・後期高齢者支援金等賦課分・介護納付金賦課分の均等割・所得割・賦課限度額、7割・5割・2割軽減を全区で実施、所得割は旧ただし書方式', localFile: 'docs/tax-sources/tokubetsuku_kokuho-premium-table_R7_2025-04-01.pdf' },
+  KYOKAI_TOKYO: { id: 'KYOKAI_TOKYO', title: '協会けんぽ 東京支部 令和8年3月分（4月納付分）からの保険料額表（健康保険9.85%・介護1.62%・子ども・子育て支援金0.23%・厚生年金18.300%）', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_tokyo.pdf' },
+  NTA_GLOSSARY: { id: 'NTA_GLOSSARY', title: '国税庁 専門用語集［令和8年4月1日現在法令等］：総所得金額等（損失の繰越控除の適用後）と合計所得金額（適用前）の定義。申告分離課税の所得を含む', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/yogo/senmon.htm', localFile: 'docs/tax-sources/nta_glossary_2026-04-01.pdf' },
+  CHIHOZEI_314_6: { id: 'CHIHOZEI_314_6', title: '地方税法 第314条の6 調整控除（税研ウェブサービス 法令集）：合計課税所得金額200万円以下は 人的控除額の差の合計額と合計課税所得金額の少ない方×3%（市町村民税分。道府県民税分は別条で2%）', url: 'https://www.zeiken.co.jp/hourei/HHCHI000000/314-6.html', localFile: 'docs/tax-sources/chihozei-law_art314-6_adjustment-credit_zeiken.pdf' },
 };
 
 // 所得税の速算表（NTA_2260）。課税される所得金額（1,000円未満切捨後）に対する税額 = 所得金額×税率−控除額。
@@ -215,6 +220,38 @@ export const FUKUYAMA_RESIDENT = {
   nonTaxable: { perPerson: 350_000, base: 100_000, addIfDependents: { allIncome: 210_000, incomeLevy: 320_000 }, specialGroup: { incomeMax: 1_350_000, minorUnderAge: 18 } },
 };
 
+// 東京23区（令和8年度）。住民税は「令和7年中の所得に対する令和8年度分」。人的控除などの控除額は法定で全国共通のため、福山市と同じ表を使う。
+export const TOKYO23_RESIDENT = {
+  scope: '東京23区',
+  incomeRate: 0.1, // 所得割：特別区民税6%＋都民税4%（TOKYO23_BOOKLET）
+  perCapita: 5_000, // 均等割：特別区民税3,000円＋都民税1,000円（TOKYO23_BOOKLET）＋森林環境税1,000円（令和6年度から）
+  adjustment: FUKUYAMA_ADJUSTMENT, // 地方税法314条の6（市町村民税3%）＋道府県民税2%＝5%。算式は全国共通
+  nonTaxable: FUKUYAMA_RESIDENT.nonTaxable, // 東京23区の住民税（令和8年度版）の非課税の算式は福山市と同じ
+};
+
+// 特別区の国民健康保険料（令和7年度・TOKUBETSUKU_KOKUHO_R7）。23区のうち16区が同一の料率で、ここにはその最頻値を登録している。
+// 中野区・江戸川区は基礎・支援金分の料率が異なり、千代田・文京・目黒・荒川・板橋などは介護分の所得割率が異なる。
+// 平等割はなく、均等割・所得割（旧ただし書方式）・賦課限度額で決まる。令和8年度の料率（子ども・子育て支援金分を含む）は未入手。
+export const TOKYO23_KOKUHO = {
+  model: 'fukuyamaKokuho', // 計算式は同じ（均等割＋所得割−基礎控除、賦課限度額、法定軽減）。名称はそのまま
+  advisories: [
+    '国民健康保険料は、東京23区の令和7年度の標準的な料率（23区のうち16区が同一。中野区・江戸川区などは異なる）で、令和8年度の料率（子ども・子育て支援金分を含む）は未入手です。端数処理も未確認で、1円未満切捨てで概算しています。',
+    '国保の法定軽減（7・5・2割）の判定基準は、ユーザー提供の二次情報に基づく値です（東京23区が全区で軽減を実施していることは特別区の一覧表で確認済み）。',
+  ],
+  scope: '東京23区',
+  basicDeduction: FUKUYAMA_KOKUHO.basicDeduction,
+  rounding: { rule: 'floor', unit: 1 },
+  retireAge: 75,
+  preschool: FUKUYAMA_KOKUHO.preschool,
+  components: {
+    medical: { incomeRate: 0.0771, perPerson: 47_300, perHousehold: 0, limit: 660_000 },
+    support: { incomeRate: 0.0269, perPerson: 16_800, perHousehold: 0, limit: 260_000 },
+    care: { incomeRate: 0.0225, perPerson: 16_600, perHousehold: 0, limit: 170_000, ageMin: 40, ageMax: 64 },
+  },
+  pension: FUKUYAMA_KOKUHO.pension,
+  reduction: FUKUYAMA_KOKUHO.reduction,
+};
+
 export const HIROSHIMA_BUSINESS_TAX = {
   scope: '広島県',
   mainDeduction: 2_900_000,
@@ -304,3 +341,6 @@ export const PUBLIC_PENSION = {
     },
   ],
 };
+
+// 東京都の個人事業税。税率・事業主控除は法定の標準で全国共通として、広島県の資料の値を準用する（東京都の資料は未入手）。
+export const TOKYO_BUSINESS_TAX = { ...HIROSHIMA_BUSINESS_TAX, scope: '東京都（広島県の資料の標準税率・事業主控除を準用）' };

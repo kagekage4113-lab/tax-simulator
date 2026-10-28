@@ -10,6 +10,7 @@ describe('結果画面', () => {
   it('令和7年分（実データ）: 手取りまで表示する（給与500万・社保実額70万 → 手計算で手取り3,930,970円）', () => {
     const s = defaultState();
     s.taxYear = 2025;
+    s.residence.area = 'fukuyama'; // 手計算は福山市の均等割5,500円
     s.insurance = { type: 'employee', actualAnnual: 700_000 };
     s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }];
     const el = resultSection();
@@ -26,6 +27,7 @@ describe('結果画面', () => {
     // 住民税: 基礎430,000 → 課税1,590,000 → 159,000 - 調整控除2,500 + 5,500 = 162,000 / 手取り=3,000,000-50,029-162,000=2,787,971
     const s = defaultState();
     s.taxYear = 2026;
+    s.residence.area = 'fukuyama'; // 福山市の均等割5,500円
     s.insurance = { type: 'none', actualAnnual: null };
     s.incomes = [{ ...newIncome('salary'), amount: 3_000_000 }];
     const el = resultSection();
@@ -35,6 +37,21 @@ describe('結果画面', () => {
     expect(c['住民税（翌年度分）']).toBe('162,000円');
     expect(c['年間手取り']).toBe('2,787,971円');
     expect(el.textContent).toMatch(/令和9年度/);
+  });
+  it('東京23区（新規の既定）: 均等割は5,000円（特別区民税3,000＋都民税1,000＋森林環境税1,000）。令和7年分 給与500万・社保実額70万 → 手取り3,931,470円', () => {
+    // 福山市の手計算（住民税246,000円・手取り3,930,970円）から、均等割が5,500円→5,000円で500円少ない
+    const s = defaultState();
+    s.taxYear = 2025;
+    expect(s.residence.area).toBe('tokyo23');
+    s.insurance = { type: 'employee', actualAnnual: 700_000 };
+    s.incomes = [{ ...newIncome('salary'), amount: 5_000_000 }];
+    const el = resultSection();
+    el.update(s);
+    const c = cells(el);
+    expect(c['所得税（復興税含む）']).toBe('123,030円');
+    expect(c['住民税（翌年度分）']).toBe('245,500円');
+    expect(c['年間手取り']).toBe('3,931,470円');
+    expect(el.textContent).toMatch(/東京23区/);
   });
   it('会社員で社保実額が未入力でも、協会けんぽの料率で概算して手取りを出す', () => {
     const s = defaultState();

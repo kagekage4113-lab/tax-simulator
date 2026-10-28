@@ -5,7 +5,7 @@ import { missingLabel } from './sections.js';
 import { compareExpense, compareIncome, fxTiming, sweepIncome } from '../calc/simulate.js';
 import { UNSUPPORTED_WALLS } from '../calc/walls.js';
 import { INCOME_CATEGORIES, getIncomeCategory } from '../data/incomeCategories.js';
-import { getTaxYear } from '../data/taxYears/index.js';
+import { rulesOf } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 
 const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
@@ -44,7 +44,7 @@ const setChildren = (el, ...nodes) => el.replaceChildren(...nodes.flat().filter(
 
 const pickTarget = (current, opts, prefer) => (current && current in opts ? current : prefer.find((k) => k in opts) || Object.keys(opts)[0] || null);
 
-export function simulationSection(store, rulesFor = getTaxYear) {
+export function simulationSection(store, rulesFor = rulesOf) {
   const ui = { aTarget: null, aAdd: 500_000, aExp: 0, bTarget: null, bAmount: 200_000, bDir: 'up', cTarget: null, cMax: 3_000_000, fxUnreal: 1_000_000, fxRealize: 0 };
   let state = store.get();
   let timer = null;
@@ -86,7 +86,7 @@ export function simulationSection(store, rulesFor = getTaxYear) {
   };
   A.render = () => {
     if (!ui.aTarget) return setChildren(A.output, h('p', { class: 'note' }, '収入を追加すると比較できます。'));
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     const c = compareIncome(state, rules, { target: parseTarget(ui.aTarget), add: ui.aAdd, extraExpenses: ui.aExp });
     if (!c.available) return setChildren(A.output, missingNote(c.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。'));
     const added = c.diff.income;
@@ -113,7 +113,7 @@ export function simulationSection(store, rulesFor = getTaxYear) {
   };
   B.render = () => {
     if (!ui.bTarget) return setChildren(B.output, );
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     const delta = (ui.bDir === 'up' ? 1 : -1) * ui.bAmount;
     const c = compareExpense(state, rules, { targetId: parseTarget(ui.bTarget).id, delta });
     if (!c.available) return setChildren(B.output, missingNote(c.after.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。'));
@@ -139,7 +139,7 @@ export function simulationSection(store, rulesFor = getTaxYear) {
   };
   C.render = () => {
     if (!ui.cTarget) return setChildren(C.output, );
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     const step = Math.max(10_000, Math.ceil(ui.cMax / 300 / 10_000) * 10_000);
     const sw = sweepIncome(state, rules, { target: parseTarget(ui.cTarget), max: ui.cMax, step });
     if (!sw.ok) return setChildren(C.output, h('p', { class: 'warn' }, '現在の入力では、税制データが未登録の項目があり推移を計算できません。結果欄の注意を確認してください。'));
@@ -166,7 +166,7 @@ export function simulationSection(store, rulesFor = getTaxYear) {
       gaugeField({ label: '今年利確する額（残りは来年）', value: ui.fxRealize, max: Math.max(ui.fxUnreal, 10_000), onChange: (v) => { ui.fxRealize = Math.min(v, ui.fxUnreal); schedule(); }, hint: '利確額スライダー：動かすと下の表が変わります。' }));
   };
   D.render = () => {
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     const t = fxTiming(state, rules, { unrealized: ui.fxUnreal, realize: ui.fxRealize });
     const sel = t.evaluate(Math.min(ui.fxRealize, ui.fxUnreal));
     if (!t.now.ok) return setChildren(D.output, h('p', { class: 'warn' }, '現在の入力では、税制データが未登録の項目があり計算できません。結果欄の注意を確認してください。'));

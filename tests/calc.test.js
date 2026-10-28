@@ -751,13 +751,14 @@ describe('社会保険料の概算（協会けんぽ・月ごとの料率）', (
       // 4-12月: 20,766.5 + 471.5 + 37,515 = 58,753 ×9 = 528,777 → 704,072
       expect(y(4_800_000, at('大阪府')).socialInsurance.total).toBe(704_072);
     });
-    it('東京（令和8年度の資料なし→3月以降は3府県平均10.0067%）', () => {
+    it('東京（令和8年度の保険料額表: 健保9.85%・支援金0.23%）', () => {
+      // 標準報酬410,000: 厚年折半 410,000×18.3%÷2 = 37,515
       // 1-2月: 410,000×9.91%÷2=20,315.5 + 37,515 = 57,830.5 → 57,830 ×2 = 115,660
-      // 3月:   410,000×10.00667%÷2=20,513.67 + 37,515 = 58,028.67 → 58,029 ×1
-      // 4-12月: 20,513.67 + 471.5 + 37,515 = 58,500.17 → 58,500 ×9 = 526,500 → 700,189
+      // 3月:   410,000×9.85%÷2=20,192.5 + 37,515 = 57,707.5 → 57,707 ×1
+      // 4-12月: 20,192.5 + 471.5 + 37,515 = 58,179 ×9 = 523,611 → 696,978
       const r = y(4_800_000, at('東京都'));
-      expect(r.socialInsurance.total).toBe(700_189);
-      expect(r.notes.join()).toMatch(/平均/);
+      expect(r.socialInsurance.total).toBe(696_978);
+      expect(r.notes.join()).not.toMatch(/平均/);
     });
     it('等級の境界: 報酬月額394,999円は標準380,000円(等級26)、395,000円は標準410,000円(等級27)', () => {
       // 標準380,000: 厚年折半34,770
@@ -1225,5 +1226,44 @@ describe('雑損控除', () => {
   it('災害関連支出は災害等関連支出を超えない', () => {
     // related=100,000・disasterRelated=900,000(誤入力)→100,000として扱う: (2)=100,000-50,000=50,000 / (1)=100,000-300,000<0 → 50,000
     expect(item(cas({ related: 100_000, disasterRelated: 900_000 }), 'incomeTax', 'casualty').amount).toBe(50_000);
+  });
+});
+
+describe('合計所得金額は損失の繰越控除の適用前、総所得金額等は適用後（国税庁 専門用語集）', () => {
+  const rules25 = getTaxYear(2025);
+  it('FXの繰越損失を引く前の合計所得金額で基礎控除を判定する（令和7年分: 132万円超336万円以下は88万円）', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'none', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...newIncome('fx'), amount: 1_400_000 }];
+    s.fxCarryLosses = [{ year: 2024, amount: 300_000 }];
+    const r = calculate(s, rules25);
+    // 合計所得金額 140万円（繰越控除の前）→ 基礎控除88万円。総所得金額等 110万円（繰越控除の後）
+    expect(r.income.total).toBe(1_400_000);
+    expect(r.income.totalNet).toBe(1_100_000);
+    expect(r.deductions.incomeTax.items.find((i) => i.id === 'basic').amount).toBe(880_000);
+    // FXの課税所得 = 110万円 − 88万円 = 22万円 → 所得税15% = 33,000円、復興特別所得税 693円
+    expect(r.taxable.incomeTax.fx).toBe(220_000);
+    expect(r.incomeTax.total).toBe(33_693);
+  });
+  it('繰越控除がなければ、合計所得金額と総所得金額等は同じ', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.incomes = [{ ...newIncome('fx'), amount: 500_000 }];
+    const r = calculate(s, rules25);
+    expect(r.income.total).toBe(500_000);
+    expect(r.income.totalNet).toBe(500_000);
+  });
+  it('住民税の非課税: 均等割は合計所得金額（繰越控除の前）、所得割は総所得金額等（繰越控除の後）で判定する', () => {
+    const s = defaultState();
+    s.taxYear = 2025;
+    s.insurance = { type: 'none', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...newIncome('fx'), amount: 600_000 }];
+    s.fxCarryLosses = [{ year: 2024, amount: 300_000 }];
+    const r = calculate(s, rules25);
+    // 単身の限度は 35万円+10万円 = 45万円。合計所得金額60万円は超える（均等割は課税）。総所得金額等30万円は45万円以下（所得割は非課税）
+    expect(r.residentTax.exemption).toBe('levy');
+    expect(r.residentTax.perCapita).toBe(5_500);
+    expect(r.residentTax.incomeLevy).toBe(0);
   });
 });

@@ -7,7 +7,7 @@ import { simulationSection } from './ui/simulation.js';
 import { householdSection } from './ui/household.js';
 import { situationSection } from './ui/situation.js';
 import { applyHousehold } from './interview/assess.js';
-import { getTaxYear } from './data/taxYears/index.js';
+import { rulesOf } from './data/taxYears/index.js';
 
 const store = createStore();
 const app = document.getElementById('app');
@@ -58,7 +58,7 @@ store.subscribe((state, e) => {
   }
   status.textContent = '保存中…';
   // かんたん入力（世帯）が有効なら、年度や収入の変更にも追随して、本人・配偶者・扶養親族を導き直す
-  if (state.household.enabled) applyHousehold(state, getTaxYear(state.taxYear));
+  if (state.household.enabled) applyHousehold(state, rulesOf(state));
   if (e.structural) rebuild();
   else if (household) household.refresh(state);
   situation.refresh();

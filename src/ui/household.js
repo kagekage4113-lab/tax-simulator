@@ -5,7 +5,7 @@ import { gaugeField } from './gaugeField.js';
 import { CERTIFICATES, INCOME_KINDS, PERSON_KINDS, newPerson } from '../core/household.js';
 import { insuranceFields } from './sections.js';
 import { assess, applyHousehold, importLegacyPeople, man } from '../interview/assess.js';
-import { getTaxYear } from '../data/taxYears/index.js';
+import { rulesOf } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 
 const STATUS = { applies: ['適用の見込み', 'ok'], maybe: ['要確認', 'warn'], no: ['対象外', ''] };
@@ -45,7 +45,7 @@ function verdictList(card) {
       h('p', { class: 'v-amount' }, '生計を一にする家族の医療費は、あなたの医療費控除に合算できる場合があります。下の「所得控除・税額控除」の医療費に、支払額と補填される額を入力してください（通院の交通費も対象になる場合があります）。')) : null);
 }
 
-export function householdSection(store, rulesFor = getTaxYear) {
+export function householdSection(store, rulesFor = rulesOf) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
   const hh = s.household;
@@ -63,7 +63,7 @@ export function householdSection(store, rulesFor = getTaxYear) {
       set((x) => {
         x.household.enabled = on;
         if (on && x.household.people.length === 0 && (x.spouse.exists || x.dependents.length)) x.household.people = importLegacyPeople(x);
-        if (on) applyHousehold(x, rulesFor(x.taxYear));
+        if (on) applyHousehold(x, rulesFor(x));
       }, true);
     }));
 
@@ -88,7 +88,7 @@ export function householdSection(store, rulesFor = getTaxYear) {
   // 家族
   hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes)));
 
-  const add = (kind) => set((x) => { x.household.people.push(newPerson(kind)); applyHousehold(x, rulesFor(x.taxYear)); }, true);
+  const add = (kind) => set((x) => { x.household.people.push(newPerson(kind)); applyHousehold(x, rulesFor(x)); }, true);
   body.append(
     h('div', { class: 'row' }, Object.entries(PERSON_KINDS).map(([k, label]) => h('button', {
       type: 'button', class: 'btn', onClick: () => add(k), disabled: k === 'spouse' && hasSpouse,
@@ -96,13 +96,13 @@ export function householdSection(store, rulesFor = getTaxYear) {
     h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn', onClick: () => set((x) => {
       x.self.age = 39;
       x.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: sampleHousehold() };
-      applyHousehold(x, rulesFor(x.taxYear));
+      applyHousehold(x, rulesFor(x));
     }, true) }, '例の世帯を入れてみる（母72・父73・子15と13）')),
     h('p', { class: 'hint' }, '判定は、あなたの申告（回答）に基づく目安です。控除の適用には証明書類が必要な場合があります。世帯の中で誰が扶養に入れるか（きょうだい・配偶者側との調整）は考慮せず、「この方をあなたの扶養に入れる」前提で計算します。'));
 
   el.refresh = (state) => {
     if (!state.household.enabled) return;
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     if (!rules) return;
     const a = assess(state, rules);
     for (const c of a.cards) {

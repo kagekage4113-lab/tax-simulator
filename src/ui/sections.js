@@ -6,7 +6,7 @@ import {
 } from '../core/schema.js';
 import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
-import { SUPPORTED_YEARS, getTaxYear, yearLabel } from '../data/taxYears/index.js';
+import { AREAS, SUPPORTED_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 import { calculate } from '../calc/engine.js';
 
@@ -42,7 +42,7 @@ export function settingsSection(store) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
   const yearOptions = Object.fromEntries(SUPPORTED_YEARS.map((y) => [y, yearLabel(y)]));
-  const ty = getTaxYear(s.taxYear);
+  const ty = rulesOf(s);
 
   const prefOptions = { '': '選択してください', ...Object.fromEntries(PREFECTURES.map((p) => [p, p])) };
   const personal = [
@@ -69,8 +69,10 @@ export function settingsSection(store) {
     field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
-    field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
-      { hint: '会社員の社会保険料（協会けんぽ）の料率にだけ使います。広島・福岡・大阪以外は3府県の平均で概算します。住民税・国民健康保険税は、市区町村にかかわらず福山市の値を標準として使います（他の市区町村では、均等割の額・非課税の限度額・国保税が少し、または大きく違うことがあります）。' }),
+    field('お住まいの地域（住民税・国保税の基準）', select(Object.fromEntries(Object.entries(AREAS).map(([k, a]) => [k, a.label])), s.residence.area, (v) => set((x) => { x.residence.area = v; x.residence.prefecture = AREAS[v].prefecture; }, true)),
+      { hint: '住民税の均等割・国民健康保険料・個人事業税の基準です。ここにない市区町村は、近い方で概算してください（均等割の額・非課税の限度額・国保料は自治体で違うことがあります）。所得割の税率10%や控除額は全国共通です。' }),
+    field('協会けんぽの支部の都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
+      { hint: '会社員の社会保険料（協会けんぽ）の料率にだけ使います。広島・福岡・大阪・東京以外は4都府県の平均で概算します。' }),
     field('申告方式', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true))),
     ...(s.filing.type === 'blue' ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
@@ -230,14 +232,14 @@ export const missingLabel = (key) => {
 const missingLabelBase = (k) => MISSING_LABEL[k] || (k.startsWith('rounding.') ? `端数処理（${k.slice(9)}）` : k.startsWith('socialInsurance.estimate') ? '社会保険料の概算率' : k);
 const MODE_LABEL = { auto: '自動', manual: '手入力値', actual: '実額', estimate: '概算', pending: '未対応（0円）' };
 
-export function resultSection(rulesFor = getTaxYear) {
+export function resultSection(rulesFor = rulesOf) {
   const body = h('div', {});
   const el = section('税金と手取りの結果', 'sec-result', [body]);
   const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
   const row = (label, value, opts = {}) => h('tr', { class: opts.strong ? 'strong' : '' }, h('th', {}, label, opts.tag ? [' ', badge(opts.tag)] : null), h('td', { class: 'r' }, value));
 
   el.update = (s) => {
-    const r = calculate(s, rulesFor(s.taxYear));
+    const r = calculate(s, rulesFor(s));
     if (el.onCalc) el.onCalc(r);
     const i = r.income;
     const hasBusinessTax = s.incomes.some((x) => x.category === 'business' && x.businessType !== 'unknown');

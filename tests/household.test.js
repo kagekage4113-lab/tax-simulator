@@ -3,7 +3,7 @@
 //            住民税(福山市 令和8年度) ひとり親30万・老人扶養 同居老親45万/その他38万・特別障害者30万/同居特別障害者53万。
 import { describe, expect, it } from 'vitest';
 import { assess, applyHousehold, scenarioState } from '../src/interview/assess.js';
-import { defaultState } from '../src/core/schema.js';
+import { defaultState, newIncome } from '../src/core/schema.js';
 import { newPerson } from '../src/core/household.js';
 import { getTaxYear } from '../src/data/taxYears/index.js';
 
@@ -207,5 +207,64 @@ describe('任意継続の健康保険', () => {
     const r = validateState(old);
     expect(r.ok).toBe(true);
     expect(r.state.insurance.monthlyPremium).toBeNull();
+  });
+});
+
+import { AREAS, getTaxYear as gty, rulesOf } from '../src/data/taxYears/index.js';
+describe('地域（東京23区・福山市）', () => {
+  it('住民税の均等割は東京23区5,000円・福山市5,500円。控除額などの法定の値は同じ', () => {
+    const t = gty(2025, 'tokyo23'); const f = gty(2025);
+    expect(t.residentTax.perCapita).toBe(5_000);
+    expect(f.residentTax.perCapita).toBe(5_500);
+    expect(t.deductions).toBe(f.deductions);
+    expect(t.residentTax.nonTaxable).toEqual(f.residentTax.nonTaxable);
+    expect(Object.keys(AREAS)).toEqual(['tokyo23', 'fukuyama']);
+  });
+  it('旧データ（地域の記載なし）は福山市として読み込み、新規の既定は東京23区', async () => {
+    const { validateState } = await import('../src/core/schema.js');
+    const old = defaultState(); delete old.residence.area;
+    expect(validateState(old).state.residence.area).toBe('fukuyama');
+    expect(defaultState().residence.area).toBe('tokyo23');
+    expect(defaultState().residence.prefecture).toBe('東京都');
+    expect(validateState({ ...defaultState(), residence: { prefecture: '', city: '', area: 'mars' } }).ok).toBe(false);
+  });
+  it('rulesOf は state の年度と地域で選ぶ', () => {
+    const s = defaultState(); s.taxYear = 2026;
+    expect(rulesOf(s).residentTax.scope).toBe('東京23区');
+    s.residence.area = 'fukuyama';
+    expect(rulesOf(s).residentTax.scope).toBe('福山市（広島県）');
+  });
+});
+
+describe('東京23区の国民健康保険料（令和7年度の特別区の標準的な料率）', () => {
+  it('個人事業主・所得300万円・39歳・単身: 国保 + 国民年金', () => {
+    // 所得割の基礎 = 300万円 − 基礎控除43万円 = 257万円（旧ただし書方式）
+    // 基礎分: 2,570,000×7.71% = 198,147 + 均等割47,300 = 245,447（限度額66万円以内）
+    // 支援金分: 2,570,000×2.69% = 69,133 + 16,800 = 85,933（限度額26万円以内）。介護分は40歳未満のため対象外
+    // 国民年金: 17,920円×12 = 215,040円 → 合計 546,420円
+    const s = defaultState();
+    s.taxYear = 2025; s.self.age = 39;
+    s.insurance = { type: 'national', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...newIncome('business'), amount: 3_000_000, expenses: 0 }];
+    s.filing = { type: 'white', blueDeduction: 10 };
+    const r = calculate(s, rulesOf(s));
+    expect(r.socialInsurance.total).toBe(546_420);
+    expect(r.notes.join()).toMatch(/東京23区/);
+  });
+  it('40〜64歳は介護分（均等割16,600円・所得割2.25%）が加わる', () => {
+    // 41歳: 上記 + 介護分 2,570,000×2.25% = 57,825 + 16,600 = 74,425 → 546,420 + 74,425 = 620,845
+    const s = defaultState();
+    s.taxYear = 2025; s.self.age = 41;
+    s.insurance = { type: 'national', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...newIncome('business'), amount: 3_000_000, expenses: 0 }];
+    expect(calculate(s, rulesOf(s)).socialInsurance.total).toBe(620_845);
+  });
+  it('賦課限度額（基礎分66万円・支援金分26万円・介護分17万円）で頭打ちになる', () => {
+    const s = defaultState();
+    s.taxYear = 2025; s.self.age = 50;
+    s.insurance = { type: 'national', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = [{ ...newIncome('business'), amount: 20_000_000, expenses: 0 }];
+    // 基礎・支援金・介護の合計上限 660,000 + 260,000 + 170,000 = 1,090,000 + 国民年金 215,040 = 1,305,040
+    expect(calculate(s, rulesOf(s)).socialInsurance.total).toBe(1_305_040);
   });
 });

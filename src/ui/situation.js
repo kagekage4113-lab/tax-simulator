@@ -1,7 +1,7 @@
 // 「いまの状況」: 税額0円の範囲（控除のクッション）と、非課税など「状態」が変わる境目を、平易な言葉で並べる。
 import { h, field, select } from './dom.js';
 import { formatYen } from '../core/money.js';
-import { getTaxYear } from '../data/taxYears/index.js';
+import { rulesOf } from '../data/taxYears/index.js';
 import { SITUATION_TARGETS, situation } from '../calc/situation.js';
 import { familyMargins, scenarioState, man } from '../interview/assess.js';
 
@@ -23,7 +23,7 @@ function markText(row, target, mark) {
   return row.ok(target, manR(mark.margin));
 }
 
-export function situationSection(store, rulesFor = getTaxYear) {
+export function situationSection(store, rulesFor = rulesOf) {
   const el = h('details', { class: 'card', id: 'sec-situation', open: true }, h('summary', {}, 'いまの状況（どこまで余裕があるか）'));
   const body = h('div', { class: 'body' });
   el.append(body);
@@ -32,7 +32,7 @@ export function situationSection(store, rulesFor = getTaxYear) {
 
   const render = () => {
     const state = store.get();
-    const rules = rulesFor(state.taxYear);
+    const rules = rulesFor(state);
     const sel = field('もし増えるのが…', select(Object.fromEntries(Object.entries(SITUATION_TARGETS).map(([k, v]) => [k, v.label])), targetId, (v) => { targetId = v; render(); }));
     if (!rules) { body.replaceChildren(sel, h('p', { class: 'warn' }, 'この年度の税制データが未登録のため、計算できません。')); return; }
     const hh = state.household;
@@ -88,7 +88,7 @@ export function situationSection(store, rulesFor = getTaxYear) {
     kids.push(h('details', { class: 'edit' }, h('summary', {}, '見方と前提（「税額0円」と「非課税」は別です）'),
       h('p', { class: 'hint' }, '「所得税や住民税の税額が0円」なのは、所得控除で所得を打ち消せている状態です。「住民税の非課税」は、合計所得金額が限度額以下かどうかで決まる別の判定で、税額が0円でも非課税とは限りません。非課税でなくなると、所得割が0円でも均等割がかかります。'),
       h('p', { class: 'hint' }, 'FX・先物の利益は他の所得と分けて計算します。給与などから引ききれなかった所得控除は、FXの利益から差し引ける扱いで計算しています。申告書第三表の様式（「所得から差し引かれる金額」を各分離課税の所得に振り分ける欄）で仕組みは確認できましたが、手引きの文章による裏づけは未確認です。また、FXの利益で合計所得金額が増えると基礎控除が段階的に小さくなるため、控除の余り（クッション）は一定ではなく、上の「あと○円」はその段差を含めて計算しています。'),
-      h('p', { class: 'hint' }, '住民税の非課税の判定は、分離課税のFXの所得も含めた合計所得金額で行っています（総務省の資料から、合計所得金額に株式等の譲渡所得（分離課税）が含まれることは読み取れます。FX・先物を含むかは明記がなく未確認）。額は1,000円単位の目安です（令和8年分の住民税は令和8年度の値で代用しています）。')));
+      h('p', { class: 'hint' }, '住民税の非課税の判定は、分離課税のFXの所得も含めた合計所得金額で行っています（国税庁の専門用語集で、合計所得金額・総所得金額等に申告分離課税の所得を含めること、東京23区の住民税パンフレットで、先物取引に係る雑所得等が所得割の対象になることを確認済み）。繰越損失を引く前が合計所得金額（均等割の非課税など）、引いた後が総所得金額等（所得割の非課税など）です。額は1,000円単位の目安です（令和8年分の住民税は令和8年度の値で代用しています）。')));
     body.replaceChildren(...kids);
   };
 

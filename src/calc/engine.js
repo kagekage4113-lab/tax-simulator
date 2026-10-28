@@ -120,11 +120,15 @@ export function calculate(state, rules) {
   const fxCarryRemaining = fxPool.remaining;
   const listedIncome = listedPool.income;
 
-  const totalIncome = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome + listedIncome; // 合計所得金額（簡易）
+  // 総所得金額等 = 損益通算後の各所得（申告分離課税の所得を含む）に、損失の繰越控除を適用した後の金額。
+  // 合計所得金額 = 同じ合計額を、損失の繰越控除を適用する前の金額で求めたもの（国税庁 専門用語集）。
+  // 基礎控除・配偶者控除・扶養・非課税（均等割）などは合計所得金額、医療費・雑損の足切りや所得割の非課税は総所得金額等で判定する。
+  const totalIncomeNet = comprehensiveIncome === null ? null : comprehensiveIncome + fxIncome + listedIncome;
+  const totalIncome = totalIncomeNet === null ? null : totalIncomeNet + fxCarryUsed + listedPool.carryUsed;
 
   // ---- 5. 所得控除 ----
-  const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes });
-  const deductions = calcDeductions({ state, rules, need, totalIncome, socialInsurance });
+  const socialInsurance = calcSocialInsurance({ state, need, salaryRevenue, totalIncome: totalIncomeNet, notes });
+  const deductions = calcDeductions({ state, rules, need, totalIncome, netIncome: totalIncomeNet, socialInsurance });
   if (declaredAutoIds(state).length) notes.push('配偶者・扶養・障害者・寡婦/ひとり親・勤労学生などの適用は、ご自身の申告に基づく前提です（適用には証明書類が必要な場合があります）。年齢は12月31日時点で入力してください。');
 
   // ---- 6-7. 課税所得 ----
@@ -180,7 +184,7 @@ export function calculate(state, rules) {
       const credit = state.taxCredits.donationCredit.amount;
       const adj = rules.residentTax.adjustment;
       const adjustment = adj ? calcAdjustmentCredit(state, adj, deductions.residentTax, totalIncome, taxableRT.comprehensive) : 0;
-      const exemption = calcResidentExemption(state, rules, totalIncome);
+      const exemption = calcResidentExemption(state, rules, totalIncome, totalIncomeNet);
       const incomeLevy = exemption ? 0 : Math.max(0, levy - adjustment - credit);
       const fxTax = exemption ? 0 : fx;
       const listedTax = exemption ? 0 : listed;
@@ -236,6 +240,7 @@ export function calculate(state, rules) {
       fx: { profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining, carryNext, carryExpired, expiringAmount },
       listed: { profit: listedProfit, carryIn: listedPool.carryIn, carryUsed: listedPool.carryUsed, income: listedIncome, carryRemaining: listedPool.remaining, carryNext: listedPool.carryNext, carryExpired: listedPool.carryExpired, expiringAmount: listedPool.expiringAmount },
       total: totalIncome,
+      totalNet: totalIncomeNet,
       revenueTotal, expensesTotal,
     },
     deductions,
@@ -325,12 +330,12 @@ export function residentNonTaxableLimits(state, rules) {
 }
 
 // 住民税の非課税判定。'all' = 均等割・所得割とも非課税、'levy' = 所得割のみ非課税、null = 課税。
-function calcResidentExemption(state, rules, totalIncome) {
+function calcResidentExemption(state, rules, totalIncome, netIncome = totalIncome) {
   const lim = residentNonTaxableLimits(state, rules);
   if (!lim || totalIncome === null) return null;
-  if (lim.special !== null && totalIncome <= lim.special) return 'all';
+  if (lim.special !== null && totalIncome <= lim.special) return 'all'; // 合計所得金額（繰越控除の適用前）
   if (totalIncome <= lim.all) return 'all';
-  if (totalIncome <= lim.levy) return 'levy';
+  if (netIncome <= lim.levy) return 'levy'; // 総所得金額等（繰越控除の適用後）
   return null;
 }
 
@@ -347,7 +352,7 @@ export function calcAdjustmentCredit(state, adj, residentDeductions, totalIncome
   return mulFloor(base, adj.rate);
 }
 
-function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFull }) {
+function calcDeductions({ state, rules, need, totalIncome, netIncome = totalIncome, socialInsurance: siFull }) {
   const out = { incomeTax: { items: [], total: 0 }, residentTax: { items: [], total: 0 } };
   const push = (kind, item) => {
     out[kind].items.push(item);
@@ -373,9 +378,9 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
         const m = rules.medical;
         if (box.paid - box.reimbursed <= 0) amount = 0;
         else if (!m || m.thresholdFixed == null || m.thresholdRate == null || m.cap == null) { need('medical'); amount = null; }
-        else if (totalIncome === null) amount = null;
+        else if (netIncome === null) amount = null;
         else {
-          const threshold = Math.min(m.thresholdFixed, mulFloor(totalIncome, m.thresholdRate));
+          const threshold = Math.min(m.thresholdFixed, mulFloor(netIncome, m.thresholdRate)); // 総所得金額等の5%
           amount = Math.min(m.cap, Math.max(0, box.paid - box.reimbursed - threshold));
         }
       } else if (id === 'casualty') {
@@ -383,11 +388,11 @@ function calcDeductions({ state, rules, need, totalIncome, socialInsurance: siFu
         const cfg = rules.casualty;
         if (!(box.loss + box.related > 0)) amount = 0;
         else if (!cfg) { need('casualty'); amount = null; }
-        else if (totalIncome === null) amount = null;
+        else if (netIncome === null) amount = null;
         else {
           const disaster = Math.min(box.disasterRelated, box.related);
           const insuranceOnRelated = Math.max(0, box.insurance - box.loss); // 保険金等はまず損害金額から差し引き、超える分を関連支出から差し引く
-          const a1 = box.loss + box.related - box.insurance - mulFloor(totalIncome, cfg.incomeRate);
+          const a1 = box.loss + box.related - box.insurance - mulFloor(netIncome, cfg.incomeRate); // 総所得金額等の10%
           const a2 = disaster - insuranceOnRelated - cfg.relatedFloor;
           amount = Math.max(0, a1, a2);
         }
