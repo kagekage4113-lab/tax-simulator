@@ -400,3 +400,13 @@ describe('健康保険の扶養（130万円・150万円・180万円）', () => {
     expect(R.socialInsurance.dependent.monthlyEquivalent).toBe(108_333);
   });
 });
+
+describe('健康保険の扶養: 障害のある家族は180万円未満の可能性を注記（基準は130万円のまま）', () => {
+  it('手帳などがある60歳未満の人は、基準は130万円のまま注記だけ出す', () => {
+    const s = defaultState(); s.taxYear = 2026; s.insurance = { ...s.insurance, type: 'employee' };
+    s.household = { enabled: true, me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, people: [{ ...newPerson('spouse'), age: 40, incomeKind: 'none', certificate: 'phys12' }] };
+    const [a] = socialDependentMargins(s, getTaxYear(2026));
+    expect(a.limit).toBe(1_300_000);
+    expect(a.note).toMatch(/180万円未満になる可能性/);
+  });
+});

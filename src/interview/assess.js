@@ -262,6 +262,7 @@ export function socialDependentMargins(state, rules) {
     if (income === null) continue;
     const elder = p.age >= d.elderOrDisabled.minAge;
     const youth = !elder && p.kind !== 'spouse' && p.age >= d.youth.minAge && p.age <= d.youth.maxAge;
+    if (!elder && p.certificate !== 'none') note = [note, `障害がある場合は${Math.round(d.elderOrDisabled.limit / 10_000)}万円未満になる可能性があります（障害厚生年金の受給要件に当たる程度の障害が対象で、認定は個別。手帳の等級との対応は資料で未確認）`].filter(Boolean).join('。');
     const limit = elder ? d.elderOrDisabled.limit : youth ? d.youth.limit : d.limit;
     out.push({ id: p.id, name: p.name, kind: p.kind, income, limit, margin: limit - 1 - income, within: income < limit, elder, youth, note, salaryOnly: p.incomeKind === 'salary' });
   }
