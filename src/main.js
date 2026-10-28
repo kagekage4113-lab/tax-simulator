@@ -118,7 +118,7 @@ app.append(
   ...(notice ? [notice] : []),
   steps.dock, // スマホでは下に固定、PCでは上に固定（CSSで切り替え）
   h('main', {}, panels.input, panels.review, panels.adjust),
-  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), '【ご利用にあたって】この内容は2026年10月時点の公的資料に基づく参考情報です。正確性・最新性を保証するものではなく、利用によって生じた損害について責任を負いません。申告や手続きは、国税庁・自治体・専門家の案内をご確認ください。', h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データの保存・読み込みへ')),
+  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), '【ご利用にあたって】この内容は2026年10月時点の公的資料に基づく参考情報です。正確性・最新性を保証するものではなく、利用によって生じた損害について責任を負いません。申告や手続きは、国税庁・自治体・専門家の案内をご確認ください。', h('br'), h('a', { href: 'https://github.com/kagekage4113-lab/tax-simulator', target: '_blank', rel: 'noopener' }, '使い方・限界・不具合の連絡（GitHub）'), h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データの保存・読み込みへ')),
 );
 
 window.addEventListener('pagehide', () => store.flush());
