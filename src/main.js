@@ -12,6 +12,15 @@ import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
 import { DEFAULT_YEAR, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
 
+// 配色: 自動（端末の設定に合わせる）／ライト／ダーク。選んだものはこの端末に覚えておく。
+const THEME_KEY = 'taxsim.theme';
+const readTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch { return 'auto'; } };
+const applyTheme = (mode) => {
+  if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem(THEME_KEY, mode); } catch { /* 保存できなくても動く */ }
+};
+applyTheme(readTheme());
+
 const store = createStore();
 const app = document.getElementById('app');
 
@@ -99,6 +108,15 @@ store.subscribe((state, e) => {
   refreshBadge(state);
 });
 
+function themeSwitch() {
+  const wrap = h('span', { class: 'theme-switch', role: 'group', 'aria-label': '配色' }, h('span', {}, '配色：'));
+  const buttons = [['auto', '自動'], ['light', 'ライト'], ['dark', 'ダーク']].map(([mode, label]) => h('button', { type: 'button', 'aria-pressed': 'false', onClick: () => { applyTheme(mode); sync(); } }, label));
+  const modes = ['auto', 'light', 'dark'];
+  const sync = () => buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(modes[i] === readTheme())));
+  wrap.append(...buttons);
+  sync();
+  return wrap;
+}
 const viewToggle = h('button', { type: 'button', class: 'linklike' }, '');
 const syncToggle = () => { viewToggle.textContent = steps.isClassic() ? '3段階表示（入力→確認→調整）に戻す' : '1ページにまとめて表示する'; };
 viewToggle.addEventListener('click', () => { steps.setClassic(!steps.isClassic()); writeView(steps.isClassic() ? 'classic' : 'steps'); syncToggle(); });
@@ -119,7 +137,7 @@ app.append(
   ...(notice ? [notice] : []),
   steps.dock, // スマホでは下に固定、PCでは上に固定（CSSで切り替え）
   h('main', {}, panels.input, panels.review, panels.adjust),
-  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), '【ご利用にあたって】この内容は2026年10月時点の公的資料に基づく参考情報です。正確性・最新性を保証するものではなく、利用によって生じた損害について責任を負いません。申告や手続きは、国税庁・自治体・専門家の案内をご確認ください。', h('br'), h('a', { href: 'https://github.com/kagekage4113-lab/tax-simulator', target: '_blank', rel: 'noopener' }, '使い方・限界・不具合の連絡（GitHub）'), h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データの保存・読み込みへ')),
+  h('footer', {}, themeSwitch(), h('br'), '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), '【ご利用にあたって】この内容は2026年10月時点の公的資料に基づく参考情報です。正確性・最新性を保証するものではなく、利用によって生じた損害について責任を負いません。申告や手続きは、国税庁・自治体・専門家の案内をご確認ください。', h('br'), h('a', { href: 'https://github.com/kagekage4113-lab/tax-simulator', target: '_blank', rel: 'noopener' }, '使い方・限界・不具合の連絡（GitHub）'), h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データの保存・読み込みへ')),
 );
 
 window.addEventListener('pagehide', () => store.flush());
