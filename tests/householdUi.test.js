@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { householdSection } from '../src/ui/household.js';
-import { defaultState } from '../src/core/schema.js';
+import { defaultState, newIncome } from '../src/core/schema.js';
 import { validateState } from '../src/core/schema.js';
 import { applyHousehold } from '../src/interview/assess.js';
 import { getTaxYear } from '../src/data/taxYears/index.js';
@@ -193,5 +193,37 @@ describe('住民税・国保の基準は東京23区だけ（福山市は画面�
     [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
     expect(replaced.residence.area).toBe('tokyo23');
     expect(el.textContent).toMatch(/福山市（広島県）から東京23区（標準）に変えました/);
+  });
+});
+
+import { cushionSection } from '../src/ui/cushion.js';
+describe('控除と余裕（クッション）の画面', () => {
+  const mkState = (incomes) => {
+    const s = defaultState();
+    s.taxYear = 2026;
+    s.insurance = { type: 'none', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    s.incomes = incomes;
+    return s;
+  };
+  it('給与300万円・単身: 基礎控除 所得税104万円・住民税43万円。課税される所得は98万円・159万円、余りなし（手計算）', () => {
+    // 給与所得 = 300万 − (30%+8万=98万) = 202万。所得税の課税所得 = 202万−104万 = 98万、住民税 = 202万−43万 = 159万
+    const el = cushionSection(storeOf(mkState([{ ...newIncome('salary'), amount: 3_000_000 }])));
+    const t = el.textContent;
+    expect(t).toMatch(/基礎控除/);
+    expect(t).toContain('1,040,000円');
+    expect(t).toContain('430,000円');
+    expect(t).toContain('980,000円');
+    expect(t).toContain('1,590,000円');
+    expect(t).toMatch(/控除の余り（クッション）0円0円/);
+  });
+  it('FXの利益35万円のみ: 所得税の控除の余り = 104万円 − 35万円 = 69万円。あと約69万円まで所得税0円', () => {
+    const el = cushionSection(storeOf(mkState([{ ...newIncome('fx'), amount: 350_000 }])));
+    const t = el.textContent;
+    expect(t).toContain('690,000円');
+    expect(t).toMatch(/所得税が0円のまま: あと69(\.\d)?万円まで/);
+  });
+  it('基礎控除が下がる段差（令和8年分: 合計所得489万円超で67万円）を説明に出す', () => {
+    const el = cushionSection(storeOf(mkState([{ ...newIncome('fx'), amount: 350_000 }])));
+    expect(el.textContent).toMatch(/合計所得が489万円を超えると104万円から67万円に下がります/);
   });
 });

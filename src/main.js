@@ -6,6 +6,7 @@ import { deductionsSection, incomesSection, resultSection, settingsSection } fro
 import { simulationSection } from './ui/simulation.js';
 import { householdInputSection, householdReviewSection } from './ui/household.js';
 import { situationSection } from './ui/situation.js';
+import { cushionSection } from './ui/cushion.js';
 import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
 import { AREAS, DEFAULT_AREA, DEFAULT_YEAR, UI_AREAS, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
@@ -32,6 +33,7 @@ const notice = store.notice || yearNotice ? h('p', { class: 'banner' }, [store.n
 const result = resultSection();
 const simulation = simulationSection(store);
 const situation = situationSection(store);
+const cushion = cushionSection(store);
 
 // 従来の1ページ表示（全部を縦に並べる）。選択は端末に覚えておく。
 const VIEW_KEY = 'taxsim.view';
@@ -69,7 +71,7 @@ const panels = {
     stepNav({ next: { id: 'review', label: '確認へ進む' } })),
   review: h('section', { class: 'step', id: 'step-review', 'aria-labelledby': 'tab-review' },
     h('p', { class: 'step-lead' }, '入力から出た、税金と手取りの目安です。赤い項目や「要確認」は、「入力」に戻って答えると確定します。'),
-    result, slots.review, situation,
+    result, cushion, slots.review, situation,
     stepNav({ back: next('input'), next: { id: 'adjust', label: '調整へ進む' } })),
   adjust: h('section', { class: 'step', id: 'step-adjust', 'aria-labelledby': 'tab-adjust' },
     h('p', { class: 'step-lead' }, '条件を変えて試したり、分かる控除を足して精度を上げたりできます。結果は「確認」で見られます。'),
@@ -95,6 +97,7 @@ store.subscribe((state, e) => {
   if (e.structural) rebuild();
   else { hhInput.refresh(state); hhReview.refresh(state); }
   situation.refresh();
+  cushion.refresh();
   result.update(state);
   simulation.update(state, e);
   refreshBadge(state);

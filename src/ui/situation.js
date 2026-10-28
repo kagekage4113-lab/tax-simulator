@@ -51,7 +51,6 @@ export function situationSection(store, rulesFor = rulesOf) {
     kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},
       h('tr', {}, h('th', {}, '合計所得金額（いま）'), h('td', { class: 'r' }, yen(b.totalIncome))),
       h('tr', {}, h('th', {}, '所得税 / 住民税（いま）'), h('td', { class: 'r' }, `${yen(b.incomeTax)} / ${yen(b.residentTax)}`)),
-      h('tr', {}, h('th', {}, '使い切れていない所得控除（所得税）'), h('td', { class: 'r' }, yen(b.unusedIT))),
       h('tr', {}, h('th', {}, '住民税の非課税'), h('td', { class: 'r' }, b.exemption === 'all' ? '非課税' : b.exemption === 'levy' ? '所得割のみ非課税' : '課税')))));
 
     const levy = now.marks.find((x) => x.id === 'residentLevy');

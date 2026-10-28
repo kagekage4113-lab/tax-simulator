@@ -169,3 +169,20 @@ tr.out th, tr.out td { opacity: .6; }
 .key-line.ok { color: var(--ok); }
 .key-sub { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
 .miss-box .btn { margin-top: 6px; }
+
+/* 控除と余裕 */
+:root { --seg-1: #0f766e; --seg-2: #2563eb; --seg-3: #b45309; --seg-4: #7c3aed; --seg-5: #be123c; --seg-6: #4d7c0f; --inc-1: #475569; --inc-2: #0ea5e9; --inc-3: #f59e0b; }
+@media (prefers-color-scheme: dark) { :root { --seg-1: #2bb3a5; --seg-2: #60a5fa; --seg-3: #f59e0b; --seg-4: #a78bfa; --seg-5: #fb7185; --seg-6: #84cc16; --inc-1: #94a3b8; --inc-2: #38bdf8; --inc-3: #fbbf24; } }
+.cushion-bars { margin: 8px 0 2px; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.bar-label { width: 2.4em; font-size: .8rem; color: var(--muted); }
+.bar { flex: 1; display: flex; height: 22px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg { display: block; height: 100%; }
+.seg.c1, .dot.c1 { background: var(--seg-1); } .seg.c2, .dot.c2 { background: var(--seg-2); } .seg.c3, .dot.c3 { background: var(--seg-3); }
+.seg.c4, .dot.c4 { background: var(--seg-4); } .seg.c5, .dot.c5 { background: var(--seg-5); } .seg.c6, .dot.c6 { background: var(--seg-6); }
+.seg.inc1 { background: var(--inc-1); } .seg.inc2 { background: var(--inc-2); } .seg.inc3 { background: var(--inc-3); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.cushion-tbl th { font-weight: 500; }
+.cushion-tbl tr.basic th { font-weight: 700; }
+.cushion-tbl tr.cushion-row th, .cushion-tbl tr.cushion-row td { color: var(--ok); }
+.cushion-list { margin: 4px 0 8px; padding-left: 1.2em; font-size: .92rem; }
