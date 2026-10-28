@@ -82,7 +82,7 @@ export function simulationSection(store, rulesFor = rulesOf) {
     setChildren(A.controls, 
       field('どの収入が増える？', select(opts, ui.aTarget, (v) => { ui.aTarget = v; schedule(); })),
       gaugeField({ label: '追加収入（売上・収入ベース）', value: ui.aAdd, max: 5_000_000, onChange: (v) => { ui.aAdd = v; schedule(); }, hint: '事業・不動産・雑所得は売上の増加額、FX・先物は利益の増加額、給与は収入（額面）の増加額です。' }),
-      gaugeField({ label: '追加でかかる経費（任意）', value: ui.aExp, max: 2_000_000, onChange: (v) => { ui.aExp = v; schedule(); }, hint: '経費がかかる区分（事業・不動産・雑所得・暗号資産）だけに反映されます。' }));
+      gaugeField({ label: '追加でかかる経費（任意）', value: ui.aExp, max: 2_000_000, onChange: (v) => { ui.aExp = v; schedule(); }, hint: '経費がかかる区分（事業・不動産・雑所得・暗号資産・FX）だけに反映されます。' }));
   };
   A.render = () => {
     if (!ui.aTarget) return setChildren(A.output, h('p', { class: 'note' }, '収入を追加すると比較できます。'));
@@ -105,7 +105,7 @@ export function simulationSection(store, rulesFor = rulesOf) {
   B.build = () => {
     const opts = targetOptions(state, { existingOnly: true, expensesOnly: true });
     ui.bTarget = pickTarget(ui.bTarget, opts, []);
-    if (!ui.bTarget) return setChildren(B.controls, h('p', { class: 'note' }, '経費を入力できる収入（事業・不動産・雑所得・暗号資産）がありません。'));
+    if (!ui.bTarget) return setChildren(B.controls, h('p', { class: 'note' }, '経費を入力できる収入（事業・不動産・雑所得・暗号資産・FX）がありません。'));
     setChildren(B.controls, 
       field('どの収入の経費？', select(opts, ui.bTarget, (v) => { ui.bTarget = v; schedule(); })),
       field('変更', select({ up: '経費を増やす（支出する）', down: '経費を減らす' }, ui.bDir, (v) => { ui.bDir = v; schedule(); })),

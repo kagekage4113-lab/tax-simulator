@@ -238,7 +238,7 @@ function totals(a) {
         h('tr', {}, h('th', {}, '所得税'), h('td', { class: 'r' }, yen(c.incomeTax?.total)), h('td', { class: 'r' }, yen(o.incomeTax?.total))),
         h('tr', {}, h('th', {}, '住民税'), h('td', { class: 'r' }, yen(c.residentTax?.total)), h('td', { class: 'r' }, yen(o.residentTax?.total))),
         h('tr', { class: 'strong' }, h('th', {}, '年間手取り'), h('td', { class: 'r' }, yen(c.takeHome)), h('td', { class: 'r' }, yen(o.takeHome))))),
-    c.income.revenueTotal + c.income.fx.profit === 0 ? h('p', { class: 'warn' }, 'あなたの収入がまだ入力されていません。「現在の収入と経費」に入れると、手取りへの影響が出ます。') : null,
+    c.income.revenueTotal + c.income.fx.gross === 0 ? h('p', { class: 'warn' }, 'あなたの収入がまだ入力されていません。「現在の収入と経費」に入れると、手取りへの影響が出ます。') : null,
     diff === 0 && (c.taxable.incomeTax?.unusedDeduction ?? 0) > 0 ? h('p', { class: 'hint' }, `いまの所得では控除が${formatYen(c.taxable.incomeTax.unusedDeduction)}円余っているため、要確認がすべて当てはまっても税額は変わりません。`) : null,
     diff != null && diff !== 0 ? h('p', { class: 'hint' }, `要確認がすべて当てはまると、手取りは最大で${formatYen(diff)}円増えます。`) : null,
     a.asks.length ? h('details', { class: 'edit' }, h('summary', {}, `まだ確認が必要なこと（${a.asks.length}件）`), h('ul', { class: 'status-list' }, a.asks.map((t) => h('li', {}, t)))) : h('p', { class: 'hint' }, '確認が必要な項目はありません。'));

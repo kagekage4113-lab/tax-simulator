@@ -892,6 +892,19 @@ describe('FX・先物（令和7年分 実データ: 所得税15%＋復興2.1%、
     expect(r.residentTax.total).toBe(33_500);
     expect(r.takeHome).toBe(958_843);
   });
+  it('必要経費を入れると、所得は 損益−経費（経費を引く前の損益は収入側に表示）', () => {
+    // 損益1,000,000・経費200,000 → FX所得800,000 / 所得税: 基礎950,000の範囲内で0円
+    // 住民税: 基礎430,000 → 課税370,000×5%=18,500 + 均等割等5,000 = 23,500 / 手取り=1,000,000-200,000-0-23,500=776,500
+    const r = calculate(mk([inc('fx', 1_000_000, 200_000)]), R7);
+    expect(r.income.fx).toMatchObject({ gross: 1_000_000, profit: 800_000, income: 800_000 });
+    expect(r.incomeTax.total).toBe(0);
+    expect(r.residentTax.total).toBe(23_500);
+    expect(r.takeHome).toBe(776_500);
+  });
+  it('経費が損益を上回って赤字になると、翌年以後に繰り越す損失になる', () => {
+    const r = calculate(mk([inc('fx', 100_000, 300_000)]), R7);
+    expect(r.income.fx).toMatchObject({ profit: -200_000, income: 0, carryRemaining: 200_000 });
+  });
   it('繰越損失30万円を控除し、使い切れない所得控除は余りとして表示', () => {
     // FX所得=700,000 → 基礎控除950,000の方が大きく課税0 / 住民税: 700,000-430,000=270,000 → 13,500+5,000=18,500
     const r = fx(1_000_000, 300_000);

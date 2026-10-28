@@ -70,9 +70,9 @@ export const INCOME_CATEGORIES = [
     label: 'FX・先物・オプション取引（申告分離）',
     taxMethod: TAX_METHOD.SEPARATE,
     computeModule: 'fxIncome',
-    // 年間損益（経費控除後）を実額で入力する。損失はマイナスで入力。
+    // 年間の決済損益（スワップ等を含み、経費を引く前）を入力し、必要経費は別に入力する。損失はマイナスで入力。所得 = 損益 − 必要経費。
     inputKind: 'profit',
-    hasExpenses: false,
+    hasExpenses: true,
     supportPhase: 2,
     supported: true,
   },

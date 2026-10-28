@@ -115,7 +115,8 @@ export function incomesSection(store) {
     const cat = getIncomeCategory(inc.category);
     const upd = (key, val, structural) => set((x) => { x.incomes[i][key] = val; }, structural);
     const tm = cat.taxMethod || inc.taxMethod;
-    const label = cat.inputKind === 'profit' ? '年間の損益（経費控除後・損失はマイナス）'
+    const label = inc.category === 'fx' ? '年間の決済損益（経費を引く前・損失はマイナス）'
+      : cat.inputKind === 'profit' ? '年間の損益（経費控除後・損失はマイナス）'
       : cat.inputKind === 'directIncome' ? '所得金額（直接入力）'
       : inc.category === 'salary' ? '年間の給与収入（額面）' : '年間の収入（売上）';
     return h('div', { class: 'item' },
@@ -142,7 +143,7 @@ export function incomesSection(store) {
       ] : []),
       cat.id === 'listedStock' ? info('上場株式等（株式・公募投資信託・国債など）の譲渡益と、申告分離課税を選んだ配当を、取得費・手数料を引いた年間の損益で入力します。所得税15%・住民税5%（ほかに復興特別所得税）の申告分離課税で、損失は上場株式等の中でだけ通算できます。NISA口座内の損益は非課税なので入力しないでください（NISAの損失は通算・繰越できません）。特定口座（源泉徴収あり）で申告しないことを選んだ分も入力は不要です。総合課税を選ぶ配当（配当控除の対象）は未対応です。') : null,
       cat.id === 'securities' ? info('上場株式等以外の株式等（一般株式等など）は簡易扱いです。NISA口座内の売却益・配当は非課税なので入力しないでください（NISAの損失は損益通算・繰越控除できません。国税庁No.1535）。特定口座（源泉徴収あり）で確定申告をしないことを選んだ分も入力は不要です（国税庁No.1900）。申告する場合の所得は、課税方式を選んで直接入力してください（分離課税の税額は計算に含めません）。') : null,
-      inc.category === 'fx' ? info('先物取引に係る雑所得等（国内のFX、商品先物、株価指数先物・オプションなど）が対象で、所得税15%・住民税5%の申告分離課税です。損失は同じ区分の中でだけ通算できます。海外業者のFXや、暗号資産のレバレッジ取引・デリバティブは対象外（総合課税の雑所得）なので、「雑所得」や「暗号資産」に入力してください。年間損益は業者の年間取引報告書の実額（経費控除後）を入力してください。') : null,
+      inc.category === 'fx' ? info('先物取引に係る雑所得等（国内のFX、商品先物、株価指数先物・オプションなど）が対象で、所得税15%・住民税5%の申告分離課税です。損失は同じ区分の中でだけ通算できます。海外業者のFXや、暗号資産のレバレッジ取引・デリバティブは対象外（総合課税の雑所得）なので、「雑所得」や「暗号資産」に入力してください。年間の決済損益（スワップポイントなどを含む）は業者の年間取引報告書の実額を入力し、取引にかかった必要経費があれば、下の「必要経費の合計」に入れてください（所得＝損益−必要経費。どこまでが経費になるかはご自身で確認してください）。') : null,
       inc.category === 'crypto' ? info('暗号資産の売却・暗号資産同士の交換・商品購入の利益は、原則として雑所得（総合課税）です。収入には売却額、経費には譲渡原価と手数料などを入力します（取得価額は総平均法または移動平均法で計算した額）。赤字は他の所得と通算できません。証拠金取引（レバレッジ取引）も総合課税です。年間の収入が300万円を超えると、帳簿書類の保存の有無で区分が変わります（国税庁FAQ）。') : null,
       inc.category === 'salary' ? info('給与所得控除を使うため経費は入力しません（特定支出控除は未対応）。') : null,
     );
@@ -256,7 +257,7 @@ export function resultSection(rulesFor = rulesOf) {
         h('br'), [...new Set(r.missing.map(missingLabel))].join('、')));
     }
     kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},
-      row('年間収入', yen(i.revenueTotal + i.fx.profit)),
+      row('年間収入', yen(i.revenueTotal + i.fx.gross)),
       row('所得（合計）', yen(i.total), { tag: i.total == null ? null : '概算' }),
       row('所得税（復興税含む）', yen(r.incomeTax?.total)),
       row('住民税（翌年度分）', yen(r.residentTax?.total), { tag: '概算' }),
@@ -277,7 +278,7 @@ export function resultSection(rulesFor = rulesOf) {
       i.simpleComp ? row('その他（直接入力・簡易扱い）', yen(i.simpleComp), { tag: '簡易' }) : null,
       row('総合課税の所得（損益通算後）', yen(i.comprehensive), { strong: true }),
       i.lossOffset ? row('通算しきれない赤字', yen(i.lossOffset)) : null,
-      s.incomes.some((x) => x.category === 'fx') ? row(`FX所得（損益${formatYen(i.fx.profit)} − 繰越控除${formatYen(i.fx.carryUsed)}）`, yen(i.fx.income), { tag: '分離課税' }) : null,
+      s.incomes.some((x) => x.category === 'fx') ? row(`FX所得（損益${formatYen(i.fx.gross)}${i.fx.gross !== i.fx.profit ? ` − 経費${formatYen(i.fx.gross - i.fx.profit)}` : ''} − 繰越控除${formatYen(i.fx.carryUsed)}）`, yen(i.fx.income), { tag: '分離課税' }) : null,
       s.incomes.some((x) => x.category === 'fx') ? row('FX・先物：翌年への繰越損失', yen(i.fx.carryRemaining)) : null,
       s.incomes.some((x) => x.category === 'listedStock') ? row(`上場株式等の所得（損益${formatYen(i.listed.profit)} − 繰越控除${formatYen(i.listed.carryUsed)}）`, yen(i.listed.income), { tag: '分離課税' }) : null,
       s.incomes.some((x) => x.category === 'listedStock') ? row('上場株式等：翌年への繰越損失', yen(i.listed.carryRemaining)) : null)));

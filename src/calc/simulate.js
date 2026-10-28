@@ -32,7 +32,7 @@ export function metricsOf(r) {
   const ok = r.burden !== null && r.takeHome !== null;
   return {
     ok,
-    revenue: r.income.revenueTotal + r.income.fx.profit + r.income.listed.profit + r.income.simpleComp,
+    revenue: r.income.revenueTotal + r.income.fx.gross + r.income.listed.profit + r.income.simpleComp,
     income: r.income.total,
     incomeTax: ok ? r.incomeTax.total : null,
     residentTax: ok ? r.residentTax.total : null,
@@ -129,12 +129,14 @@ export function fxTiming(state, rules, { unrealized, realize }) {
   const base = clone(state);
   const others = base.incomes.filter((i) => i.category !== 'fx');
   const fxNow = base.incomes.filter((i) => i.category === 'fx').reduce((a, i) => a + i.amount, 0);
+  const fxExpenses = base.incomes.filter((i) => i.category === 'fx').reduce((a, i) => a + i.expenses, 0); // 必要経費は毎年同じと仮定
   const stateWith = (taxYear, fxAmount, carry) => {
     const s = clone(state);
     s.taxYear = taxYear;
     s.incomes = others.map(clone);
     const f = newIncome('fx');
     f.amount = fxAmount;
+    f.expenses = fxExpenses;
     s.incomes.push(f);
     s.fxCarryLosses = carry;
     return s;

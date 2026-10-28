@@ -110,7 +110,8 @@ export function calculate(state, rules) {
   const lossOffset = comprehensiveRaw !== null && comprehensiveRaw < 0 ? -comprehensiveRaw : 0;
 
   // ---- 4. 申告分離課税（FX・先物／上場株式等）。損失は区分ごとに通算し、翌年以後3年間繰り越せる ----
-  const fxProfit = sum('fx', (i) => i.amount);
+  const fxGross = sum('fx', (i) => i.amount); // 経費を引く前の年間損益
+  const fxProfit = fxGross - sum('fx', (i) => i.expenses); // 経費控除後。税額・繰越損失の計算に使う
   const fxPool = carryPool({ state, need, notes, profit: fxProfit, losses: state.fxCarryLosses, key: 'fx', label: 'FX・先物', procedure: '繰越控除を受けるには、損失の年から連続して「先物取引に係る繰越損失用」の付表付きで確定申告を行う必要があります（国税庁No.1523）。' });
   const listedProfit = sum('listedStock', (i) => i.amount);
   const listedPool = carryPool({ state, need, notes, profit: listedProfit, losses: state.listedCarryLosses, key: 'listed', label: '上場株式等', procedure: '繰越控除を受けるには、損失の年から連続して確定申告を行う必要があります（国税庁「株式・配当・利子と税」）。NISA口座の損失は、ないものとみなされ通算・繰越できません。' });
@@ -216,7 +217,7 @@ export function calculate(state, rules) {
   // ---- 手取り（7章の定義）----
   const taxesKnown = incomeTax && incomeTax.total !== null && residentTax && businessTax.total !== null && socialInsurance.total !== null;
   const takeHome = taxesKnown
-    ? revenueTotal - expensesTotal + simpleComp + fxProfit + listedProfit
+    ? revenueTotal - expensesTotal + simpleComp + fxGross + listedProfit
       - incomeTax.total - residentTax.total - businessTax.total - socialInsurance.total
     : null;
   const burden = taxesKnown ? incomeTax.total + residentTax.total + businessTax.total + socialInsurance.total : null;
@@ -250,7 +251,7 @@ export function calculate(state, rules) {
       businessRevenue, businessNet, blueDeductionApplied, businessIncome,
       realEstateNet, miscNet, miscIncome, miscLossIgnored, simpleComp,
       comprehensiveRaw, lossOffset, comprehensive: comprehensiveIncome,
-      fx: { profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining, carryNext, carryExpired, expiringAmount },
+      fx: { gross: fxGross, profit: fxProfit, carryIn, carryUsed: fxCarryUsed, income: fxIncome, carryRemaining: fxCarryRemaining, carryNext, carryExpired, expiringAmount },
       listed: { profit: listedProfit, carryIn: listedPool.carryIn, carryUsed: listedPool.carryUsed, income: listedIncome, carryRemaining: listedPool.remaining, carryNext: listedPool.carryNext, carryExpired: listedPool.carryExpired, expiringAmount: listedPool.expiringAmount },
       total: totalIncome,
       totalNet: totalIncomeNet,
