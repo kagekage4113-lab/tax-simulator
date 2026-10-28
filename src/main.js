@@ -8,13 +8,21 @@ import { householdInputSection, householdReviewSection } from './ui/household.js
 import { situationSection } from './ui/situation.js';
 import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
-import { rulesOf } from './data/taxYears/index.js';
+import { DEFAULT_YEAR, UI_YEARS, rulesOf, yearLabel } from './data/taxYears/index.js';
 
 const store = createStore();
 const app = document.getElementById('app');
 
+// 画面が対応する年（令和8年分）以外の保存データは、令和8年分として読み込む（税制データがないため、年だけ付け替える）
+let yearNotice = null;
+if (!UI_YEARS.includes(store.get().taxYear)) {
+  const old = store.get().taxYear;
+  store.update((x) => { x.taxYear = DEFAULT_YEAR; });
+  yearNotice = `${yearLabel(old)}の保存データを、${yearLabel(DEFAULT_YEAR)}として読み込みました。税額は${yearLabel(DEFAULT_YEAR)}の制度で計算し直されます。`;
+}
+
 const status = h('span', { class: 'save-status', role: 'status' }, '');
-const notice = store.notice ? h('p', { class: 'banner' }, store.notice) : null;
+const notice = store.notice || yearNotice ? h('p', { class: 'banner' }, [store.notice, yearNotice].filter(Boolean).join(' ')) : null;
 const result = resultSection();
 const simulation = simulationSection(store);
 const situation = situationSection(store);

@@ -11,7 +11,9 @@ export const TAX_YEARS = {
 };
 
 export const SUPPORTED_YEARS = Object.keys(TAX_YEARS).map(Number);
-export const DEFAULT_YEAR = 2025; // 令和7年分（住民税まで資料が揃っている年）
+export const DEFAULT_YEAR = 2026; // 令和8年分（このアプリが対応する年）
+// 画面で選べる年。令和7年分のデータは、計算ロジックの検証（手計算のテスト）用に内部に残してある。
+export const UI_YEARS = [2026];
 
 // 住民税・国民健康保険料・個人事業税の地域別の値。年度データ本体は福山市の値を持つ（資料が先に揃ったため）。
 // fukuyama は年度データそのもの、tokyo23 は住民税・国保・事業税だけを差し替える。控除額などの法定の値は全国共通で同じ。

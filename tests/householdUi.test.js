@@ -151,3 +151,26 @@ describe('未回答の赤い表示', () => {
     expect(first.parentElement.classList.contains('missing')).toBe(false);
   });
 });
+
+describe('令和8年分だけに対応', () => {
+  it('新規の既定は令和8年分。設定画面に年の選択欄は出さず、対象の年を表示する', async () => {
+    const { settingsSection } = await import('../src/ui/sections.js');
+    const s = defaultState();
+    expect(s.taxYear).toBe(2026);
+    const el = settingsSection(storeOf(s));
+    expect(el.textContent).toMatch(/計算の対象: 令和8年分（2026年）/);
+    expect(el.textContent).not.toMatch(/計算対象年/);
+  });
+  it('令和7年分のJSONを読み込むと、令和8年分に付け替えて注記を出す', async () => {
+    const { buildExport } = await import('../src/io/exchange.js');
+    const old = defaultState(); old.taxYear = 2025;
+    let replaced = null;
+    const store = { get: () => old, replace: (n) => { replaced = n; } };
+    globalThis.URL.createObjectURL ??= () => 'blob:x';
+    const el = dataSection(store);
+    el.querySelector('textarea:not([readonly])').value = buildExport(old);
+    [...el.querySelectorAll('button')].find((b) => b.textContent.includes('貼り付けた内容')).click();
+    expect(replaced.taxYear).toBe(2026);
+    expect(el.textContent).toMatch(/令和7年分のデータを令和8年分として読み込みました/);
+  });
+});

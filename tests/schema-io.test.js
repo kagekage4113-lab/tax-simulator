@@ -110,6 +110,7 @@ describe('繰越損失の入力', () => {
     const old = JSON.parse(JSON.stringify(defaultState()));
     delete old.fxCarryLosses;
     old.fxCarryForward = 120000;
+    old.taxYear = 2025;
     const r = validateState(old);
     expect(r.ok).toBe(true);
     expect(r.state.fxCarryLosses).toEqual([{ year: 2024, amount: 120000 }]);

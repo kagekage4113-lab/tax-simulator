@@ -1,6 +1,15 @@
 import { h } from './dom.js';
 import { buildExport, parseImport } from '../io/exchange.js';
 import { defaultState } from '../core/schema.js';
+import { DEFAULT_YEAR, UI_YEARS, yearLabel } from '../data/taxYears/index.js';
+
+// 画面が対応する年以外のデータは、対応する年（令和8年分）として読み込む。付け替えたときは注記を返す。
+function adoptYear(state) {
+  if (UI_YEARS.includes(state.taxYear)) return '';
+  const old = state.taxYear;
+  state.taxYear = DEFAULT_YEAR;
+  return `（${yearLabel(old)}のデータを${yearLabel(DEFAULT_YEAR)}として読み込みました）`;
+}
 
 export function dataSection(store) {
   const msg = h('p', { class: 'msg', role: 'status' });
@@ -14,8 +23,9 @@ export function dataSection(store) {
     try {
       const result = parseImport(await file.text());
       if (!result.ok) { show(`読み込めませんでした（現在のデータは変更されていません）：${result.errors.slice(0, 3).join(' / ')}`, 'error'); return; }
+      const yn = adoptYear(result.state);
       store.replace(result.state);
-      show('読み込みました', 'ok');
+      show(`読み込みました${yn}`, 'ok');
     } catch {
       show('ファイルを読み込めませんでした（現在のデータは変更されていません）', 'error');
     }
@@ -44,9 +54,10 @@ export function dataSection(store) {
   const pasteBtn = h('button', { type: 'button', class: 'btn', onClick: () => {
     const result = parseImport(pasteBox.value);
     if (!result.ok) { show(`読み込めませんでした（現在のデータは変更されていません）：${result.errors.slice(0, 3).join(' / ')}`, 'error'); return; }
+    const yn = adoptYear(result.state);
     store.replace(result.state);
     pasteBox.value = '';
-    show('読み込みました', 'ok');
+    show(`読み込みました${yn}`, 'ok');
   } }, '貼り付けた内容を読み込む');
 
   const resetBtn = h('button', { type: 'button', class: 'btn danger', onClick: () => {

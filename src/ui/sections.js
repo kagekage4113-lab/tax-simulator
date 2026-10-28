@@ -6,7 +6,7 @@ import {
 } from '../core/schema.js';
 import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/incomeCategories.js';
 import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
-import { AREAS, SUPPORTED_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
+import { AREAS, UI_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 import { calculate } from '../calc/engine.js';
 
@@ -45,7 +45,7 @@ const num = (v, fb = 0) => (Number.isFinite(v) ? v : fb);
 export function settingsSection(store) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
-  const yearOptions = Object.fromEntries(SUPPORTED_YEARS.map((y) => [y, yearLabel(y)]));
+  const yearOptions = Object.fromEntries(UI_YEARS.map((y) => [y, yearLabel(y)]));
   const ty = rulesOf(s);
 
   const prefOptions = { '': '選択してください', ...Object.fromEntries(PREFECTURES.map((p) => [p, p])) };
@@ -70,7 +70,9 @@ export function settingsSection(store) {
   ];
 
   return section('基本（年度・お住まい）', 'sec-settings', [
-    field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
+    // 対応する年が1つのあいだは、選ばせずに表示だけ。複数になったら選択欄に戻る
+    UI_YEARS.length > 1 ? field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true)))
+      : h('p', { class: 'note' }, `計算の対象: ${yearLabel(s.taxYear)}（${s.taxYear}年）の所得。`),
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
     field('お住まいの都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),

@@ -10,6 +10,7 @@ import { syntheticRules as R } from './fixtures/syntheticRules.js';
 const inc = (category, amount, expenses = 0, extra = {}) => ({ ...newIncome(category), amount, expenses, ...extra });
 const mk = (incomes, patch = {}) => {
   const s = defaultState();
+  s.taxYear = 2025; // 計算ロジックの検証は令和7年分の資料（手計算）で行う。画面が対応する年は令和8年分のみ
   s.incomes = incomes;
   s.insurance = { type: 'none', actualAnnual: null };
   return Object.assign(s, patch);
