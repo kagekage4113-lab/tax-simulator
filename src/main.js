@@ -76,6 +76,7 @@ const panels = {
 const steps = createSteps({ panels, classic: classicAtStart });
 
 result.onCalc = (r) => steps.setSummary(r.takeHome, r.burden);
+simulation.onScenario = (s) => steps.setScenario(s);
 const refreshBadge = (state) => steps.setBadge(state.household.enabled ? missingFacts(state).length : 0);
 result.update(store.get());
 refreshBadge(store.get());

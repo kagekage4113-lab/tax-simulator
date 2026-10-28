@@ -48,7 +48,7 @@ const setChildren = (el, ...nodes) => el.replaceChildren(...nodes.flat().filter(
 const pickTarget = (current, opts, prefer) => (current && current in opts ? current : prefer.find((k) => k in opts) || Object.keys(opts)[0] || null);
 
 export function simulationSection(store, rulesFor = rulesOf) {
-  const ui = { aTarget: null, aAdd: 500_000, aExp: 0, bTarget: null, bAmount: 200_000, bDir: 'up', cTarget: null, cMax: 3_000_000, fxUnreal: 1_000_000, fxRealize: 0 };
+  const ui = { touched: { A: false, B: false }, aTarget: null, aAdd: 500_000, aExp: 0, bTarget: null, bAmount: 200_000, bDir: 'up', cTarget: null, cMax: 3_000_000, fxUnreal: 1_000_000, fxRealize: 0 };
   let state = store.get();
   let timer = null;
   const panels = [];
@@ -58,10 +58,19 @@ export function simulationSection(store, rulesFor = rulesOf) {
     const output = h('div', { class: 'sim-output', 'aria-live': 'polite' });
     const el = h('details', { class: 'sub sim-panel', id }, h('summary', {}, title), controls, output);
     const p = { el, controls, output, build, render: null };
-    el.addEventListener('toggle', () => { if (el.open) p.render(); });
+    el.addEventListener('toggle', () => { if (el.open) p.render(); else if (p.onClose) p.onClose(); });
     panels.push(p);
     return p;
   };
+  // 条件を変えた場合の結果を、画面下の要約（2段表示）に知らせる。画面を閉じる・条件が0のときは null
+  const notify = (source, s) => {
+    if (s) lastSource = source;
+    else if (lastSource === source) lastSource = null;
+    else return;
+    if (el.onScenario) el.onScenario(s);
+  };
+  let lastSource = null;
+  const scenarioOf = (c) => ({ takeHome: c.ma.takeHome, burden: c.ma.burden, takeDelta: c.diff.takeHome, burdenDelta: c.diff.burden });
   const schedule = () => {
     clearTimeout(timer);
     timer = setTimeout(() => panels.forEach((p) => p.el.open && p.render()), 90);
@@ -83,15 +92,16 @@ export function simulationSection(store, rulesFor = rulesOf) {
     const opts = targetOptions(state);
     ui.aTarget = pickTarget(ui.aTarget, opts, ['new:misc']);
     setChildren(A.controls, 
-      field('どの収入が増える？', select(opts, ui.aTarget, (v) => { ui.aTarget = v; schedule(); })),
-      gaugeField({ label: '追加収入（売上・収入ベース）', value: ui.aAdd, max: 5_000_000, onChange: (v) => { ui.aAdd = v; schedule(); }, hint: '事業・不動産・雑所得は売上の増加額、FX・先物は利益の増加額、給与は収入（額面）の増加額です。' }),
-      gaugeField({ label: '追加でかかる経費（任意）', value: ui.aExp, max: 2_000_000, onChange: (v) => { ui.aExp = v; schedule(); }, hint: '経費がかかる区分（事業・不動産・雑所得・暗号資産・FX）だけに反映されます。' }));
+      field('どの収入が増える？', select(opts, ui.aTarget, (v) => { ui.aTarget = v; ui.touched.A = true; schedule(); })),
+      gaugeField({ label: '追加収入（売上・収入ベース）', value: ui.aAdd, max: 5_000_000, onChange: (v) => { ui.aAdd = v; ui.touched.A = true; schedule(); }, hint: '事業・不動産・雑所得は売上の増加額、FX・先物は利益の増加額、給与は収入（額面）の増加額です。' }),
+      gaugeField({ label: '追加でかかる経費（任意）', value: ui.aExp, max: 2_000_000, onChange: (v) => { ui.aExp = v; ui.touched.A = true; schedule(); }, hint: '経費がかかる区分（事業・不動産・雑所得・暗号資産・FX）だけに反映されます。' }));
   };
   A.render = () => {
-    if (!ui.aTarget) return setChildren(A.output, h('p', { class: 'note' }, '収入を追加すると比較できます。'));
+    if (!ui.aTarget) { notify('A', null); return setChildren(A.output, h('p', { class: 'note' }, '収入を追加すると比較できます。')); }
     const rules = rulesFor(state);
     const c = compareIncome(state, rules, { target: parseTarget(ui.aTarget), add: ui.aAdd, extraExpenses: ui.aExp });
-    if (!c.available) return setChildren(A.output, missingNote(c.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。'));
+    if (!c.available) { notify('A', null); return setChildren(A.output, missingNote(c.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。')); }
+    notify('A', ui.touched.A && (ui.aAdd > 0 || ui.aExp > 0) ? scenarioOf(c) : null); // 触るまでは、初期表示の例では2段にしない
     const added = c.diff.income;
     setChildren(A.output, 
       h('div', { class: 'hero' },
@@ -110,16 +120,17 @@ export function simulationSection(store, rulesFor = rulesOf) {
     ui.bTarget = pickTarget(ui.bTarget, opts, []);
     if (!ui.bTarget) return setChildren(B.controls, h('p', { class: 'note' }, '経費を入力できる収入（事業・不動産・雑所得・暗号資産・FX）がありません。'));
     setChildren(B.controls, 
-      field('どの収入の経費？', select(opts, ui.bTarget, (v) => { ui.bTarget = v; schedule(); })),
-      field('変更', select({ up: '経費を増やす（支出する）', down: '経費を減らす' }, ui.bDir, (v) => { ui.bDir = v; schedule(); })),
-      gaugeField({ label: '変更する経費の額', value: ui.bAmount, max: 2_000_000, onChange: (v) => { ui.bAmount = v; schedule(); } }));
+      field('どの収入の経費？', select(opts, ui.bTarget, (v) => { ui.bTarget = v; ui.touched.B = true; schedule(); })),
+      field('変更', select({ up: '経費を増やす（支出する）', down: '経費を減らす' }, ui.bDir, (v) => { ui.bDir = v; ui.touched.B = true; schedule(); })),
+      gaugeField({ label: '変更する経費の額', value: ui.bAmount, max: 2_000_000, onChange: (v) => { ui.bAmount = v; ui.touched.B = true; schedule(); } }));
   };
   B.render = () => {
     if (!ui.bTarget) return setChildren(B.output, );
     const rules = rulesFor(state);
     const delta = (ui.bDir === 'up' ? 1 : -1) * ui.bAmount;
     const c = compareExpense(state, rules, { targetId: parseTarget(ui.bTarget).id, delta });
-    if (!c.available) return setChildren(B.output, missingNote(c.after.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。'));
+    if (!c.available) { notify('B', null); return setChildren(B.output, missingNote(c.after.missing) || h('p', { class: 'warn' }, '現在の入力では比較できません。')); }
+    notify('B', ui.touched.B && ui.bAmount > 0 ? scenarioOf(c) : null);
     const clipped = c.applied !== delta;
     setChildren(B.output, 
       h('div', { class: 'hero' },
@@ -130,6 +141,9 @@ export function simulationSection(store, rulesFor = rulesOf) {
       cmpTable(c.mb, c.ma, c.diff, c.ma.businessTax > 0 || c.mb.businessTax > 0),
       notesList(c.notes));
   };
+
+  A.onClose = () => notify('A', null);
+  B.onClose = () => notify('B', null);
 
   // ---- C. 壁 ----
   const C = panel('収入を増やすと手取りはどう変わる？（壁の表示）', 'sim-walls', null);
