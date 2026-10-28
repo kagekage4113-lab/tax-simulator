@@ -90,7 +90,8 @@ export const INCOME_CATEGORIES = [
   },
   {
     id: 'securities',
-    label: 'その他の株式等（一般株式等など・簡易扱い）',
+    label: 'その他の株式等（一般株式等など・簡易入力）',
+    legacy: true, // 「その他の所得（簡易入力）」と同じ扱い。新しく選ぶ欄には出さない（以前のデータは、そのまま読み込む）
     taxMethod: TAX_METHOD.SEPARATE,
     computeModule: null,
     inputKind: 'directIncome',
@@ -100,7 +101,7 @@ export const INCOME_CATEGORIES = [
   },
   {
     id: 'other',
-    label: 'その他の所得',
+    label: 'その他の所得（一時所得・一般株式など。所得金額を直接入力）',
     taxMethod: null, // ユーザーが選ぶ
     computeModule: null,
     inputKind: 'directIncome',

@@ -109,7 +109,7 @@ function dependentCard(store, d, i) {
 export function incomesSection(store) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
-  const catOptionsFor = (current) => Object.fromEntries(INCOME_CATEGORIES.filter((c) => !c.legacy || c.id === current).map((c) => [c.id, c.label + (c.supported ? '' : '（未対応）')]));
+  const catOptionsFor = (current) => Object.fromEntries(INCOME_CATEGORIES.filter((c) => !c.legacy || c.id === current).map((c) => [c.id, c.label]));
 
   const cards = s.incomes.map((inc, i) => {
     const cat = getIncomeCategory(inc.category);
@@ -133,7 +133,7 @@ export function incomesSection(store) {
       }, true))),
       field('名称（メモ）', h('input', { type: 'text', value: inc.name, maxlength: 100, placeholder: '例：本業の給与、ブログ収入', onInput: (e) => set((x) => { x.incomes[i].name = e.target.value; }) })),
       ...(!cat.supported ? [
-        h('p', { class: 'warn' }, `「${cat.label}」の自動計算は未対応です。所得金額を直接入力してください。特例や通算ルールは自動適用しません（簡易扱い）。`),
+        h('p', { class: 'warn' }, 'この区分は自動計算に対応していません。所得金額（経費などを引いた後の額）を直接入力してください。総合課税を選ぶと、他の所得に足して税額に反映します。分離課税を選んだ所得は、税額に含めません。特例や通算のルールは自動では適用しません。'),
         ...(cat.taxMethod === null ? [field('課税方式', select({ comprehensive: '総合課税', separate: '申告分離課税' }, inc.taxMethod, (v) => upd('taxMethod', v)))] : []),
       ] : []),
       gaugeField({ label, value: inc.amount, max: cat.inputKind === 'profit' ? 5_000_000 : 20_000_000, allowNegative: cat.inputKind === 'profit' || cat.inputKind === 'directIncome', onChange: (v) => upd('amount', v) }),
