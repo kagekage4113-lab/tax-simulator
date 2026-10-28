@@ -1,5 +1,7 @@
 # 税制資料の置き場（docs/tax-sources/）
 
+> 原本のPDF・xlsxは**リポジトリに含めません**（`.gitignore` で除外。手元にのみ保管）。出典の名前とURLは `src/data/taxYears/local.js` の `SRC` に記録しています（`localFile` は手元の保管ファイル名）。
+
 公式資料（PDF または保存したHTML）をここに置くと、Claude Code がローカルで読んで `src/data/taxYears/*.js` に変換する。
 Webアクセスに依存しない。**数値・適用条件・境界値・対象年・施行日・出典は必ずセットで登録する。**
 

@@ -51,7 +51,7 @@ npm run preview  # ビルド結果を確認
 | `src/data/` | 収入区分・控除の設定データ、年度別税制データ（`taxYears/`）。出典ID付き |
 | `src/core/` | 入力データのスキーマ・検証・保存（localStorage / JSON） |
 | `src/ui/` | 画面 |
-| `docs/tax-sources/` | 公的資料の原本（PDF）。登録した値の根拠 |
+| `docs/tax-sources/` | 公的資料の原本（PDF）を置く場所。**原本はリポジトリに含めていません**（手元にのみ保管）。出典の名前・URLは `src/data/taxYears/local.js` の `SRC` に記録 |
 | `docs/tax-data-status.md` | 税制データの確認状況（確認済み／一部／代用／二次情報／未確認） |
 | `docs/phase2b-data-needed.md` | 次に必要な資料 |
 | `tests/` | テスト。期待値は実装から生成せず、資料の表や手計算で用意 |

@@ -1,4 +1,4 @@
-// 年度をまたいで共通に使う、自治体・都道府県の資料からの値。出典は docs/tax-sources/ に保存。
+// 年度をまたいで共通に使う、自治体・都道府県の資料からの値。出典の名前・URLをここに記録する。localFile は手元の保管ファイル名（原本はリポジトリに含めない。docs/tax-sources/ を参照）。
 export const SRC = {
   NENKIN_FUYO: { id: 'NENKIN_FUYO', title: '日本年金機構「従業員（健康保険・厚生年金保険の被保険者）が家族を被扶養者にするとき、被扶養者に異動があったときの手続き」（更新日2026年9月30日）：被扶養者の収入要件（年間収入130万円未満。60歳以上または障害者は180万円未満。19歳以上23歳未満は150万円未満。同居は被保険者の収入の半分未満、別居は仕送り額未満）', url: 'https://www.nenkin.go.jp/service/kounen/tekiyo/hihokensha1/20141202.html', localFile: 'docs/tax-sources/nenkin_hifuyosha-nintei_updated-2026-09-30.pdf' },
   NENKIN_KEIYAKU: { id: 'NENKIN_KEIYAKU', title: '日本年金機構「労働契約内容による年間収入での被扶養者の認定の取り扱いについて」（更新日2026年5月1日）：令和8年4月1日以降、給与収入のみの人は労働条件通知書等の賃金から見込まれる年間収入で判定できる（契約期間が1年未満・シフト制・手当の金額が不明確な場合は対象外）', url: 'https://www.nenkin.go.jp/oshirase/taisetu/jigyosho/2026/202605/0501.html', localFile: 'docs/tax-sources/nenkin_keiyaku-naiyou-nenkan-shunyu_updated-2026-05-01.pdf' },

@@ -1,3 +1,7 @@
 node_modules
 dist
 *.log
+
+# 税制資料の原本（公的機関のPDF等）はリポジトリに含めない。手元の docs/tax-sources/ に置く（出典の名前とURLは src/data/taxYears/local.js の SRC に記録）
+docs/tax-sources/*
+!docs/tax-sources/README.md
