@@ -53,23 +53,21 @@ function verdictList(card) {
       h('p', { class: 'v-amount' }, '生計を一にする家族の医療費は、あなたの医療費控除に合算できる場合があります。下の「所得控除・税額控除」の医療費に、支払額と補填される額を入力してください（通院の交通費も対象になる場合があります）。')) : null);
 }
 
-export function householdSection(store, rulesFor = rulesOf) {
+// 入力の段階（「入力」）: あなた・家族の入力欄だけ。判定・結果は householdReviewSection（「確認」の段階）に出す。
+export function householdInputSection(store, rulesFor = rulesOf) {
   const s = store.get();
   const set = (fn, structural = false) => store.update(fn, { structural });
   const hh = s.household;
-  const verdictBoxes = new Map(); // who('me' | 人のid) → 判定欄
-  const totalsBox = h('div', { class: 'hh-totals' });
-  const overviewBox = h('div', { class: 'hh-overview' });
   const missingBox = h('div', { class: 'hh-missing' });
 
   const el = h('details', { class: 'card', id: 'sec-household', open: true },
-    h('summary', {}, '世帯・家族（かんたん入力・試作）'));
+    h('summary', {}, '世帯・家族'));
   const body = h('div', { class: 'body' });
   el.append(body);
 
   body.append(
-    h('p', { class: 'note' }, '税金の用語ではなく、暮らしの事実（同居しているか・生活費を負担しているか・収入・手帳の有無）を答えると、当てはまりそうな控除と理由が出ます。答えが足りない項目は「要確認」とし、確定した分だけを手取りに反映します。'),
-    checkbox('この入力方式を使う（オンにすると、従来の「本人・配偶者・扶養親族」欄の代わりにこちらから計算します）', hh.enabled, (on) => {
+    h('p', { class: 'note' }, '税金の用語ではなく、暮らしの事実（年齢・同居しているか・収入）を答えてください。当てはまりそうな控除と理由は「確認」の画面に出ます。赤い欄は、まだ答えていない項目です。'),
+    checkbox('この入力方式を使う（オフにすると、従来の「本人・配偶者・扶養親族」欄で入力します）', hh.enabled, (on) => {
       set((x) => {
         x.household.enabled = on;
         if (on && x.household.people.length === 0 && (x.spouse.exists || x.dependents.length)) x.household.people = importLegacyPeople(x);
@@ -79,15 +77,12 @@ export function householdSection(store, rulesFor = rulesOf) {
 
   if (!hh.enabled) return Object.assign(el, { refresh() {} });
 
-  body.append(missingBox, totalsBox, overviewBox);
+  body.append(missingBox);
 
   // あなた
-  const meBox = h('div', {});
-  verdictBoxes.set('me', meBox);
   const hasSpouse = hh.people.some((p) => p.kind === 'spouse');
   body.append(h('div', { class: 'item' },
     h('div', { class: 'item-head' }, h('strong', {}, 'あなた')),
-    meBox,
     gaugeField({ compact: true, label: '年齢（12月31日時点）', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
     ...insuranceFields(store),
     (() => { const f = field('障害者手帳などはありますか', select(CERTIFICATES, hh.me.certificate, (v) => { markIf(f, v === 'unknown' || v === 'other'); set((x) => { x.household.me.certificate = v; }); })); return markIf(f, hh.me.certificate === 'unknown' || hh.me.certificate === 'other'); })(),
@@ -97,7 +92,7 @@ export function householdSection(store, rulesFor = rulesOf) {
 
   // 家族
   const miss0 = missingFacts(s);
-  hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes, hh.people, miss0.filter((m) => m.who === p.id).length)));
+  hh.people.forEach((p, i) => body.append(personCard(store, p, i, new Map(), hh.people, miss0.filter((m) => m.who === p.id).length)));
 
   const add = (kind) => set((x) => { x.household.people.push(newPerson(kind)); applyHousehold(x, rulesFor(x)); }, true);
   body.append(
@@ -113,18 +108,49 @@ export function householdSection(store, rulesFor = rulesOf) {
 
   el.refresh = (state) => {
     if (!state.household.enabled) return;
-    const rules = rulesFor(state);
-    if (!rules) return;
-    const a = assess(state, rules);
-    for (const c of a.cards) {
-      const box = verdictBoxes.get(c.who);
-      if (box) box.replaceChildren(verdictList(c));
-    }
-    totalsBox.replaceChildren(totals(a));
-    overviewBox.replaceChildren(overviewView(overview(state, rules)));
     missingBox.replaceChildren(...missingView(missingFacts(state)));
   };
   el.refresh(s);
+  return el;
+}
+
+// 確認の段階: 世帯を反映した結果・世帯の見取り図・人ごとの控除の判定と理由。
+export function householdReviewSection(store, rulesFor = rulesOf) {
+  const s = store.get();
+  const hh = s.household;
+  const totalsBox = h('div', { class: 'hh-totals' });
+  const overviewBox = h('div', { class: 'hh-overview' });
+  const missingBox = h('div', { class: 'hh-missing' });
+  const verdictsBox = h('div', { class: 'hh-verdicts' });
+  const el = h('details', { class: 'card', id: 'sec-household-review', open: true }, h('summary', {}, '世帯の結果と判定'));
+  const body = h('div', { class: 'body' });
+  el.append(body);
+  if (!hh.enabled) {
+    body.append(h('p', { class: 'note' }, '「入力」の画面で、世帯・家族の入力方式がオフになっています。オンにすると、家族を反映した結果と、控除の判定・理由がここに出ます。'));
+    return Object.assign(el, { refresh() {} });
+  }
+  body.append(missingBox, totalsBox, overviewBox, h('h3', {}, '控除の判定と理由'), verdictsBox);
+  const nameOf = (state, who) => (who === 'me' ? 'あなた' : (() => { const p = state.household.people.find((x) => x.id === who); return p ? `${PERSON_KINDS[p.kind]}${p.name ? `：${p.name}` : ''}（${p.age}歳）` : ''; })());
+  el.refresh = (state) => {
+    if (!state.household.enabled) return;
+    const rules = rulesFor(state);
+    if (!rules) return;
+    const a = assess(state, rules);
+    totalsBox.replaceChildren(totals(a));
+    overviewBox.replaceChildren(overviewView(overview(state, rules)));
+    missingBox.replaceChildren(...missingView(missingFacts(state), true));
+    verdictsBox.replaceChildren(...a.cards.map((c) => h('div', { class: 'item' }, h('strong', {}, nameOf(state, c.who)), verdictList(c))));
+  };
+  el.refresh(s);
+  return el;
+}
+
+// 互換: 入力と確認を1つにまとめたもの（1ページ表示・テスト用）
+export function householdSection(store, rulesFor = rulesOf) {
+  const input = householdInputSection(store, rulesFor);
+  const review = householdReviewSection(store, rulesFor);
+  const el = h('div', { class: 'hh-both' }, input, review);
+  el.refresh = (state) => { input.refresh(state); review.refresh(state); };
   return el;
 }
 
@@ -174,14 +200,15 @@ function personCard(store, p, i, verdictBoxes, people, missingCount) {
 }
 
 // 未回答の項目の一覧（上部）。0件なら出さない。
-function missingView(list) {
+function missingView(list, withBack = false) {
   if (!list.length) return [];
   const byWho = new Map();
   for (const m of list) byWho.set(m.whoLabel, [...(byWho.get(m.whoLabel) || []), m.label]);
   return [h('div', { class: 'warn miss-box', role: 'status' },
     h('strong', {}, `まだ答えていない項目が${list.length}件あります（赤く表示）`),
     h('ul', {}, [...byWho.entries()].map(([who, labels]) => h('li', {}, `${who}：${labels.join('、')}`))),
-    h('p', { class: 'hint' }, '答えが足りない控除は「要確認」とし、確定した分だけを手取りに反映します。')) ];
+    h('p', { class: 'hint' }, '答えが足りない控除は「要確認」とし、確定した分だけを手取りに反映します。'),
+    withBack ? h('button', { type: 'button', class: 'btn', 'data-goto': 'input' }, '← 入力に戻って答える') : null)];
 }
 
 function totals(a) {

@@ -12,6 +12,7 @@ const click = (el, text) => [...el.querySelectorAll('button')].find((b) => b.tex
 describe('世帯（かんたん入力）の画面', () => {
   it('無効のときは切り替えだけを表示し、有効にすると例の世帯を入れて判定が出る', () => {
     const s = defaultState();
+    s.household.enabled = false; // 新規の既定はオン。オフのときは切り替えだけを表示する
     const off = householdSection(storeOf(s));
     expect(off.textContent).not.toMatch(/例の世帯/);
     s.household.enabled = true;
@@ -65,6 +66,7 @@ describe('世帯（かんたん入力）の画面', () => {
 
   it('無効なときは applyHousehold が state を変えない', () => {
     const s = defaultState();
+    s.household.enabled = false;
     s.dependents = [{ id: 'd1', name: '', relationship: 'child', age: 20, cohabiting: true, income: 0, disability: 'none' }];
     expect(applyHousehold(s, getTaxYear(2025))).toBe(false);
     expect(s.dependents).toHaveLength(1);

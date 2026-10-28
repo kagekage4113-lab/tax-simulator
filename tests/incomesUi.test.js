@@ -32,6 +32,6 @@ describe('入力画面の描画（全区分でエラーなく表示できる）'
     expect(d.textContent).toMatch(/生命保険料控除/);
     expect(d.textContent).toMatch(/地震保険料控除/);
     expect(d.textContent).toMatch(/雑損控除/);
-    expect(settingsSection(storeOf(s)).textContent).toMatch(/年度・申告条件/);
+    expect(settingsSection(storeOf(s)).textContent).toMatch(/基本（年度・お住まい）/);
   });
 });

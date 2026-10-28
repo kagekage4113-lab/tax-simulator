@@ -85,7 +85,7 @@ export function defaultState() {
     fxCarryLosses: [], // FX・先物の繰越損失 [{ year: 損失が生じた年, amount: 円(正の値) }]。損失の年の翌年以後3年間繰越控除できる（No.1523）
     deductions,
     taxCredits: credits,
-    household: defaultHousehold(), // かんたん入力（世帯）。enabled のとき self/spouse/dependents はここから導かれる
+    household: { ...defaultHousehold(), enabled: true }, // かんたん入力（世帯）。新規は既定でオン。enabled のとき self/spouse/dependents はここから導かれる。旧データ（household なし）の読み込みはオフのまま
   };
 }
 

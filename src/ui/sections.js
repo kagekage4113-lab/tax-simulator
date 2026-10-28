@@ -69,7 +69,7 @@ export function settingsSection(store) {
     h('p', { class: 'note' }, '障害者・扶養・寡婦などの適用はユーザーの申告に基づきます。適用には証明書類が必要な場合があります。税法上の扶養と、健康保険・社会保険上の扶養は別の制度です。'),
   ];
 
-  return section('年度・申告条件', 'sec-settings', [
+  return section('基本（年度・お住まい）', 'sec-settings', [
     field('計算対象年', select(yearOptions, s.taxYear, (v) => set((x) => { x.taxYear = Number(v); }, true))),
     ty && ty.status === 'skeleton'
       ? h('p', { class: 'warn' }, `${ty.label}の税率・控除額は未登録です。結果は計算できません。`) : null,
@@ -77,8 +77,8 @@ export function settingsSection(store) {
       { hint: '住民税の均等割・国民健康保険料・個人事業税の基準です。ここにない市区町村は、近い方で概算してください（均等割の額・非課税の限度額・国保料は自治体で違うことがあります）。所得割の税率10%や控除額は全国共通です。' }),
     field('協会けんぽの支部の都道府県', select(prefOptions, s.residence.prefecture, (v) => set((x) => { x.residence.prefecture = v; })),
       { hint: '会社員の社会保険料（協会けんぽ）の料率にだけ使います。広島・福岡・大阪・東京以外は4都府県の平均で概算します。' }),
-    field('申告方式', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true))),
-    ...(s.filing.type === 'blue' ? [
+    ...(s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [field('申告方式（事業・不動産の収入があるとき）', select(FILING_TYPE, s.filing.type, (v) => set((x) => { x.filing.type = v; }, true)))] : []),
+    ...(s.filing.type === 'blue' && s.incomes.some((i) => i.category === 'business' || i.category === 'realEstate') ? [
       field('青色申告特別控除', select(Object.fromEntries(BLUE_DEDUCTIONS.map((n) => [n, `${n}万円`])), s.filing.blueDeduction, (v) => set((x) => { x.filing.blueDeduction = Number(v); })),
         { hint: '55万円・65万円は複式簿記での記帳が必要で、65万円はe-Tax提出または電子帳簿保存も必要です。条件を満たすかはご自身の申告として扱います。' }),
     ] : []),
@@ -196,7 +196,7 @@ export function deductionsSection(store) {
     h('span', {}, d.label), ' ',
     d.supported ? badge(d.inputMode === 'auto' ? '自動計算' : d.inputMode === 'manual' ? '手入力' : '入力から自動計算', '') : badge('未対応', 'warn'));
 
-  return section('所得控除・税額控除', 'sec-deductions', [
+  return section('詳細な控除（任意・分かる範囲で）', 'sec-deductions', [
     h('p', { class: 'note' }, '基礎控除・配偶者控除・扶養控除・障害者控除などは、「年度・申告条件」の本人・配偶者・扶養親族の入力から自動で計算されます。ここには、保険料・医療費・寄附など、金額を入力する控除の欄があります。適用条件を満たすかはご自身の申告に基づきます。'),
     h('h3', {}, '金額を入力する所得控除'),
     ...MANUAL_DEDUCTIONS.filter((d) => d.supported).map((d) => manual(d, 'deductions')),

@@ -4,9 +4,10 @@ import { createStore } from './core/store.js';
 import { dataSection } from './ui/dataSection.js';
 import { deductionsSection, incomesSection, resultSection, settingsSection } from './ui/sections.js';
 import { simulationSection } from './ui/simulation.js';
-import { householdSection } from './ui/household.js';
+import { householdInputSection, householdReviewSection } from './ui/household.js';
 import { situationSection } from './ui/situation.js';
-import { applyHousehold } from './interview/assess.js';
+import { createSteps, stepNav, STEPS } from './ui/steps.js';
+import { applyHousehold, missingFacts } from './interview/assess.js';
 import { rulesOf } from './data/taxYears/index.js';
 
 const store = createStore();
@@ -18,37 +19,55 @@ const result = resultSection();
 const simulation = simulationSection(store);
 const situation = situationSection(store);
 
-// 結果が画面外にあるとき、手取りと負担の要約を下部に固定表示する（結果欄が見えている間は隠す）
-const bar = h('button', { type: 'button', class: 'summary-bar', hidden: true, 'aria-label': '結果の欄へ移動' },
-  h('span', { class: 'sb-item' }, h('small', {}, '年間手取り'), h('strong', { class: 'sb-take' }, '—')),
-  h('span', { class: 'sb-item' }, h('small', {}, '年間負担合計'), h('strong', { class: 'sb-burden' }, '—')),
-  h('span', { class: 'sb-go' }, '結果へ ▼'));
-const fmt = (v) => (v == null ? '—' : `${v.toLocaleString('ja-JP')}円`);
-result.onCalc = (r) => {
-  bar.querySelector('.sb-take').textContent = fmt(r.takeHome);
-  bar.querySelector('.sb-burden').textContent = fmt(r.burden);
-};
-bar.addEventListener('click', () => {
-  result.open = true;
-  result.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-if ('IntersectionObserver' in window) {
-  new IntersectionObserver(([entry]) => { bar.hidden = entry.isIntersecting; }).observe(result);
-} else bar.hidden = false;
+// 従来の1ページ表示（全部を縦に並べる）。選択は端末に覚えておく。
+const VIEW_KEY = 'taxsim.view';
+const readView = () => { try { return localStorage.getItem(VIEW_KEY); } catch { return null; } };
+const writeView = (v) => { try { localStorage.setItem(VIEW_KEY, v); } catch { /* 保存できなくても動く */ } };
+const classicAtStart = new URLSearchParams(location.search).get('view') === 'classic' || readView() === 'classic';
 
-const dynamic = h('div', { class: 'dynamic' });
-let household = null;
-// 構造が変わる操作（追加・削除・選択肢による項目の出し分け）では開閉状態を保ったまま作り直す。
+// 構造が変わる操作（追加・削除・選択肢による項目の出し分け）で作り直す入力欄の置き場
+const slots = { basics: h('div'), incomes: h('div'), household: h('div'), review: h('div'), deductions: h('div') };
+let hhInput = null;
+let hhReview = null;
+// 作り直しても、開閉状態は保つ
 function rebuild() {
-  const open = new Map([...document.querySelectorAll('details[id], details.sub')].map((d, i) => [d.id || `sub-${i}`, d.open]));
+  const open = new Map([...document.querySelectorAll('details[id]')].map((d) => [d.id, d.open]));
   const subOpen = [...document.querySelectorAll('details.sub')].map((d) => d.open);
-  household = householdSection(store);
-  dynamic.replaceChildren(household, settingsSection(store), incomesSection(store), deductionsSection(store));
-  dynamic.querySelectorAll('details[id]').forEach((d) => { if (open.has(d.id)) d.open = open.get(d.id); });
-  dynamic.querySelectorAll('details.sub').forEach((d, i) => { if (subOpen[i] !== undefined) d.open = subOpen[i]; });
+  hhInput = householdInputSection(store);
+  hhReview = householdReviewSection(store);
+  slots.basics.replaceChildren(settingsSection(store));
+  slots.incomes.replaceChildren(incomesSection(store));
+  slots.household.replaceChildren(hhInput);
+  slots.review.replaceChildren(hhReview);
+  slots.deductions.replaceChildren(deductionsSection(store));
+  for (const slot of Object.values(slots)) {
+    slot.querySelectorAll('details[id]').forEach((d) => { if (open.has(d.id)) d.open = open.get(d.id); });
+    slot.querySelectorAll('details.sub').forEach((d, i) => { if (subOpen[i] !== undefined) d.open = subOpen[i]; });
+  }
 }
 rebuild();
+
+const next = (id) => STEPS.find((s) => s.id === id);
+const panels = {
+  input: h('section', { class: 'step', id: 'step-input', 'aria-labelledby': 'tab-input' },
+    h('p', { class: 'step-lead' }, 'まず、わかる範囲で入力してください。住んでいる場所・収入・家族・年齢が中心です。控除の細かい項目は「調整」であとから入れられます。'),
+    slots.basics, slots.incomes, slots.household,
+    stepNav({ next: { id: 'review', label: '確認へ進む' } })),
+  review: h('section', { class: 'step', id: 'step-review', 'aria-labelledby': 'tab-review' },
+    h('p', { class: 'step-lead' }, '入力から出た、税金と手取りの目安です。赤い項目や「要確認」は、「入力」に戻って答えると確定します。'),
+    result, slots.review, situation,
+    stepNav({ back: next('input'), next: { id: 'adjust', label: '調整へ進む' } })),
+  adjust: h('section', { class: 'step', id: 'step-adjust', 'aria-labelledby': 'tab-adjust' },
+    h('p', { class: 'step-lead' }, '条件を変えて試したり、分かる控除を足して精度を上げたりできます。結果は「確認」で見られます。'),
+    simulation, slots.deductions, dataSection(store),
+    stepNav({ back: next('review') })),
+};
+const steps = createSteps({ panels, classic: classicAtStart });
+
+result.onCalc = (r) => steps.setSummary(r.takeHome, r.burden);
+const refreshBadge = (state) => steps.setBadge(state.household.enabled ? missingFacts(state).length : 0);
 result.update(store.get());
+refreshBadge(store.get());
 
 store.subscribe((state, e) => {
   if (e.type === 'saved') {
@@ -60,11 +79,17 @@ store.subscribe((state, e) => {
   // かんたん入力（世帯）が有効なら、年度や収入の変更にも追随して、本人・配偶者・扶養親族を導き直す
   if (state.household.enabled) applyHousehold(state, rulesOf(state));
   if (e.structural) rebuild();
-  else if (household) household.refresh(state);
+  else { hhInput.refresh(state); hhReview.refresh(state); }
   situation.refresh();
   result.update(state);
   simulation.update(state, e);
+  refreshBadge(state);
 });
+
+const viewToggle = h('button', { type: 'button', class: 'linklike' }, '');
+const syncToggle = () => { viewToggle.textContent = steps.isClassic() ? '3段階表示（入力→確認→調整）に戻す' : '1ページにまとめて表示する'; };
+viewToggle.addEventListener('click', () => { steps.setClassic(!steps.isClassic()); writeView(steps.isClassic() ? 'classic' : 'steps'); syncToggle(); });
+syncToggle();
 
 app.append(
   h('header', { class: 'top' },
@@ -72,16 +97,15 @@ app.append(
     h('p', {}, '確定申告の代わりではなく、収入が変わったときの目安を知るためのツールです。'),
     h('details', { class: 'help' }, h('summary', {}, '使い方と注意'),
       h('ol', {},
-        h('li', {}, '「年度・申告条件」で年度・お住まい・家族を入力します。'),
-        h('li', {}, '「現在の収入と経費」に、収入の種類ごとに金額を入れます（スライダーか数字の直接入力）。'),
-        h('li', {}, '保険料・医療費・寄附などがあれば「所得控除・税額控除」に入れます。'),
-        h('li', {}, '「税金と手取りの結果」で目安を確認し、「変動シミュレーション」で「あと○円稼いだら？」を比べます。')),
-      h('p', {}, '入力は、この端末のブラウザの中だけに保存され、外部へ送信されません。「データ保存・復元」でファイルに書き出せます。金額は概算の目安です。')),
+        h('li', {}, h('strong', {}, '①入力'), ': 住んでいる場所・収入・家族・年齢を入れます（スライダーか数字の直接入力）。赤い欄はまだ答えていない項目です。'),
+        h('li', {}, h('strong', {}, '②確認'), ': 税金と手取りの目安、世帯の見取り図（誰が非課税か）、控除の判定と理由、あとどこまで余裕があるかを見ます。'),
+        h('li', {}, h('strong', {}, '③調整'), ': 「あと○円稼いだら？」などを試したり、保険料・医療費・寄附などの控除を足して精度を上げたりします。')),
+      h('p', {}, '入力は、この端末のブラウザの中だけに保存され、外部へ送信されません。「調整」の下にある「データ保存・復元」で、ファイルに書き出せます。金額は概算の目安です。')),
     status),
   ...(notice ? [notice] : []),
-  h('main', {}, dynamic, situation, result, simulation, dataSection(store)),
-  bar,
-  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。'),
+  steps.dock, // スマホでは下に固定、PCでは上に固定（CSSで切り替え）
+  h('main', {}, panels.input, panels.review, panels.adjust),
+  h('footer', {}, '入力内容は端末内にのみ保存され、外部へ送信されません。表示される金額は概算の目安です。', h('br'), viewToggle, ' ／ ', h('button', { type: 'button', class: 'linklike', 'data-goto': 'adjust' }, 'データ保存・復元へ')),
 );
 
 window.addEventListener('pagehide', () => store.flush());
