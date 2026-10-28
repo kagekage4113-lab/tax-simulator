@@ -31,6 +31,7 @@ export const SRC = {
   KYOKAI_FUKUOKA: { id: 'KYOKAI_FUKUOKA', title: '協会けんぽ 福岡支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_fukuoka.pdf' },
   KYOKAI_OSAKA: { id: 'KYOKAI_OSAKA', title: '協会けんぽ 大阪支部 令和8年3月分（4月納付分）からの保険料額表', localFile: 'docs/tax-sources/kyokai-kenpo_2026-03_osaka.pdf' },
   FUKUYAMA_ADJ: { id: 'FUKUYAMA_ADJ', title: '福山市「調整控除について」（2026年6月12日更新。人的控除額の差額一覧表は未入手）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/2183.html', localFile: 'docs/tax-sources/fukuyama_adjustment-credit_updated-2026-06-12.pdf' },
+  NTA_1411: { id: 'NTA_1411', title: '国税庁 タックスアンサー No.1411 所得金額調整控除［令和8年4月1日現在法令等］：給与収入850万円超で、本人が特別障害者・23歳未満の扶養親族がいる・特別障害者の同一生計配偶者または扶養親族がいる場合、（収入（1,000万円超は1,000万円）−850万円）×10%を給与所得から控除', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1411.htm', localFile: 'docs/tax-sources/nta_tax-answer-1411_income-adjustment-deduction_2026-04-01.pdf' },
   NTA_1160: { id: 'NTA_1160', title: '国税庁 タックスアンサー No.1160 障害者控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1160.htm', localFile: 'docs/tax-sources/nta_tax-answer-1160_disability-deduction_2026-04-01.pdf' },
   NTA_1170: { id: 'NTA_1170', title: '国税庁 タックスアンサー No.1170 寡婦控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1170.htm', localFile: 'docs/tax-sources/nta_tax-answer-1170_widow-deduction_2026-04-01.pdf' },
   NTA_1171: { id: 'NTA_1171', title: '国税庁 タックスアンサー No.1171 ひとり親控除［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1171.htm', localFile: 'docs/tax-sources/nta_tax-answer-1171_single-parent-deduction_2026-04-01.pdf' },
@@ -344,3 +345,7 @@ export const PUBLIC_PENSION = {
 
 // 東京都の個人事業税。税率・事業主控除は法定の標準で全国共通として、広島県の資料の値を準用する（東京都の資料は未入手）。
 export const TOKYO_BUSINESS_TAX = { ...HIROSHIMA_BUSINESS_TAX, scope: '東京都（広島県の資料の標準税率・事業主控除を準用）' };
+
+// 所得金額調整控除（子ども・特別障害者等を有する者等。NTA_1411）。給与等の収入金額が revenueOver を超え、本人が特別障害者／underAge 歳未満の扶養親族がいる／
+// 特別障害者の同一生計配偶者または扶養親族がいる場合に、(min(収入, revenueCap) − revenueOver)×rate（1円未満切上げ）を給与所得から控除する。
+export const SALARY_ADJUSTMENT = { revenueOver: 8_500_000, revenueCap: 10_000_000, rate: 0.1, dependentUnderAge: 23 };

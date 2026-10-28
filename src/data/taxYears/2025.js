@@ -2,7 +2,7 @@
 // 住民税は「令和7年中の所得に対する令和8年度分」で、福山市の令和8年度の控除額（FUKUYAMA_DED）を使う。
 import {
   CASUALTY, LISTED, FUKUYAMA_RESIDENT, FUKUYAMA_RESIDENT_BASIC_R8NENDO, FUKUYAMA_RESIDENT_DEDUCTIONS_R8NENDO, CRYPTO, FILING_SALARY_EARNER, FUKUYAMA_KOKUHO, FURUSATO, FX, HIROSHIMA_BUSINESS_TAX, INSURANCE_IT_2025, INSURANCE_RT, MEDICAL,
-  INCOME_TAX_BRACKETS, OWNER_COLUMNS, PUBLIC_PENSION, RECON_RATE, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
+  INCOME_TAX_BRACKETS, OWNER_COLUMNS, PUBLIC_PENSION, RECON_RATE, SALARY_ADJUSTMENT, SPECIAL_STEPS_IT, SPECIFIC_RELATIVE_IT_STEPS, SRC,
 } from './local.js';
 import { KYOKAI_KENPO_2025 } from './kyokaiKenpo.js';
 
@@ -10,7 +10,7 @@ export const taxYear2025 = {
   year: 2025,
   label: '令和7年分',
   status: 'partial', // skeleton | partial | confirmed
-  sources: [SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.FUKUYAMA_R8_REFORM, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
+  sources: [SRC.NTA_1411, SRC.SOUMU_R4_ISSUES, SRC.NTA_FORM_T3, SRC.FUKUYAMA_R8_REFORM, SRC.NTA_1160, SRC.NTA_1171, SRC.NTA_1600, SRC.NTA_R7_P55, SRC.NTA_R8_P3, SRC.NTA_1410, SRC.FUKUYAMA_RATE, SRC.FUKUYAMA_DED, SRC.FUKUYAMA_ADJ, SRC.HIROSHIMA, SRC.NTA_1521, SRC.NTA_1522, SRC.NTA_1523, SRC.NTA_1525, SRC.NTA_CRYPTO_FAQ, SRC.NTA_1110, SRC.NTA_STOCKS, SRC.NTA_1250, SRC.NTA_1900, SRC.NTA_INSURANCE, SRC.NTA_1535, SRC.SECONDARY_FURUSATO, SRC.NTA_2260, SRC.FUKUYAMA_KOKUHO, SRC.NENKIN_PREMIUM, SRC.SECONDARY_KOKUHO_REDUCTION, SRC.FUKUYAMA_DIFF, SRC.KYOKAI_R7_HIROSHIMA, SRC.KYOKAI_R7_TOKYO, SRC.KYOKAI_R7_OSAKA],
   advisories: [
     '令和7年分の社会保険料は協会けんぽの令和7年3月分からの料率を12か月分に当てはめた概算です（1〜2月の旧料率、賞与は未反映。実額を入力すると置き換わります）。',
   ],
@@ -53,6 +53,7 @@ export const taxYear2025 = {
   socialInsurance: { estimate: { employee: KYOKAI_KENPO_2025, national: FUKUYAMA_KOKUHO } },
   businessTax: HIROSHIMA_BUSINESS_TAX,
   publicPension: PUBLIC_PENSION, // NTA_1600
+  salaryAdjustment: SALARY_ADJUSTMENT, // NTA_1411（所得税）
   fx: FX, // NTA_1521
   filing: { salaryEarner: FILING_SALARY_EARNER }, // NTA_1900
   crypto: CRYPTO, // NTA_CRYPTO_FAQ
@@ -103,6 +104,7 @@ export const taxYear2025 = {
     '東京23区の国民健康保険料：令和7年度の特別区の標準的な料率（16区が同一）を使用。令和8年度の料率（子ども・子育て支援金分を含む）・端数処理・区ごとの差（中野区・江戸川区など）は未反映',
     '東京都の個人事業税：広島県の資料の標準税率・事業主控除を準用（東京都の資料は未入手）',
     '住民税の所得割の非課税の限度を超えた直後の調整（総務省資料の注: 「総所得金額−所得割税額」が非課税限度額の判定基準を下回らないよう調整）：計算に未反映。限度の直後は所得割を実際より多く見積もる',
+    '所得金額調整控除：子ども・特別障害者等を有する者等の控除は所得税にだけ反映（住民税側の資料は未入手）。給与所得と年金所得の双方を有する者の控除は未対応',
     '寡婦控除の自動判定（国税庁 No.1170 は保管のみ。「夫」との離婚・死別などの要件は未実装。手入力の選択のみ）',
     '公的年金等控除：年金以外の所得はない前提（1,000万円以下の区分）で計算。遺族年金・個人年金など公的年金等以外は対象外',
     '任意継続の健康保険：保険料は本人の入力値（標準報酬月額の上限・料率からの概算は未対応）',

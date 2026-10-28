@@ -131,13 +131,18 @@ export function calculate(state, rules) {
   const deductions = calcDeductions({ state, rules, need, totalIncome, netIncome: totalIncomeNet, socialInsurance });
   if (declaredAutoIds(state).length) notes.push('配偶者・扶養・障害者・寡婦/ひとり親・勤労学生などの適用は、ご自身の申告に基づく前提です（適用には証明書類が必要な場合があります）。年齢は12月31日時点で入力してください。');
 
+  // ---- 5b. 所得金額調整控除（子ども・特別障害者等を有する者等。所得税のみ・NTA_1411） ----
+  const salaryAdjustmentIT = calcSalaryAdjustment(state, rules, salaryRevenue);
+  if (salaryAdjustmentIT > 0) notes.push(`所得金額調整控除${salaryAdjustmentIT.toLocaleString('ja-JP')}円を所得税の給与所得から差し引いています（住民税側の資料は未入手のため、住民税には反映していません）。`);
+
   // ---- 6-7. 課税所得 ----
   const taxableFor = (kind) => {
     const ded = deductions[kind];
     const roundKey = kind === 'incomeTax' ? 'taxableIncome' : 'residentTaxableIncome';
     if (ded.total === null || comprehensiveIncome === null) return null;
-    const comp = Math.max(0, comprehensiveIncome - ded.total);
-    const spill = Math.max(0, ded.total - comprehensiveIncome); // 総合で引ききれない控除
+    const compBase = kind === 'incomeTax' ? Math.max(0, comprehensiveIncome - salaryAdjustmentIT) : comprehensiveIncome;
+    const comp = Math.max(0, compBase - ded.total);
+    const spill = Math.max(0, ded.total - compBase); // 総合で引ききれない控除
     // 総合課税で引ききれない控除は、FX・先物 → 上場株式等 の順に分離課税の所得から引く
     const fx = Math.max(0, fxIncome - spill);
     const listed = Math.max(0, listedIncome - Math.max(0, spill - fxIncome));
@@ -330,6 +335,21 @@ export function residentNonTaxableLimits(state, rules) {
 }
 
 // 住民税の非課税判定。'all' = 均等割・所得割とも非課税、'levy' = 所得割のみ非課税、null = 課税。
+// 所得金額調整控除（子ども・特別障害者等を有する者等）の額。適用対象でなければ0。
+function calcSalaryAdjustment(state, rules, salaryRevenue) {
+  const c = get(rules, 'salaryAdjustment');
+  if (!c || !(salaryRevenue > c.revenueOver)) return 0;
+  const dep = get(rules, 'deductions.incomeTax.dependent');
+  const spo = get(rules, 'deductions.incomeTax.spouse');
+  const dependsOk = (d) => dep && d.income <= dep.incomeMax; // 扶養親族の所得要件
+  const selfSpecial = state.self.disability === 'special';
+  const youngDependent = state.dependents.some((d) => d.age < c.dependentUnderAge && dependsOk(d));
+  const specialFamily = state.dependents.some((d) => d.disability === 'special' && dependsOk(d))
+    || (state.spouse.exists && state.spouse.disability === 'special' && spo && state.spouse.income <= spo.spouseIncomeMax);
+  if (!(selfSpecial || youngDependent || specialFamily)) return 0;
+  return Math.ceil((Math.min(salaryRevenue, c.revenueCap) - c.revenueOver) * c.rate - 1e-9);
+}
+
 function calcResidentExemption(state, rules, totalIncome, netIncome = totalIncome) {
   const lim = residentNonTaxableLimits(state, rules);
   if (!lim || totalIncome === null) return null;
