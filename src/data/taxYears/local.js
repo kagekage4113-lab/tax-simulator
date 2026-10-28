@@ -37,6 +37,7 @@ export const SRC = {
   NTA_1600: { id: 'NTA_1600', title: '国税庁 タックスアンサー No.1600 公的年金等の課税関係［令和8年4月1日現在法令等］', url: 'https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1600.htm', localFile: 'docs/tax-sources/nta_tax-answer-1600_public-pension_2026-04-01.pdf' },
   NTA_FORM_T3: { id: 'NTA_FORM_T3', title: '国税庁 確定申告書 第三表（分離課税用）様式（令和7年分以降用）：「所得から差し引かれる金額（第一表の㉚）」と、総合課税・譲渡・株式・配当・先物取引などの「課税される所得金額」の対応分を並べた様式', localFile: 'docs/tax-sources/nta_form_income-tax-return-table3-separate-taxation_R7.pdf' },
   FUKUYAMA_R8_REFORM: { id: 'FUKUYAMA_R8_REFORM', title: '福山市「2026年度（令和8年度）から適用される主な市・県民税の税制改正点」（掲載日2025年6月16日更新）', url: 'https://www.city.fukuyama.hiroshima.jp/soshiki/shiminzei/368918.html', localFile: 'docs/tax-sources/fukuyama_r8-reform-highlights_updated-2025-06-16.pdf' },
+  SOUMU_R4_ISSUES: { id: 'SOUMU_R4_ISSUES', title: '総務省自治税務局市町村税課「個人住民税の諸課題」（政府税制調査会 資料1、令和4年10月25日）：非課税限度額の基準（35万円×世帯人員数＋10万円＋21万円／32万円、級地区分・調整措置の注記）、分離課税の税率表（先物取引に係る雑所得等は所得税15%・住民税5%）', localFile: 'docs/tax-sources/soumu_tax-commission-2022-10-25_individual-resident-tax-issues.pdf' },
 };
 
 // 所得税の速算表（NTA_2260）。課税される所得金額（1,000円未満切捨後）に対する税額 = 所得金額×税率−控除額。
