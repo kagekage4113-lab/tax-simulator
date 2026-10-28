@@ -1287,7 +1287,7 @@ describe('所得金額調整控除（子ども・特別障害者等を有する�
     const r = calculate(base(9_500_000, [child(10)]), rules25);
     expect(r.deductions.incomeTax.items.find((i) => i.id === 'basic').amount).toBe(580_000);
     expect(r.incomeTax.total).toBe(966_376);
-    expect(r.notes.join()).toMatch(/所得金額調整控除100,000円/);
+    expect(r.notes.join()).toMatch(/所得金額調整控除100,000円を給与所得から差し引いています（所得税・住民税とも）/);
   });
   it('対象外なら控除なし（子なし・本人が特別障害者でない）: 課税所得697万円 → 23%−636,000 = 967,100 → 復興込み987,409円', () => {
     const r = calculate(base(9_500_000), rules25);
@@ -1315,9 +1315,12 @@ describe('所得金額調整控除（子ども・特別障害者等を有する�
   it('所得の要件を満たさない子（所得が基準超）は扶養親族でないため対象外', () => {
     expect(calculate(base(9_500_000, [child(20, { income: 700_000 })]), rules25).notes.join()).not.toMatch(/所得金額調整控除/);
   });
-  it('住民税には反映しない（資料未入手）: 調整の有無で住民税が変わらない', () => {
-    const withKid = calculate(base(9_500_000, [child(10)]), rules25);
-    // 住民税の給与所得は調整なしの755万円のまま
-    expect(withKid.taxable.residentTax.comprehensive).toBe(7_550_000 - withKid.deductions.residentTax.total);
+  it('住民税にも同じ算式で反映（津山市の公式ページ）: 住民税の課税所得 = 給与所得755万円 − 調整控除10万円 − 所得控除', () => {
+    const r = calculate(base(9_500_000, [child(10)]), rules25);
+    // 住民税の所得控除: 基礎43万円（子10歳は扶養控除なし）。課税所得 = 755万 − 10万 − 43万 = 702万円
+    expect(r.deductions.residentTax.total).toBe(430_000);
+    expect(r.taxable.residentTax.comprehensive).toBe(7_020_000);
+    const none = calculate(base(9_500_000), rules25);
+    expect(none.taxable.residentTax.comprehensive).toBe(7_120_000); // 調整なしなら 755万 − 43万
   });
 });

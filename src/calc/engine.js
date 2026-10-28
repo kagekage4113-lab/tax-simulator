@@ -131,16 +131,16 @@ export function calculate(state, rules) {
   const deductions = calcDeductions({ state, rules, need, totalIncome, netIncome: totalIncomeNet, socialInsurance });
   if (declaredAutoIds(state).length) notes.push('配偶者・扶養・障害者・寡婦/ひとり親・勤労学生などの適用は、ご自身の申告に基づく前提です（適用には証明書類が必要な場合があります）。年齢は12月31日時点で入力してください。');
 
-  // ---- 5b. 所得金額調整控除（子ども・特別障害者等を有する者等。所得税のみ・NTA_1411） ----
-  const salaryAdjustmentIT = calcSalaryAdjustment(state, rules, salaryRevenue);
-  if (salaryAdjustmentIT > 0) notes.push(`所得金額調整控除${salaryAdjustmentIT.toLocaleString('ja-JP')}円を所得税の給与所得から差し引いています（住民税側の資料は未入手のため、住民税には反映していません）。`);
+  // ---- 5b. 所得金額調整控除（子ども・特別障害者等を有する者等。所得税・住民税とも同じ算式・NTA_1411、津山市） ----
+  const salaryAdjustment = calcSalaryAdjustment(state, rules, salaryRevenue);
+  if (salaryAdjustment > 0) notes.push(`所得金額調整控除${salaryAdjustment.toLocaleString('ja-JP')}円を給与所得から差し引いています（所得税・住民税とも）。`);
 
   // ---- 6-7. 課税所得 ----
   const taxableFor = (kind) => {
     const ded = deductions[kind];
     const roundKey = kind === 'incomeTax' ? 'taxableIncome' : 'residentTaxableIncome';
     if (ded.total === null || comprehensiveIncome === null) return null;
-    const compBase = kind === 'incomeTax' ? Math.max(0, comprehensiveIncome - salaryAdjustmentIT) : comprehensiveIncome;
+    const compBase = Math.max(0, comprehensiveIncome - salaryAdjustment);
     const comp = Math.max(0, compBase - ded.total);
     const spill = Math.max(0, ded.total - compBase); // 総合で引ききれない控除
     // 総合課税で引ききれない控除は、FX・先物 → 上場株式等 の順に分離課税の所得から引く
