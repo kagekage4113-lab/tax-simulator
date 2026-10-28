@@ -24,7 +24,11 @@ export function insuranceFields(store) {
     field('あなたの健康保険', select(INSURANCE_TYPE, s.insurance.type, (t) => set((x) => { x.insurance.type = t; }, true)),
       v ? { hint: 'お子さんなどを被扶養者にしても、任意継続の保険料は変わりません。税金の「扶養」とは別の制度です。' } : s.insurance.type === 'national' ? { hint: '国民健康保険税は世帯の加入者の人数や所得で決まります。この計算では、本人・配偶者・扶養親族が同じ国保に入る前提です。' } : {}),
     ...(v ? [
-      gaugeField({ compact: true, label: '任意継続の毎月の保険料（納付書・通知書の額）', value: s.insurance.monthlyPremium ?? 0, max: 100_000, step: 1000, onChange: (n) => set((x) => { x.insurance.monthlyPremium = n; }), hint: '入力するまで、社会保険料と手取りは確定しません。' }),
+      (() => {
+        const f = gaugeField({ compact: true, label: '任意継続の毎月の保険料（納付書・通知書の額）', value: s.insurance.monthlyPremium ?? 0, max: 100_000, step: 1000, onChange: (n) => { f.classList.remove('missing'); set((x) => { x.insurance.monthlyPremium = n; }); }, hint: '入力するまで、社会保険料と手取りは確定しません。' });
+        if (s.insurance.monthlyPremium == null) f.classList.add('missing');
+        return f;
+      })(),
       checkbox('国民年金も払っている（任意継続では厚生年金に入れないため、通常は別に払います）', s.insurance.nationalPension, (on) => set((x) => { x.insurance.nationalPension = on; })),
     ] : [
       checkbox('年間の社会保険料の実額を入力する（未入力時は概算）', s.insurance.actualAnnual != null, (on) => set((x) => { x.insurance.actualAnnual = on ? 0 : null; }, true)),

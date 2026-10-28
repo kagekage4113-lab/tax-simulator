@@ -126,3 +126,26 @@ describe('いまの状況の画面', () => {
     expect(text).toMatch(/確認できていません|未確認/);
   });
 });
+
+describe('未回答の赤い表示', () => {
+  it('例の世帯を入れると、未回答の欄が missing として示され、上部に件数の一覧が出る', () => {
+    const s = defaultState();
+    s.household.enabled = true;
+    const st = storeOf(s);
+    click(householdSection(st), '例の世帯を入れてみる');
+    const el = householdSection(st);
+    expect(el.querySelectorAll('.field.missing').length).toBeGreaterThan(3);
+    expect(el.querySelector('.miss-box').textContent).toMatch(/まだ答えていない項目が\d+件/);
+    expect(el.querySelector('.miss-count').textContent).toMatch(/未回答 \d+件/);
+  });
+  it('答えると赤が消える（はい／いいえを押す）', () => {
+    const s = defaultState();
+    s.household.enabled = true;
+    const st = storeOf(s);
+    click(householdSection(st), '例の世帯を入れてみる');
+    const el = householdSection(st);
+    const first = el.querySelector('.field.missing .seg');
+    first.querySelector('button').click(); // はい
+    expect(first.parentElement.classList.contains('missing')).toBe(false);
+  });
+});

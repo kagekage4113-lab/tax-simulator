@@ -255,13 +255,15 @@ export function overview(state, rules) {
   const rows = [];
   const mine = rMe.residentTax;
   rows.push({
-    id: 'me', name: 'あなた', age: state.self.age, income: rMe.income.total,
+    id: 'me', name: 'あなた', age: state.self.age, income: rMe.income.total, inHousehold: true,
     incomeTax: rMe.incomeTax ? rMe.incomeTax.total : null, residentTax: mine ? mine.total : null, exemption: mine ? mine.exemption : undefined,
     known: rMe.takeHome !== null,
   });
   for (const p of people) {
     const inc = personIncome(p, rules, state.taxYear);
-    const row = { id: p.id, name: p.name || PERSON_LABEL[p.kind], age: p.age, income: inc.value, known: inc.value !== null };
+    // 世帯 = 住民票の世帯が同じ人（未回答は同居しているかで代用。どちらも未回答なら同じとして数える）
+    const inHousehold = (p.sameHousehold ?? p.livesTogether ?? true) !== false;
+    const row = { id: p.id, name: p.name || PERSON_LABEL[p.kind], age: p.age, income: inc.value, known: inc.value !== null, inHousehold };
     if (inc.value === null) { rows.push({ ...row, incomeTax: null, residentTax: null, exemption: undefined }); continue; }
     const m = defaultState();
     m.taxYear = state.taxYear;
@@ -281,8 +283,10 @@ export function overview(state, rules) {
     rows.push({ ...row, partner: !!(q || p.kind === 'spouse'), incomeTax: r.incomeTax ? r.incomeTax.total : null, residentTax: r.residentTax ? r.residentTax.total : null, exemption: r.residentTax ? r.residentTax.exemption : undefined });
   }
   const isAll = (r) => r.exemption === 'all';
-  const unknown = rows.filter((r) => !r.known || r.exemption === undefined);
-  const taxable = rows.filter((r) => r.known && r.exemption !== undefined && !isAll(r));
+  const members = rows.filter((r) => r.inHousehold);
+  const unknown = members.filter((r) => !r.known || r.exemption === undefined);
+  const taxable = members.filter((r) => r.known && r.exemption !== undefined && !isAll(r));
+  const outside = rows.filter((r) => !r.inHousehold);
   const allNonTaxable = unknown.length ? null : taxable.length === 0;
   let margin = null;
   if (allNonTaxable && rMe.takeHome !== null) {
@@ -292,7 +296,31 @@ export function overview(state, rules) {
   // 親どうし（または家族の誰か）が夫婦と指定されていないとき、非課税の判定が変わりうる組があるか
   const parents = people.filter((p) => p.kind === 'parent');
   const unpaired = parents.length >= 2 && parents.every((p) => !p.partnerId && !people.some((q) => q.partnerId === p.id));
-  return { rows, allNonTaxable, taxable, unknown, margin, unpaired };
+  return { rows, allNonTaxable, taxable, unknown, outside, margin, unpaired };
 }
 
 const PERSON_LABEL = { spouse: '配偶者', child: '子', parent: '親', other: '親族' };
+
+// まだ答えていない（確定に必要な）項目。画面で赤く示す。
+export function missingFacts(state) {
+  const out = [];
+  const hh = state.household;
+  const add = (who, whoLabel, label) => out.push({ who, whoLabel, label });
+  const unsure = (c) => c === 'unknown' || c === 'other';
+  const hasSpouse = hh.people.some((p) => p.kind === 'spouse');
+  if (!hasSpouse && hh.people.some((p) => p.kind === 'child')) {
+    if (hh.me.partner === null) add('me', 'あなた', '事実婚（夫婦と同様の事情）の相手がいるか');
+    if (hh.me.childClaimedElsewhere === null) add('me', 'あなた', 'お子さんを他の人の扶養に入れていないか');
+  }
+  if (unsure(hh.me.certificate)) add('me', 'あなた', '障害者手帳などの種類・等級');
+  if (state.insurance.type === 'voluntary' && state.insurance.monthlyPremium == null) add('me', 'あなた', '任意継続の毎月の保険料');
+  for (const p of hh.people) {
+    const who = p.name || PERSON_LABEL[p.kind];
+    if (p.livesTogether === null) add(p.id, who, '同居しているか');
+    if (p.supportedByMe === null) add(p.id, who, '生活費の大半をあなたが負担しているか');
+    if (p.incomeKind === 'unknown') add(p.id, who, '収入の種類');
+    else if (['salary', 'pension', 'business', 'other'].includes(p.incomeKind) && p.revenue === 0) add(p.id, who, '収入の金額');
+    if (unsure(p.certificate)) add(p.id, who, '障害者手帳などの種類・等級');
+  }
+  return out;
+}

@@ -35,6 +35,7 @@ export const newPerson = (kind) => ({
   expenses: 0, // 事業の必要経費
   certificate: 'none',
   medical: false, // 通院・入院などの医療費を払っている
+  sameHousehold: null, // 住民票の世帯があなたと同じか。null（未回答）のときは「同居しているか」で代用する
   partnerId: null, // この家族の中の配偶者（親どうしが夫婦、など）の id。住民税の非課税の判定で同一生計配偶者として数える
 });
 
@@ -75,6 +76,7 @@ export function validateHousehold(raw, { err, yen, oneOf, bool, str }) {
       expenses: yen(p.expenses ?? 0, `${path}.expenses`),
       certificate: oneOf(p.certificate ?? 'none', Object.keys(CERTIFICATES), `${path}.certificate`, 'none'),
       medical: bool(p.medical ?? false, `${path}.medical`, false),
+      sameHousehold: tri(p.sameHousehold, `${path}.sameHousehold`),
       partnerId: typeof p.partnerId === 'string' && p.partnerId && p.partnerId.length <= 80 ? p.partnerId : null,
     };
   });

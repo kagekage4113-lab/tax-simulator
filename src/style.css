@@ -142,3 +142,16 @@ svg.chart { width: 100%; height: auto; touch-action: pan-y; }
 .edit > summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .json-box { width: 100%; font: .78rem/1.4 ui-monospace, Menlo, Consolas, monospace; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
 .json-box[hidden] { display: none; }
+
+/* 未回答・未入力の赤い表示 */
+.field .miss-tag { display: none; margin-left: 8px; font-size: .72rem; font-weight: 700; color: var(--danger); border: 1px solid var(--danger); border-radius: 999px; padding: 0 8px; }
+.field.missing > label, .field.missing > .lbl { color: var(--danger); }
+.field.missing .miss-tag { display: inline-block; }
+.field.missing .seg { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+.field.missing select, .field.missing input[type=text] { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+.field.missing > label::after { content: "（未入力）"; font-size: .72rem; font-weight: 700; margin-left: 6px; }
+.item.has-missing { border-color: var(--danger); }
+.miss-count { color: var(--danger); margin-left: 6px; font-weight: 700; }
+.miss-box { border: 1px solid var(--danger); }
+.miss-box ul { margin: 6px 0; padding-left: 1.2em; }
+tr.out th, tr.out td { opacity: .6; }

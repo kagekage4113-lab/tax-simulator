@@ -4,7 +4,7 @@ import { h, field, select, checkbox, badge } from './dom.js';
 import { gaugeField } from './gaugeField.js';
 import { CERTIFICATES, INCOME_KINDS, PERSON_KINDS, newPerson } from '../core/household.js';
 import { insuranceFields } from './sections.js';
-import { assess, applyHousehold, importLegacyPeople, man, overview } from '../interview/assess.js';
+import { assess, applyHousehold, importLegacyPeople, man, missingFacts, overview } from '../interview/assess.js';
 import { rulesOf } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
 
@@ -12,15 +12,23 @@ const STATUS = { applies: ['適用の見込み', 'ok'], maybe: ['要確認', 'wa
 const MARK = { ok: '✔', ng: '✖', unknown: '？' };
 
 // はい／いいえ／分からない（null = 未回答）
-function tri(label, value, onChange, labels = ['はい', 'いいえ', '分からない']) {
+// needed が true で値が null（未回答）のあいだは赤く示す。
+function tri(label, value, onChange, needed = true) {
+  const labels = ['はい', 'いいえ', '分からない'];
   const opts = [[true, labels[0]], [false, labels[1]], [null, labels[2]]];
+  // 必須の質問で null（分からない・未回答）のあいだは、どれも選ばれていない見た目にして、赤く示す
+  const isOn = (opt, cur) => cur === opt && !(needed && opt === null);
   const group = h('div', { class: 'seg', role: 'group', 'aria-label': label },
     opts.map(([v, text]) => h('button', {
-      type: 'button', 'aria-pressed': String(value === v), class: value === v ? 'on' : '',
-      onClick: () => { onChange(v); group.querySelectorAll('button').forEach((b, i) => { const on = opts[i][0] === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); },
+      type: 'button', 'aria-pressed': String(isOn(v, value)), class: isOn(v, value) ? 'on' : '',
+      onClick: () => { onChange(v); wrap.classList.toggle('missing', needed && v === null); group.querySelectorAll('button').forEach((b, i) => { const on = isOn(opts[i][0], v); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); },
     }, text)));
-  return h('div', { class: 'field' }, h('span', { class: 'lbl' }, label), group);
+  const wrap = h('div', { class: `field${needed && value === null ? ' missing' : ''}` }, h('span', { class: 'lbl' }, label, h('span', { class: 'miss-tag' }, '未回答')), group);
+  return wrap;
 }
+
+// 値が未確認のあいだ赤く示す（select・数値欄の外側の div に付ける）
+const markIf = (el, cond) => { el.classList.toggle('missing', !!cond); return el; };
 
 const amountText = (l) => {
   const { now, max } = l.amounts;
@@ -52,6 +60,7 @@ export function householdSection(store, rulesFor = rulesOf) {
   const verdictBoxes = new Map(); // who('me' | 人のid) → 判定欄
   const totalsBox = h('div', { class: 'hh-totals' });
   const overviewBox = h('div', { class: 'hh-overview' });
+  const missingBox = h('div', { class: 'hh-missing' });
 
   const el = h('details', { class: 'card', id: 'sec-household', open: true },
     h('summary', {}, '世帯・家族（かんたん入力・試作）'));
@@ -70,7 +79,7 @@ export function householdSection(store, rulesFor = rulesOf) {
 
   if (!hh.enabled) return Object.assign(el, { refresh() {} });
 
-  body.append(totalsBox, overviewBox);
+  body.append(missingBox, totalsBox, overviewBox);
 
   // あなた
   const meBox = h('div', {});
@@ -81,13 +90,14 @@ export function householdSection(store, rulesFor = rulesOf) {
     meBox,
     gaugeField({ compact: true, label: '年齢（12月31日時点）', value: s.self.age, max: 100, step: 1, unit: '歳', onChange: (v) => set((x) => { x.self.age = Math.min(v, 120); }) }),
     ...insuranceFields(store),
-    field('障害者手帳などはありますか', select(CERTIFICATES, hh.me.certificate, (v) => set((x) => { x.household.me.certificate = v; }))),
+    (() => { const f = field('障害者手帳などはありますか', select(CERTIFICATES, hh.me.certificate, (v) => { markIf(f, v === 'unknown' || v === 'other'); set((x) => { x.household.me.certificate = v; }); })); return markIf(f, hh.me.certificate === 'unknown' || hh.me.certificate === 'other'); })(),
     !hasSpouse ? tri('事実上の婚姻関係（事実婚・同棲など、夫婦と同様の事情）にある人はいますか', hh.me.partner, (v) => set((x) => { x.household.me.partner = v; })) : null,
     !hasSpouse && hh.people.some((p) => p.kind === 'child')
       ? tri('お子さんを、元の配偶者など他の人の扶養に入れていませんか（入れている＝はい）', hh.me.childClaimedElsewhere, (v) => set((x) => { x.household.me.childClaimedElsewhere = v; })) : null));
 
   // 家族
-  hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes, hh.people)));
+  const miss0 = missingFacts(s);
+  hh.people.forEach((p, i) => body.append(personCard(store, p, i, verdictBoxes, hh.people, miss0.filter((m) => m.who === p.id).length)));
 
   const add = (kind) => set((x) => { x.household.people.push(newPerson(kind)); applyHousehold(x, rulesFor(x)); }, true);
   body.append(
@@ -112,42 +122,66 @@ export function householdSection(store, rulesFor = rulesOf) {
     }
     totalsBox.replaceChildren(totals(a));
     overviewBox.replaceChildren(overviewView(overview(state, rules)));
+    missingBox.replaceChildren(...missingView(missingFacts(state)));
   };
   el.refresh(s);
   return el;
 }
 
-function personCard(store, p, i, verdictBoxes, people) {
+function personCard(store, p, i, verdictBoxes, people, missingCount) {
   const set = (fn, structural = false) => store.update(fn, { structural });
   const upd = (key, val, structural) => set((x) => { x.household.people[i][key] = val; }, structural);
   const box = h('div', {});
   verdictBoxes.set(p.id, box);
+  // 金額欄: 0円のままなら赤く示す（収入の種類を選んだのに金額が未入力、の見落とし防止）
+  const money = (label, key, hint, { requiredNonZero = true } = {}) => {
+    const f = gaugeField({ compact: true, label, value: p[key], max: 5_000_000, hint, onChange: (v) => { markIf(f, requiredNonZero && v === 0); upd(key, v); } });
+    return markIf(f, requiredNonZero && p[key] === 0);
+  };
   const incomeFields = [];
-  if (p.incomeKind === 'salary') incomeFields.push(gaugeField({ compact: true, label: '年間の給与収入（額面）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v) }));
-  if (p.incomeKind === 'pension') incomeFields.push(gaugeField({ compact: true, label: '年金の年間受取額（年金振込通知書・源泉徴収票の金額）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v), hint: '年金収入から公的年金等控除を引いて所得を求めます（国税庁 No.1600。年金以外の所得はない前提）。' }));
+  if (p.incomeKind === 'salary') incomeFields.push(money('年間の給与収入（額面）', 'revenue'));
+  if (p.incomeKind === 'pension') incomeFields.push(money('年金の年間受取額（年金振込通知書・源泉徴収票の金額）', 'revenue', '年金収入から公的年金等控除を引いて所得を求めます（国税庁 No.1600。年金以外の所得はない前提）。'));
   if (p.incomeKind === 'business') incomeFields.push(
-    gaugeField({ compact: true, label: '年間の売上', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v) }),
-    gaugeField({ compact: true, label: '年間の経費（分からなければ0円。売上と利益のどちらでも判定できる場合があります）', value: p.expenses, max: 5_000_000, onChange: (v) => upd('expenses', v) }));
-  if (p.incomeKind === 'other') incomeFields.push(gaugeField({ compact: true, label: '年間の所得金額（収入から経費などを引いた後の額）', value: p.revenue, max: 5_000_000, onChange: (v) => upd('revenue', v) }));
+    money('年間の売上', 'revenue'),
+    money('年間の経費（なければ0円）', 'expenses', '売上から経費を引いた額（利益）が所得です。', { requiredNonZero: false }));
+  if (p.incomeKind === 'other') incomeFields.push(money('年間の所得金額（収入から経費などを引いた後の額）', 'revenue'));
+
+  const unsureCert = p.certificate === 'unknown' || p.certificate === 'other';
+  const certField = field('障害者手帳などはありますか', select(CERTIFICATES, p.certificate, (v) => { markIf(certField, v === 'unknown' || v === 'other'); upd('certificate', v); }),
+    { hint: '手帳の等級で一般障害者・特別障害者が決まります（国税庁 No.1160）。透析をされている方は、身体障害者手帳（腎臓機能障害）の等級を確認してください。' });
+  markIf(certField, unsureCert);
+  const kindField = field('収入の種類', select(INCOME_KINDS, p.incomeKind, (v) => upd('incomeKind', v, true)));
+  markIf(kindField, p.incomeKind === 'unknown');
 
   const kindLabel = PERSON_KINDS[p.kind];
-  return h('div', { class: 'item' },
+  return h('div', { class: `item${missingCount ? ' has-missing' : ''}` },
     h('div', { class: 'item-head' }, h('strong', {}, `${kindLabel}${p.name ? `：${p.name}` : ''}（${p.age}歳）`),
       h('button', { type: 'button', class: 'btn danger', onClick: () => set((x) => { x.household.people.splice(i, 1); }, true) }, '削除')),
     box,
-    h('details', { class: 'edit', open: p.supportedByMe === null || p.livesTogether === null }, h('summary', {}, '回答を編集する'),
-    field('呼び名（メモ）', h('input', { type: 'text', value: p.name, maxlength: 100, placeholder: '例：母', onInput: (e) => upd('name', e.target.value) })),
-    gaugeField({ compact: true, label: '年齢（12月31日時点）', value: p.age, max: 100, step: 1, unit: '歳', onChange: (v) => upd('age', Math.min(v, 120)) }),
-    tri('同居していますか', p.livesTogether, (v) => upd('livesTogether', v)),
-    tri(p.kind === 'spouse' ? '生活費をあなたが主に負担していますか（生計を一にしていますか）' : '生活費の大半をあなたが負担していますか（仕送りを含む）', p.supportedByMe, (v) => upd('supportedByMe', v)),
-    field('収入の種類', select(INCOME_KINDS, p.incomeKind, (v) => upd('incomeKind', v, true))),
-    ...incomeFields,
-    field('障害者手帳などはありますか', select(CERTIFICATES, p.certificate, (v) => upd('certificate', v)),
-      { hint: '手帳の等級で一般障害者・特別障害者が決まります（国税庁 No.1160）。透析をされている方は、身体障害者手帳（腎臓機能障害）の等級を確認してください。' }),
-    checkbox('通院・入院などの医療費を払っている', p.medical, (v) => upd('medical', v)),
-    p.kind === 'spouse' || p.kind === 'child' ? null : field('この家族の中の配偶者（夫婦で生計を一にしている相手）',
-      select({ '': 'いない・この中にはいない', ...Object.fromEntries(people.filter((q) => q.id !== p.id && q.kind !== 'spouse' && q.kind !== 'child').map((q) => [q.id, `${PERSON_KINDS[q.kind]}${q.name ? `：${q.name}` : ''}（${q.age}歳）`])) }, p.partnerId || '', (v) => upd('partnerId', v || null, false)),
-      { hint: '親どうしが夫婦なら、お互いを選びます。所得が基準以下の配偶者は「同一生計配偶者」として、相手の住民税の非課税の限度に数えられます。' })));
+    h('details', { class: 'edit', open: missingCount > 0 }, h('summary', {}, '回答を編集する', missingCount ? h('span', { class: 'miss-count' }, `（未回答 ${missingCount}件）`) : null),
+      field('呼び名（メモ）', h('input', { type: 'text', value: p.name, maxlength: 100, placeholder: '例：母', onInput: (e) => upd('name', e.target.value) })),
+      gaugeField({ compact: true, label: '年齢（12月31日時点）', value: p.age, max: 100, step: 1, unit: '歳', onChange: (v) => upd('age', Math.min(v, 120)) }),
+      tri('同居していますか', p.livesTogether, (v) => upd('livesTogether', v)),
+      tri('住民票の世帯は、あなたと同じですか（世帯分離していない）', p.sameHousehold, (v) => upd('sameHousehold', v), false),
+      tri(p.kind === 'spouse' ? '生活費をあなたが主に負担していますか（生計を一にしていますか）' : '生活費の大半をあなたが負担していますか（仕送りを含む）', p.supportedByMe, (v) => upd('supportedByMe', v)),
+      kindField,
+      ...incomeFields,
+      certField,
+      checkbox('通院・入院などの医療費を払っている', p.medical, (v) => upd('medical', v)),
+      p.kind === 'spouse' || p.kind === 'child' ? null : field('この家族の中の配偶者（夫婦で生計を一にしている相手）',
+        select({ '': 'いない・この中にはいない', ...Object.fromEntries(people.filter((q) => q.id !== p.id && q.kind !== 'spouse' && q.kind !== 'child').map((q) => [q.id, `${PERSON_KINDS[q.kind]}${q.name ? `：${q.name}` : ''}（${q.age}歳）`])) }, p.partnerId || '', (v) => upd('partnerId', v || null, false)),
+        { hint: '親どうしが夫婦なら、お互いを選びます。所得が基準以下の配偶者は「同一生計配偶者」として、相手の住民税の非課税の限度に数えられます。' })));
+}
+
+// 未回答の項目の一覧（上部）。0件なら出さない。
+function missingView(list) {
+  if (!list.length) return [];
+  const byWho = new Map();
+  for (const m of list) byWho.set(m.whoLabel, [...(byWho.get(m.whoLabel) || []), m.label]);
+  return [h('div', { class: 'warn miss-box', role: 'status' },
+    h('strong', {}, `まだ答えていない項目が${list.length}件あります（赤く表示）`),
+    h('ul', {}, [...byWho.entries()].map(([who, labels]) => h('li', {}, `${who}：${labels.join('、')}`))),
+    h('p', { class: 'hint' }, '答えが足りない控除は「要確認」とし、確定した分だけを手取りに反映します。')) ];
 }
 
 function totals(a) {
@@ -183,13 +217,14 @@ const EXEMPT_LABEL = { all: '非課税', levy: '所得割のみ非課税（均�
 function overviewView(ov) {
   const yen = (v) => (v == null ? '—' : `${formatYen(v)}円`);
   const stateOf = (r) => (!r.known || r.exemption === undefined ? '不明' : r.exemption ? EXEMPT_LABEL[r.exemption] : '課税');
-  const rows = ov.rows.map((r) => h('tr', {}, h('th', {}, `${r.name}（${r.age}歳）`), h('td', { class: 'r' }, r.income == null ? '—' : yen(r.income)), h('td', { class: 'r' }, yen(r.incomeTax)), h('td', { class: 'r' }, yen(r.residentTax)), h('td', {}, stateOf(r))));
+  const rows = ov.rows.map((r) => h('tr', { class: r.inHousehold ? '' : 'out' }, h('th', {}, `${r.name}（${r.age}歳）${r.inHousehold ? '' : '※世帯別'}`), h('td', { class: 'r' }, r.income == null ? '—' : yen(r.income)), h('td', { class: 'r' }, yen(r.incomeTax)), h('td', { class: 'r' }, yen(r.residentTax)), h('td', {}, stateOf(r))));
   return h('div', { class: 'hh-box' },
     h('h3', {}, '世帯の見取り図（誰の、何の税金か）'),
     h('p', { class: 'hint' }, '家族それぞれを「本人として」見た目安です（本人の所得・基礎控除・本人の障害・配偶者だけで計算し、社会保険料控除などは入れていません）。'),
     h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl cmp' },
       h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, '所得'), h('th', {}, '所得税'), h('th', {}, '住民税'), h('th', {}, '住民税の状態'))),
       h('tbody', {}, rows))),
+    ov.outside.length ? h('p', { class: 'hint' }, `住民票の世帯が別の人（${ov.outside.map((r) => r.name).join('、')}）は、「世帯全員が非課税か」の判定に入れていません。`) : null,
     ov.allNonTaxable === true ? h('p', {}, h('strong', {}, '世帯全員が住民税非課税です。'), ov.margin != null ? `あなたのFXの利益があと${manShort(ov.margin)}までなら、あなたが非課税のまま（世帯全員が非課税のまま）です。` : '') : null,
     ov.allNonTaxable === false ? h('p', { class: 'warn' }, `住民税が課税なのは ${ov.taxable.map((r) => r.name).join('、')} です。世帯全員が非課税ではありません。`) : null,
     ov.allNonTaxable === null ? h('p', { class: 'hint' }, `${ov.unknown.map((r) => r.name).join('、')} の所得が確定できないため、世帯全員が非課税かどうかは判定できません。`) : null,

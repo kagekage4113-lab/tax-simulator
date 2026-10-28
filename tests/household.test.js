@@ -319,3 +319,50 @@ describe('世帯の見取り図（誰の何の税金か）', () => {
     expect(row(ov, 'father').partner).toBe(true);
   });
 });
+
+import { missingFacts } from '../src/interview/assess.js';
+describe('未回答の項目（赤く示す）', () => {
+  it('例の世帯: 同居・生計・事実婚・子の扶養・手帳・年金額が未回答として挙がる', () => {
+    const s = sample();
+    s.household.people[1].revenue = 0; // 父の年金額が未入力
+    const m = missingFacts(s);
+    const labels = (who) => m.filter((x) => x.who === who).map((x) => x.label);
+    expect(labels('me')).toEqual(['事実婚（夫婦と同様の事情）の相手がいるか', 'お子さんを他の人の扶養に入れていないか']);
+    expect(labels('mother')).toEqual(['同居しているか', '生活費の大半をあなたが負担しているか', '障害者手帳などの種類・等級']); // 母は手帳が「分からない・未確認」
+    expect(labels('father')).toEqual(['同居しているか', '生活費の大半をあなたが負担しているか', '収入の金額']);
+    expect(labels('k1')).toEqual([]); // 子は同居・生計が回答済み（既定）
+  });
+  it('すべて答えると未回答は0件。手帳が「分からない・要確認」なら挙がる', () => {
+    const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' }, father: { livesTogether: true, supportedByMe: true } });
+    s.household.me.partner = false; s.household.me.childClaimedElsewhere = false;
+    expect(missingFacts(s)).toEqual([]);
+    s.household.people[0].certificate = 'unknown';
+    expect(missingFacts(s).map((x) => x.label)).toEqual(['障害者手帳などの種類・等級']);
+  });
+  it('任意継続で毎月の保険料が未入力なら挙がる', () => {
+    const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' }, father: { livesTogether: true, supportedByMe: true } });
+    s.household.me.partner = false; s.household.me.childClaimedElsewhere = false;
+    s.insurance = { type: 'voluntary', actualAnnual: null, monthlyPremium: null, nationalPension: false };
+    expect(missingFacts(s).map((x) => x.label)).toEqual(['任意継続の毎月の保険料']);
+    s.insurance.monthlyPremium = 25_000;
+    expect(missingFacts(s)).toEqual([]);
+  });
+});
+
+describe('世帯 = 住民票の世帯が同じ人', () => {
+  it('住民票の世帯が別（世帯分離）の人は「世帯全員が非課税か」から除く（同居でも別世帯にできる）', () => {
+    // 夫婦の指定なし: 父は課税（住民税43,500円）。父が別世帯なら、残り（あなた・母・子）は全員非課税
+    const s = sample({ mother: { livesTogether: true, supportedByMe: true, certificate: 'phys12' }, father: { livesTogether: true, supportedByMe: true, sameHousehold: false } });
+    s.residence.area = 'tokyo23'; s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
+    const ov = overview(s, getTaxYear(2025, 'tokyo23'));
+    expect(ov.outside.map((r) => r.id)).toEqual(['father']);
+    expect(ov.allNonTaxable).toBe(true);
+    s.household.people[1].sameHousehold = true;
+    expect(overview(s, getTaxYear(2025, 'tokyo23')).allNonTaxable).toBe(false);
+  });
+  it('未回答のときは「同居しているか」で代用する', () => {
+    const s = sample({ father: { livesTogether: false, supportedByMe: true } });
+    s.incomes = [{ ...newIncome('fx'), amount: 350_000 }];
+    expect(overview(s, getTaxYear(2025, 'tokyo23')).outside.map((r) => r.id)).toEqual(['father']);
+  });
+});
