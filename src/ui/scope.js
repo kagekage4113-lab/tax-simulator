@@ -31,7 +31,7 @@ const list = (title, items) => [h('h3', {}, title), h('ul', { class: 'status-lis
 export function scopeSection() {
   return h('details', { class: 'help', id: 'sec-scope' },
     h('summary', {}, 'できること・できないこと（ベータ版）'),
-    h('p', { class: 'hint' }, 'ベータ版です。金額は概算の目安で、確定申告書や納税額の代わりにはなりません。気づいた点は教えてください。'),
+    h('p', { class: 'hint' }, 'ベータ版です。金額は概算の目安で、確定申告書や納税額の代わりにはなりません。2026年10月時点の公的資料に基づく参考情報であり、正確性を保証するものではなく、利用によって生じた損害について責任を負いません。気づいた点は教えてください。'),
     ...list('対応していること', SUPPORTED),
     ...list('前提・近似', SCOPE),
     ...list('未対応', UNSUPPORTED),
