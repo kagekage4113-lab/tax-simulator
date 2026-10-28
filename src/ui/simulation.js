@@ -241,11 +241,14 @@ export function simulationSection(store, rulesFor = rulesOf) {
         h('tbody', {}, rows.map((p) => h('tr', {}, h('td', { class: 'r' }, yen(p.add)), h('td', { class: 'r' }, signed(p.burden - sw.points[0].burden)), h('td', { class: 'r' }, signed(p.gain)))))));
   }
 
-  const el = h('details', { class: 'card', id: 'sec-sim', open: false },
-    h('summary', {}, '収入・経費の変動シミュレーション'),
+  // 主役は「あと○円稼いだら？」。経費・壁のグラフ・FXの利確は「くわしい比較」に畳む
+  panels[0].el.open = true;
+  const el = h('details', { class: 'card', id: 'sec-sim', open: true },
+    h('summary', {}, 'もし利益が増えたら（変動シミュレーション）'),
     h('div', { class: 'body' },
-      h('p', { class: 'note' }, '現在の入力はそのままに、変更した場合の結果を並べて比較します。金額は目安です。'),
-      panels.map((p) => p.el)));
+      h('p', { class: 'note' }, '今の入力はそのままに、変えた場合の結果を並べて比べます。金額は目安です。'),
+      panels[0].el,
+      h('details', { class: 'edit' }, h('summary', {}, 'くわしい比較（経費・壁のグラフ・FXの利確タイミング）'), panels.slice(1).map((p) => p.el))));
 
   const rebuild = () => { panels.forEach((p) => p.build()); schedule(); };
   rebuild();

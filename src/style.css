@@ -165,3 +165,7 @@ tr.out th, tr.out td { opacity: .6; }
   .dk-tab { min-height: 42px; }
   .dock.classic .dk-tabs { display: none; }
 }
+.key-line { font-size: 1.05rem; font-weight: 700; margin: 8px 0 4px; }
+.key-line.ok { color: var(--ok); }
+.key-sub { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
+.miss-box .btn { margin-top: 6px; }

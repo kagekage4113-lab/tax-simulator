@@ -9,7 +9,7 @@ import { calculate } from '../calc/engine.js';
 import { autoPersonalDeductions } from '../calc/autoDeductions.js';
 import { defaultState, newIncome } from '../core/schema.js';
 import { formatYen } from '../core/money.js';
-import { newPerson } from '../core/household.js';
+import { newPerson, supportOf } from '../core/household.js';
 import { publicPensionIncome } from '../calc/pension.js';
 import { situation } from '../calc/situation.js';
 
@@ -52,10 +52,10 @@ function peopleFacts(state, rules, scenario) {
     const cert = certClass(p.certificate, scenario);
     return {
       p, inc, cert,
-      supported: resolve(p.supportedByMe, scenario),
+      supported: resolve(supportOf(p), scenario),
       cohabiting: resolve(p.livesTogether, scenario),
       income: inc.value ?? 0,
-      counted: resolve(p.supportedByMe, scenario) && (inc.value !== null || scenario === 'optimistic'),
+      counted: resolve(supportOf(p), scenario) && (inc.value !== null || scenario === 'optimistic'),
     };
   });
 }
@@ -74,8 +74,8 @@ function singleParentConds(state, facts, rules, totalIncome) {
       : { s: 'unknown', t: '事実上婚姻関係と同様の事情にある人がいないか未回答' });
   const kids = facts.filter((f) => f.p.kind === 'child');
   const incomeOk = (f) => (childMax == null || f.inc.value === null ? null : f.inc.value <= childMax);
-  const okKid = kids.find((f) => f.p.supportedByMe === true && incomeOk(f) === true);
-  const maybeKid = kids.find((f) => f.p.supportedByMe !== false && incomeOk(f) !== false && !(f.p.supportedByMe === true && incomeOk(f) === true));
+  const okKid = kids.find((f) => supportOf(f.p) === true && incomeOk(f) === true);
+  const maybeKid = kids.find((f) => supportOf(f.p) !== false && incomeOk(f) !== false && !(supportOf(f.p) === true && incomeOk(f) === true));
   if (okKid) conds.push({ s: 'ok', t: `生計を一にする子がいる（${okKid.p.name || `${okKid.p.age}歳`}・所得${man(okKid.inc.value)}、基準${man(childMax)}以下）` });
   else if (maybeKid) conds.push({ s: 'unknown', t: '生計を一にする子がいるか、子の所得が基準以下か未確認' });
   else conds.push({ s: 'ng', t: kids.length ? `生計を一にする子がいない、または子の所得が基準（${man(childMax)}）を超える` : '生計を一にする子がいない' });
@@ -159,7 +159,7 @@ export function assess(state, rules) {
   for (const f of peopleFacts(state, rules, 'confirmed')) {
     const p = f.p;
     const lines = [];
-    const suppCond = { s: tri(p.supportedByMe), t: p.supportedByMe === true ? '生活費の大半をあなたが負担している（生計を一にする）' : p.supportedByMe === false ? '生計を一にしていない（対象外）' : '生活費の大半をあなたが負担しているか未回答' };
+    const suppCond = { s: tri(supportOf(p)), t: supportOf(p) === true ? '生活費の大半をあなたが負担している（生計を一にする）' : supportOf(p) === false ? '生計を一にしていない（対象外）' : '生活費の大半をあなたが負担しているか未回答' };
     const incOf = (limit) => (f.inc.value === null ? { s: 'unknown', t: `所得を確定できません（${f.inc.reason}）` }
       : f.inc.value <= limit ? { s: 'ok', t: `所得は${man(f.inc.value)}（基準の${man(limit)}以下）` }
         : { s: 'ng', t: `所得は${man(f.inc.value)}（基準の${man(limit)}を超える）` });
@@ -234,7 +234,7 @@ export function familyMargins(state, rules) {
   if (!dIT) return [];
   const out = [];
   for (const p of state.household.people) {
-    if (p.supportedByMe === false) continue;
+    if (supportOf(p) === false) continue;
     const limit = p.kind === 'spouse' ? dIT.spouse?.spouseIncomeMax : dIT.dependent?.incomeMax;
     const inc = personIncome(p, rules, state.taxYear);
     if (limit == null || inc.value === null) continue;
@@ -317,7 +317,7 @@ export function missingFacts(state) {
   for (const p of hh.people) {
     const who = p.name || PERSON_LABEL[p.kind];
     if (p.livesTogether === null) add(p.id, who, '同居しているか');
-    if (p.supportedByMe === null) add(p.id, who, '生活費の大半をあなたが負担しているか');
+    if (supportOf(p) === null) add(p.id, who, '生活費の大半をあなたが負担しているか');
     if (p.incomeKind === 'unknown') add(p.id, who, '収入の種類');
     else if (['salary', 'pension', 'business', 'other'].includes(p.incomeKind) && p.revenue === 0) add(p.id, who, '収入の金額');
     if (unsure(p.certificate)) add(p.id, who, '障害者手帳などの種類・等級');

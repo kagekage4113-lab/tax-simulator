@@ -39,6 +39,9 @@ export const newPerson = (kind) => ({
   partnerId: null, // この家族の中の配偶者（親どうしが夫婦、など）の id。住民税の非課税の判定で同一生計配偶者として数える
 });
 
+// 生活費の負担（生計を一にする）。未回答でも、同居していれば「はい」とみなす（「詳しく」で変えられる）。
+export const supportOf = (p) => (p.supportedByMe ?? (p.livesTogether === true ? true : null));
+
 export const defaultHousehold = () => ({
   enabled: false,
   me: { certificate: 'none', partner: null, childClaimedElsewhere: null }, // partner: 事実上婚姻関係と同様の事情にある人がいるか／childClaimedElsewhere: 子が他の人（元の配偶者など）の扶養親族等になっているか
