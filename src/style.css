@@ -6,16 +6,16 @@
 }
 /* 暗い配色: 端末の設定が「ダーク」のとき（自動）と、下の「配色」で「ダーク」を選んだとき */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #1a2724; --card: #263835; --text: #f1f7f5; --muted: #b9ccc6; --line: #48625c; --head-bg: #33504a; --sub-bg: #1f302d; --shadow: 0 1px 4px rgba(0, 0, 0, .45); --accent: #3cc8ba; --accent-text: #04201c; --warn-bg: #3d3212; --warn-text: #f5dc95; --danger: #ff9488; --ok: #86e6b0; }
+  :root:not([data-theme="light"]) { --bg: #12161d; --card: #1d232d; --text: #f3f6fa; --muted: #aeb8c6; --line: #3a4658; --head-bg: #2a3445; --sub-bg: #171c24; --shadow: 0 1px 4px rgba(0, 0, 0, .5); --accent: #3cc8ba; --accent-text: #04201c; --warn-bg: #3d3212; --warn-text: #f5dc95; --danger: #ff9488; --ok: #86e6b0; }
 }
-:root[data-theme="dark"] { --bg: #1a2724; --card: #263835; --text: #f1f7f5; --muted: #b9ccc6; --line: #48625c; --head-bg: #33504a; --sub-bg: #1f302d; --shadow: 0 1px 4px rgba(0, 0, 0, .45); --accent: #3cc8ba; --accent-text: #04201c; --warn-bg: #3d3212; --warn-text: #f5dc95; --danger: #ff9488; --ok: #86e6b0; color-scheme: dark; }
+:root[data-theme="dark"] { --bg: #12161d; --card: #1d232d; --text: #f3f6fa; --muted: #aeb8c6; --line: #3a4658; --head-bg: #2a3445; --sub-bg: #171c24; --shadow: 0 1px 4px rgba(0, 0, 0, .5); --accent: #3cc8ba; --accent-text: #04201c; --warn-bg: #3d3212; --warn-text: #f5dc95; --danger: #ff9488; --ok: #86e6b0; color-scheme: dark; }
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; padding-bottom: env(safe-area-inset-bottom); }
 #app { max-width: 760px; margin: 0 auto; padding: 0 16px 32px; }
 .top { padding: calc(16px + env(safe-area-inset-top)) 0 8px; }
-.top h1 { font-size: 1.3rem; margin: 0 0 4px; }
+.top h1 { font-size: 1.2rem; margin: 0 0 4px; text-wrap: balance; }
 .top p { margin: 0; color: var(--muted); font-size: .9rem; }
 .save-status { display: block; min-height: 1.4em; font-size: .8rem; color: var(--muted); }
 .save-status.error { color: var(--danger); }
@@ -222,3 +222,7 @@ tr.out th, tr.out td { opacity: .6; }
 .theme-switch { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; }
 .theme-switch button { font: inherit; font-size: .78rem; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
 .theme-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 700; }
+
+/* 画面の右上の「ライト／ダーク」ワンタップ切り替え */
+.top-tools { display: flex; justify-content: flex-end; }
+.theme-btn { font: inherit; font-size: .82rem; padding: 6px 14px; min-height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; box-shadow: var(--shadow); }

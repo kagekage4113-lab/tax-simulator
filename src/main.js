@@ -18,7 +18,10 @@ const readTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'
 const applyTheme = (mode) => {
   if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode; else delete document.documentElement.dataset.theme;
   try { localStorage.setItem(THEME_KEY, mode); } catch { /* 保存できなくても動く */ }
+  document.dispatchEvent(new Event('themechange'));
 };
+const systemDark = () => !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+const isDark = () => (readTheme() === 'dark' ? true : readTheme() === 'light' ? false : systemDark());
 applyTheme(readTheme());
 
 const store = createStore();
@@ -108,11 +111,21 @@ store.subscribe((state, e) => {
   refreshBadge(state);
 });
 
+// ワンタップで ライト⇄ダーク（押した時点の見た目の反対に切り替える）。「自動」に戻すのは下の配色の欄から。
+function themeButton() {
+  const b = h('button', { type: 'button', class: 'theme-btn', onClick: () => applyTheme(isDark() ? 'light' : 'dark') });
+  const sync = () => { b.textContent = isDark() ? '☀ ライト表示にする' : '☾ ダーク表示にする'; };
+  document.addEventListener('themechange', sync);
+  if (window.matchMedia) { try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync); } catch { /* 古い環境 */ } }
+  sync();
+  return b;
+}
 function themeSwitch() {
   const wrap = h('span', { class: 'theme-switch', role: 'group', 'aria-label': '配色' }, h('span', {}, '配色：'));
   const buttons = [['auto', '自動'], ['light', 'ライト'], ['dark', 'ダーク']].map(([mode, label]) => h('button', { type: 'button', 'aria-pressed': 'false', onClick: () => { applyTheme(mode); sync(); } }, label));
   const modes = ['auto', 'light', 'dark'];
   const sync = () => buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(modes[i] === readTheme())));
+  document.addEventListener('themechange', sync);
   wrap.append(...buttons);
   sync();
   return wrap;
@@ -124,6 +137,7 @@ syncToggle();
 
 app.append(
   h('header', { class: 'top' },
+    h('div', { class: 'top-tools' }, themeButton()),
     h('h1', {}, 'ざっくり手取り＆税金シミュレーター', ' ', h('span', { class: 'badge warn' }, 'ベータ版')),
     h('p', {}, '確定申告の代わりではなく、収入が変わったときの目安を知るためのツールです。'),
     scopeSection(),
