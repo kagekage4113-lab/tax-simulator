@@ -38,6 +38,34 @@ function bars(incomeParts, ded, rows, kind) {
     h('div', { class: 'bar-row' }, h('span', { class: 'bar-label' }, '控除'), h('div', { class: 'bar' }, ...dedSegs)));
 }
 
+
+// 課税される所得に税率を掛けて税額になる流れ。金額はエンジンの結果をそのまま読む。
+function flowRows(r, rules, tIT, tRT) {
+  const it = r.incomeTax; const rt = r.residentTax;
+  if (!it || it.total == null || !rt || rt.total == null) return [];
+  const comp = tIT.comprehensive;
+  const b = comp > 0 ? (rules.incomeTax?.brackets || []).find((x) => x.upTo == null || comp <= x.upTo) : null;
+  const itRate = comp > 0 ? (b ? `${Math.round(b.rate * 1000) / 10}%` : '—') : '—';
+  const rtRate = rules.residentTax?.incomeRate != null ? `${Math.round(rules.residentTax.incomeRate * 1000) / 10}%` : '—';
+  const sepIT = (it.fxTax || 0) + (it.listedTax || 0);
+  const sepRT = (rt.fxTax || 0) + (rt.listedTax || 0);
+  // 税率を掛けただけの額と、調整控除・寄附金税額控除などを引いたあとの額を分けて見せる（差があるときだけ行を出す）
+  const rawIT = it.comprehensiveTax + sepIT;
+  const rawRT = Math.floor(comp > 0 ? tRT.comprehensive * (rules.residentTax?.incomeRate ?? 0) + 1e-9 : 0) + sepRT;
+  const netIT = it.base; const netRT = rt.incomeLevy + sepRT;
+  const adjRow = netIT !== rawIT || netRT !== rawRT;
+  const signedYen = (v) => (v === 0 ? '—' : `${v < 0 ? '−' : '+'}${yen(Math.abs(v))}`);
+  const row = (label, a, b2, cls = '') => h('tr', { class: cls }, h('th', {}, label), h('td', { class: 'r' }, a), h('td', { class: 'r' }, b2));
+  return [
+    h('tr', { class: 'sub-head flow-head' }, h('th', { colspan: 3 }, 'ここから税額（課税される所得 × 税率）')),
+    row('税率（総合課税）', itRate, rtRate),
+    row('税率を掛けた額', yen(rawIT), yen(rawRT)),
+    adjRow ? row('調整控除・税額控除など', signedYen(netIT - rawIT), signedYen(netRT - rawRT)) : null,
+    row('復興税／均等割を足す', `+${yen(it.total - netIT)}`, `+${yen(rt.total - netRT)}`),
+    row('税額（年額）', yen(it.total), yen(rt.total), 'strong cushion-row'),
+  ];
+}
+
 export function cushionSection(store, rulesFor = rulesOf) {
   const el = h('details', { class: 'card', id: 'sec-cushion', open: true }, h('summary', {}, '控除と余裕（クッション）'));
   const body = h('div', { class: 'body' });
@@ -74,7 +102,8 @@ export function cushionSection(store, rulesFor = rulesOf) {
           h('td', { class: 'r' }, x.residentTax ? yen(x.residentTax) : '—'))),
         h('tr', { class: 'strong' }, h('th', {}, '控除の合計'), h('td', { class: 'r' }, yen(dIT)), h('td', { class: 'r' }, yen(dRT))),
         h('tr', {}, h('th', {}, '課税される所得'), h('td', { class: 'r' }, yen(tIT.comprehensive + tIT.fx + tIT.listed)), h('td', { class: 'r' }, yen(tRT.comprehensive + tRT.fx + tRT.listed))),
-        h('tr', { class: 'strong cushion-row' }, h('th', {}, '控除の余り（クッション）'), h('td', { class: 'r' }, yen(tIT.unusedDeduction)), h('td', { class: 'r' }, yen(tRT.unusedDeduction)))));
+        h('tr', { class: 'strong cushion-row' }, h('th', {}, '控除の余り（クッション）'), h('td', { class: 'r' }, yen(tIT.unusedDeduction)), h('td', { class: 'r' }, yen(tRT.unusedDeduction))),
+        ...flowRows(r, rules, tIT, tRT)));
 
     // いまの控除のまま、利益があと何円増えても税額0円か（基礎控除の段差を含めてエンジンで求める）
     const sit = situation(base, rules, 'fx');
@@ -100,6 +129,7 @@ export function cushionSection(store, rulesFor = rulesOf) {
 
     body.replaceChildren(
       h('div', { class: 'cushion-head' },
+        h('p', { class: 'key-line' }, `税額の目安: 所得税 ${yen(r.incomeTax?.total)}、住民税 ${yen(r.residentTax?.total)}`),
         h('p', { class: 'key-line' }, tIT.unusedDeduction > 0 ? `所得税側で、控除が ${yen(tIT.unusedDeduction)} 余っています` : '所得税側に、控除の余りはありません（課税される所得があります）'),
         h('ul', { class: 'cushion-list' }, line(m('incomeTax'), '所得税が0円のまま'), line(m('residentLevy'), '住民税の所得割が0円のまま'))),
       bars(parts, dIT ?? 0, rows, 'incomeTax'),
