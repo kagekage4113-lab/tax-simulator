@@ -8,6 +8,7 @@ import { INCOME_CATEGORIES, TAX_METHOD_LABEL, getIncomeCategory } from '../data/
 import { INCOME_DEDUCTIONS, MANUAL_DEDUCTIONS, MANUAL_TAX_CREDITS, TAX_CREDITS } from '../data/deductions.js';
 import { UI_YEARS, rulesOf, yearLabel } from '../data/taxYears/index.js';
 import { formatYen } from '../core/money.js';
+import { burdenMeter } from './burdenMeter.js';
 import { calculate } from '../calc/engine.js';
 
 const PREFECTURES = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
@@ -257,6 +258,7 @@ export function resultSection(rulesFor = rulesOf) {
         `${yearLabel(s.taxYear)}の次の項目が未登録または未入力のため、確定できない金額があります（—と表示）：`,
         h('br'), [...new Set(r.missing.map(missingLabel))].join('、')));
     }
+    kids.push(burdenMeter(r));
     kids.push(h('table', { class: 'tbl summary' }, h('tbody', {},
       row('年間収入', yen(i.revenueTotal + i.fx.gross)),
       row('所得（合計）', yen(i.total), { tag: i.total == null ? null : '概算' }),

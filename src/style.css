@@ -226,3 +226,19 @@ tr.out th, tr.out td { opacity: .6; }
 /* 画面の右上の「ライト／ダーク」ワンタップ切り替え */
 .top-tools { display: flex; justify-content: flex-end; }
 .theme-btn { font: inherit; font-size: .82rem; padding: 6px 14px; min-height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; box-shadow: var(--shadow); }
+
+/* 負担の割合（メーター） */
+.meter { margin: 4px 0 14px; }
+.meter-head { margin: 0; font-size: .9rem; color: var(--muted); }
+.meter-big { margin: 0 0 6px; font-weight: 800; line-height: 1.1; }
+.meter-num { font-size: 3rem; }
+.meter-unit { font-size: 1.4rem; margin-left: 2px; }
+.meter-bar { height: 40px; border-radius: 10px; }
+.meter-bar .seg { display: flex; align-items: center; justify-content: center; color: #fff; font-size: .85rem; font-weight: 700; animation: meter-grow .9s ease-out; transform-origin: left; }
+@keyframes meter-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .meter-bar .seg { animation: none; } }
+.meter-legend { list-style: none; margin: 8px 0 0; padding: 0; font-size: .92rem; }
+.meter-legend li { display: flex; align-items: center; padding: 3px 0; }
+.meter-legend .ml-label { flex: 1; }
+.meter-legend .ml-pct { width: 4.2em; text-align: right; font-weight: 700; }
+.meter-legend .ml-yen { width: 8em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
