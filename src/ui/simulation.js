@@ -1,4 +1,5 @@
 // 収入・経費のシミュレーション画面（フェーズ3）。現在の入力は変更せず、複製した状態で再計算して比較する。
+import { burdenCompare } from './burdenMeter.js';
 import { h, field, select } from './dom.js';
 import { gaugeField } from './gaugeField.js';
 import { missingLabel } from './sections.js';
@@ -109,6 +110,7 @@ export function simulationSection(store, rulesFor = rulesOf) {
         h('p', { class: 'hero-num' }, c.marginalRate === null ? '追加収入が0円のため計算しません' : pct(c.marginalRate)),
         h('p', { class: 'hint' }, c.marginalRate === null ? '' : `追加収入 ${formatYen(ui.aAdd)}円のうち、税金・社会保険料が ${formatYen(c.diff.burden)}円増え、手取りは ${formatYen(c.diff.takeHome)}円増えます。（限界負担率 ＝ 追加負担額 ÷ 追加収入額）`)),
       added !== ui.aAdd ? h('p', { class: 'note' }, `所得の増加は ${signed(added)}（経費や給与所得控除などを差し引いた額）です。`) : null,
+      burdenCompare(c.mb, c.ma),
       cmpTable(c.mb, c.ma, c.diff, state.incomes.some((i) => i.category === 'business' && i.businessType !== 'unknown') || c.ma.businessTax > 0),
       notesList(c.notes));
   };
