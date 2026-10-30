@@ -249,3 +249,9 @@ tr.out th, tr.out td { opacity: .6; }
 .meter-cmp .meter-bar { height: 32px; }
 .meter-key { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; padding: 0; font-size: .85rem; color: var(--muted); }
 .cushion-tbl tr.flow-head th { text-align: left; padding-top: 14px; color: var(--accent); }
+.zg { margin: 8px 0 14px; }
+.zg-row { margin: 10px 0 0; }
+.zg-head { display: flex; justify-content: space-between; font-size: .95rem; margin-bottom: 4px; }
+.zg-bar { height: 26px; border-radius: 8px; }
+.zg-bar .seg { animation: meter-grow .9s ease-out; transform-origin: left; }
+@media (prefers-reduced-motion: reduce) { .zg-bar .seg { animation: none; } }

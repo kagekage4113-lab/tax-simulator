@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ざっくり手取り＆税金シミュレーター（目安ツール）",
+  "description": "税金メーター（目安ツール）",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
