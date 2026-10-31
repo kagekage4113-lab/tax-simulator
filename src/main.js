@@ -138,7 +138,7 @@ syncToggle();
 app.append(
   h('header', { class: 'top' },
     h('div', { class: 'top-tools' }, themeButton()),
-    h('h1', {}, 'ざっくり手取り＆税金シミュレーター', ' ', h('span', { class: 'badge warn' }, 'ベータ版')),
+    h('h1', {}, '税金メーター', ' ', h('span', { class: 'badge warn' }, 'ベータ版')),
     h('p', {}, '確定申告の代わりではなく、収入が変わったときの目安を知るためのツールです。'),
     scopeSection(),
     h('details', { class: 'help' }, h('summary', {}, '使い方と注意'),

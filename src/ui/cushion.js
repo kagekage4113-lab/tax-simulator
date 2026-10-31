@@ -66,6 +66,28 @@ function flowRows(r, rules, tIT, tRT) {
   ];
 }
 
+// 非課税（税額0円）まで、控除がどれだけ所得を覆っているかのゲージ。100%で、その税の課税される所得がなくなる。
+function zeroGauge(r, incomeNet, tIT, tRT, dIT, dRT) {
+  const exempt = r.residentTax?.exemption;
+  const one = (label, ded, rest, note) => {
+    const ratio = incomeNet > 0 ? Math.min(1, ded / incomeNet) : 1;
+    const full = rest <= 0;
+    return h('div', { class: 'zg-row' },
+      h('div', { class: 'zg-head' }, h('span', {}, label), h('strong', {}, full ? '0円（課税なし）' : `${Math.round(ratio * 100)}%`)),
+      h('div', { class: 'bar zg-bar', role: 'img', 'aria-label': `${label} ${Math.round(ratio * 100)}%` },
+        h('span', { class: `seg ${full ? 'c1' : 'c3'}`, style: `width:${ratio * 100}%` })),
+      h('p', { class: 'hint' }, full ? note : `あと${yen(rest)}分の控除が増える（または所得が減る）と、0円になります。`));
+  };
+  const restIT = tIT.comprehensive + tIT.fx + tIT.listed;
+  const restRT = tRT.comprehensive + tRT.fx + tRT.listed;
+  return h('div', { class: 'zg' },
+    h('p', { class: 'key-line' }, '非課税（税額0円）まで、あとどれくらい？'),
+    one('所得税', dIT ?? 0, restIT, '控除が所得をカバーしているので、所得税は0円です。'),
+    one('住民税（所得割）', dRT ?? 0, restRT, '控除が所得をカバーしているので、所得割は0円です。'),
+    exempt === 'all' ? h('p', { class: 'hint' }, '住民税は、非課税の基準に当てはまるため、均等割も0円です。')
+      : h('p', { class: 'hint' }, '住民税は、所得割が0円でも、均等割（年5,000円）がかかります。均等割も0円になるのは、住民税の非課税の基準に当てはまるときだけです。'));
+}
+
 export function cushionSection(store, rulesFor = rulesOf) {
   const el = h('details', { class: 'card', id: 'sec-cushion', open: true }, h('summary', {}, '控除と余裕（クッション）'));
   const body = h('div', { class: 'body' });
@@ -132,6 +154,7 @@ export function cushionSection(store, rulesFor = rulesOf) {
         h('p', { class: 'key-line' }, `税額の目安: 所得税 ${yen(r.incomeTax?.total)}、住民税 ${yen(r.residentTax?.total)}`),
         h('p', { class: 'key-line' }, tIT.unusedDeduction > 0 ? `所得税側で、控除が ${yen(tIT.unusedDeduction)} 余っています` : '所得税側に、控除の余りはありません（課税される所得があります）'),
         h('ul', { class: 'cushion-list' }, line(m('incomeTax'), '所得税が0円のまま'), line(m('residentLevy'), '住民税の所得割が0円のまま'))),
+      zeroGauge(r, incomeNet, tIT, tRT, dIT, dRT),
       bars(parts, dIT ?? 0, rows, 'incomeTax'),
       h('p', { class: 'hint' }, '棒は所得税の場合です（上が所得、下が控除の内訳）。'),
       table, stepNote, maybe,
