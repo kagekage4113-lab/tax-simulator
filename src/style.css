@@ -255,3 +255,11 @@ tr.out th, tr.out td { opacity: .6; }
 .zg-bar { height: 26px; border-radius: 8px; }
 .zg-bar .seg { animation: meter-grow .9s ease-out; transform-origin: left; }
 @media (prefers-reduced-motion: reduce) { .zg-bar .seg { animation: none; } }
+
+/* いまの位置と、次のレベル */
+.lv-block { margin: 6px 0 16px; }
+.lv-block h3 { margin: 0 0 6px; font-size: 1rem; }
+.lv-flow th:first-child, .lv-level th:first-child { text-align: left; font-weight: 600; }
+.lv-flow thead th, .lv-level thead th { text-align: right; font-weight: 600; color: var(--muted); }
+.lv-save-row td { font-weight: 700; color: var(--ok); }
+.lv-save-row td small { display: block; font-weight: 400; color: var(--muted); font-size: .78rem; }

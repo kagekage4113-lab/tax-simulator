@@ -89,7 +89,7 @@ function zeroGauge(r, incomeNet, tIT, tRT, dIT, dRT) {
 }
 
 export function cushionSection(store, rulesFor = rulesOf) {
-  const el = h('details', { class: 'card', id: 'sec-cushion', open: true }, h('summary', {}, '控除と余裕（クッション）'));
+  const el = h('details', { class: 'card', id: 'sec-cushion', open: true }, h('summary', {}, '非課税まで、あとどれくらい？'));
   const body = h('div', { class: 'body' });
   el.append(body);
   let timer = null;
@@ -151,14 +151,15 @@ export function cushionSection(store, rulesFor = rulesOf) {
 
     body.replaceChildren(
       h('div', { class: 'cushion-head' },
-        h('p', { class: 'key-line' }, `税額の目安: 所得税 ${yen(r.incomeTax?.total)}、住民税 ${yen(r.residentTax?.total)}`),
         h('p', { class: 'key-line' }, tIT.unusedDeduction > 0 ? `所得税側で、控除が ${yen(tIT.unusedDeduction)} 余っています` : '所得税側に、控除の余りはありません（課税される所得があります）'),
         h('ul', { class: 'cushion-list' }, line(m('incomeTax'), '所得税が0円のまま'), line(m('residentLevy'), '住民税の所得割が0円のまま'))),
       zeroGauge(r, incomeNet, tIT, tRT, dIT, dRT),
-      bars(parts, dIT ?? 0, rows, 'incomeTax'),
-      h('p', { class: 'hint' }, '棒は所得税の場合です（上が所得、下が控除の内訳）。'),
-      table, stepNote, maybe,
-      h('p', { class: 'hint' }, '控除が所得より大きい分は、分離課税のFX・上場株式等の所得から引かれます。社会保険料控除は、入力した（または概算の）社会保険料です。'));
+      // 細かい内訳は、見たい人だけが開く
+      h('details', { class: 'sub' }, h('summary', {}, '控除の内訳・グラフ（くわしく）'),
+        bars(parts, dIT ?? 0, rows, 'incomeTax'),
+        h('p', { class: 'hint' }, '棒は所得税の場合です（上が所得、下が控除の内訳）。'),
+        table, stepNote, maybe,
+        h('p', { class: 'hint' }, '控除が所得より大きい分は、分離課税のFX・上場株式等の所得から引かれます。社会保険料控除は、入力した（または概算の）社会保険料です。')));
   };
 
   el.refresh = () => { clearTimeout(timer); timer = setTimeout(render, 120); };
