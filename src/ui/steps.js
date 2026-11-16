@@ -90,7 +90,12 @@ export function createSteps({ panels, classic = false, win = window }) {
   // どこにある data-goto ボタンでも、その段階へ移動する
   win.document.addEventListener('click', (e) => {
     const t = e.target.closest && e.target.closest('[data-goto]');
-    if (t && ids.includes(t.dataset.goto)) go(t.dataset.goto);
+    if (t && ids.includes(t.dataset.goto)) {
+      go(t.dataset.goto);
+      // data-scroll-to があれば、移動先の画面で、その場所まで進む（「入力のまとめ」の「直す」で使う）
+      const to = t.dataset.scrollTo && win.document.getElementById(t.dataset.scrollTo);
+      if (to) { try { if (to.tagName === 'DETAILS') to.open = true; to.scrollIntoView({ block: 'start' }); } catch { /* jsdom など */ } }
+    }
   });
   win.addEventListener('hashchange', () => { const id = win.location.hash.slice(1); if (ids.includes(id) && id !== current) go(id); });
   render();
