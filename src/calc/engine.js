@@ -497,14 +497,57 @@ function voluntaryInsurance(state, need, notes) {
   return { total, mode: 'estimate' };
 }
 
+// 健康保険の選択に合わせた年金（年金の選択が auto のときの組み合わせ）
+const defaultPension = (ins) => ({ employee: 'kosei', national: 'kokumin', voluntary: ins.nationalPension ? 'kokumin' : 'none', dependent: 'none', none: 'none' }[ins.type]);
+
+// 健康保険と年金を別々に選んだ場合（給与収入があっても、厚生年金・協会けんぽとは限らない）。
+// 健康保険分と年金分を別に概算して足す。auto のときは下の従来の計算を使う（端数処理が合算で行われるため）。
+function splitInsurance({ state, need, salaryRevenue, totalIncome, notes }) {
+  const { type, pension } = state.insurance;
+  let health = 0;
+  if (type === 'employee') {
+    const e = need('socialInsurance.estimate.employee');
+    if (!e) return { total: null, mode: 'estimate' };
+    health = kyokaiKenpoAnnual(e, state, salaryRevenue, notes).health;
+  } else if (type === 'national') {
+    const e = need('socialInsurance.estimate.national');
+    if (!e) return { total: null, mode: 'estimate' };
+    if (totalIncome === null) return { total: null, mode: 'estimate' };
+    health = kokuhoAnnual(e, state, totalIncome, need, notes, 'health');
+    if (health === null) return { total: null, mode: 'estimate' };
+  } else if (type === 'voluntary') {
+    const premium = state.insurance.monthlyPremium;
+    if (premium == null) { need('socialInsurance.voluntaryPremium'); return { total: null, mode: 'estimate' }; }
+    health = premium * 12;
+  }
+  let pen = 0;
+  if (pension === 'kosei') {
+    const e = need('socialInsurance.estimate.employee');
+    if (!e) return { total: null, mode: 'estimate' };
+    pen = kyokaiKenpoAnnual(e, state, salaryRevenue, notes).pension;
+    if (!(salaryRevenue > 0)) notes.push('厚生年金を選んでいますが、給与収入がないため、厚生年金の保険料は0円としています。');
+  } else if (pension === 'kokumin') {
+    const np = need('socialInsurance.estimate.national.pension');
+    if (!np) return { total: null, mode: 'estimate' };
+    if (state.self.age >= np.ageMin && state.self.age <= np.ageMax) pen = np.monthly * 12;
+    else notes.push(`国民年金は${np.ageMin}〜${np.ageMax}歳が納付の対象のため、含めていません。`);
+  }
+  notes.push('健康保険と年金を別々に選んだため、それぞれを概算して合計しています（実際の保険料と差が出ることがあります。分かる場合は実額を入力してください）。');
+  return { total: health + pen, mode: 'estimate' };
+}
+
 function calcSocialInsurance({ state, need, salaryRevenue, totalIncome, notes }) {
   const actual = state.insurance.actualAnnual;
   if (actual != null) return { total: actual, mode: 'actual' };
+  const pension = state.insurance.pension || 'auto';
+  if (pension !== 'auto' && state.insurance.type !== 'voluntary' && pension !== defaultPension(state.insurance)) {
+    return splitInsurance({ state, need, salaryRevenue, totalIncome, notes });
+  }
   if (state.insurance.type === 'dependent' || state.insurance.type === 'none') return { total: 0, mode: 'estimate' };
   if (state.insurance.type === 'voluntary') return voluntaryInsurance(state, need, notes);
   const e = need(`socialInsurance.estimate.${state.insurance.type}`);
   if (!e) return { total: null, mode: 'estimate' };
-  if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes), mode: 'estimate' };
+  if (e.model === 'kyokaiKenpo') return { total: kyokaiKenpoAnnual(e, state, salaryRevenue, notes).total, mode: 'estimate' };
   if (e.model === 'kokuhoStandard') return { total: totalIncome === null ? null : kokuhoAnnual(e, state, totalIncome, need, notes), mode: 'estimate', kokuho: totalIncome === null ? null : kokuhoReduction(state, e, totalIncome) };
   const baseVal = e.base === 'salaryRevenue' ? salaryRevenue : totalIncome;
   if (baseVal === null) return { total: null, mode: 'estimate' };
@@ -519,7 +562,7 @@ const roundHalfDown = (x) => {
 
 // 国民健康保険料＋国民年金の概算（個人事業主）。世帯＝本人・配偶者・扶養親族の全員が同じ国保に加入している前提。
 // 所得は各人の合計所得金額で代用し、加入月数は12か月、法定軽減（7・5・2割）は未反映。国民年金の保険料額が未登録の間は null。
-function kokuhoAnnual(e, state, totalIncome, need, notes) {
+function kokuhoAnnual(e, state, totalIncome, need, notes, part = 'all') {
   if (e.pension == null) { need('socialInsurance.estimate.national.pension'); return null; }
   const members = [{ age: state.self.age, income: totalIncome }];
   if (state.spouse.exists) members.push({ age: state.spouse.age, income: state.spouse.income });
@@ -548,7 +591,8 @@ function kokuhoAnnual(e, state, totalIncome, need, notes) {
   const pensionMembers = [state.self, ...(state.spouse.exists ? [state.spouse] : [])].filter((m) => m.age >= e.pension.ageMin && m.age <= e.pension.ageMax);
   notes.push(`個人事業主の社会保険料は、${e.scope}の国民健康保険料（本人・配偶者・扶養親族が同じ国保に加入し12か月加入の前提）と国民年金の概算です。${e.reduction ? (kokuho.rate ? `世帯の判定用所得が基準以下のため、均等割・平等割の${Math.round(kokuho.rate * 10)}割軽減を反映しています（給与・年金所得者は本人の給与収入のみで数えています）。` : '法定軽減（7・5・2割）は、世帯の判定用所得が基準を超えるため適用していません。') : '法定軽減（7・5・2割）は反映していません。'}`);
   if (members.length !== insured.length) notes.push('75歳以上の方は後期高齢者医療制度のため、国民健康保険の対象から除いています。');
-  return tax + pensionMembers.length * e.pension.monthly * 12;
+  const pensionTotal = pensionMembers.length * e.pension.monthly * 12;
+  return part === 'health' ? tax : part === 'pension' ? pensionTotal : tax + pensionTotal;
 }
 
 // 国保税の法定軽減の基準額（二次情報）。世帯の判定用所得＝被保険者全員の基礎控除前の合計所得金額。
@@ -573,7 +617,7 @@ function kokuhoReduction(state, e, totalIncome) {
 // 協会けんぽ（会社員）の概算: 給与収入を12か月均等の報酬月額とみなし、標準報酬月額の等級から
 // 健康保険（＋介護）・子ども・子育て支援金・厚生年金の被保険者負担（折半）を月ごとの料率スケジュールで求める。賞与・雇用保険は含まない。
 function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
-  if (!(salaryRevenue > 0)) return 0;
+  if (!(salaryRevenue > 0)) return { total: 0, health: 0, pension: 0 };
   const monthly = Math.floor(salaryRevenue / 12);
   const grade = e.grades.find((g) => (g.min == null || monthly >= g.min) && (g.max == null || monthly < g.max));
   const std = grade.standard;
@@ -581,6 +625,7 @@ function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
   const kaigoOn = state.self.age >= e.careAge.min && state.self.age <= e.careAge.max;
   const pref = state.residence.prefecture;
   let total = 0;
+  let health = 0; let pension = 0; // 健康保険分・厚生年金分（年金だけ別の制度にするときに使う）
   let usedAverage = false;
   const proxied = new Set();
   for (const p of e.schedule) {
@@ -591,10 +636,12 @@ function kyokaiKenpoAnnual(e, state, salaryRevenue, notes) {
     const healthRate = prefRate ?? rates.reduce((a, b) => a + b, 0) / rates.length;
     const share = (std * (healthRate + (kaigoOn ? p.careRate : 0) + p.childSupportRate) + pensionStd * e.pension.rate) * e.employeeShare;
     total += roundHalfDown(share) * p.months;
+    health += roundHalfDown(std * (healthRate + (kaigoOn ? p.careRate : 0) + p.childSupportRate) * e.employeeShare) * p.months;
+    pension += roundHalfDown(pensionStd * e.pension.rate * e.employeeShare) * p.months;
   }
   notes.push('社会保険料は協会けんぽの料率による概算です（賞与なし・12か月均等の報酬として計算。健保組合・共済や賞与の有無で異なります。雇用保険料は含みません）。');
   if (proxied.size) notes.push(`${pref}の協会けんぽの${[...proxied].join('・')}の料率は資料にないため、令和8年度の料率で代用しています（実際との差は年数千円程度）。`);
   if (usedAverage) notes.push(`お住まいの都道府県（${pref || '未選択'}）の協会けんぽ料率が未登録の期間があるため、登録済み支部（${Object.keys(e.schedule[e.schedule.length - 1].healthRateByPrefecture).join('・')}）の健康保険料率の平均を使っています。`);
   if (kaigoOn) notes.push('40〜64歳のため介護保険料を含めています。');
-  return total;
+  return { total, health, pension };
 }

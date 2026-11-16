@@ -21,6 +21,13 @@ export const INSURANCE_TYPE = {
   dependent: '家族の健康保険の被扶養者',
   none: 'その他・未加入',
 };
+// 年金の選択。auto は、健康保険の選択に合わせた組み合わせ（会社員→厚生年金、個人事業主→国民年金など）。
+export const PENSION_TYPE = {
+  auto: '健康保険に合わせる（初期値）',
+  kosei: '厚生年金（会社で加入）',
+  kokumin: '国民年金（自分で納付）',
+  none: '保険料なし（家族の扶養・未加入など）',
+};
 export const WORK_STYLES = {
   employee: '会社員・パート',
   selfEmployed: '個人事業主',
@@ -78,7 +85,7 @@ export function defaultState() {
     self: { age: 30, disability: 'none', widowSingleParent: 'none', workingStudent: false },
     spouse: { exists: false, age: 30, income: 0, disability: 'none', cohabiting: true },
     dependents: [],
-    insurance: { type: 'employee', actualAnnual: null, monthlyPremium: null, nationalPension: false }, // actualAnnual: 実額（円）。null=概算を使う／monthlyPremium: 任意継続の毎月の保険料／nationalPension: 国民年金を別に払っているか（任意継続のとき）
+    insurance: { type: 'employee', pension: 'auto', actualAnnual: null, monthlyPremium: null, nationalPension: false }, // actualAnnual: 実額（円）。null=概算を使う／monthlyPremium: 任意継続の毎月の保険料／nationalPension: 国民年金を別に払っているか（任意継続のとき）
     filing: { type: 'white', blueDeduction: 65 },
     incomes: [newIncome('salary')],
     listedCarryLosses: [], // 上場株式等の繰越損失（fxCarryLosses と同じ形式）
@@ -162,6 +169,7 @@ export function validateState(input) {
   const ins = isObj(input.insurance) ? input.insurance : (err('insurance', '不正です'), {});
   s.insurance = {
     type: oneOf(ins.type, Object.keys(INSURANCE_TYPE), 'insurance.type', 'employee'),
+    pension: oneOf(ins.pension ?? 'auto', Object.keys(PENSION_TYPE), 'insurance.pension', 'auto'),
     actualAnnual: yen(ins.actualAnnual ?? null, 'insurance.actualAnnual', { nullable: true }),
     monthlyPremium: yen(ins.monthlyPremium ?? null, 'insurance.monthlyPremium', { nullable: true }),
     nationalPension: bool(ins.nationalPension ?? false, 'insurance.nationalPension', false),
