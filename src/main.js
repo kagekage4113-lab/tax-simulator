@@ -8,6 +8,7 @@ import { householdInputSection, householdReviewSection } from './ui/household.js
 import { situationSection } from './ui/situation.js';
 import { cushionSection } from './ui/cushion.js';
 import { levelSection } from './ui/levelCard.js';
+import { inputSummarySection } from './ui/inputSummary.js';
 import { scopeSection } from './ui/scope.js';
 import { createSteps, stepNav, STEPS } from './ui/steps.js';
 import { applyHousehold, missingFacts } from './interview/assess.js';
@@ -43,6 +44,7 @@ const simulation = simulationSection(store);
 const situation = situationSection(store);
 const cushion = cushionSection(store);
 const level = levelSection(store);
+const inputSummary = inputSummarySection(store);
 
 // 従来の1ページ表示（全部を縦に並べる）。選択は端末に覚えておく。
 const VIEW_KEY = 'taxsim.view';
@@ -80,7 +82,7 @@ const panels = {
     stepNav({ next: { id: 'review', label: '確認へ進む' } })),
   review: h('section', { class: 'step', id: 'step-review', 'aria-labelledby': 'tab-review' },
     h('p', { class: 'step-lead' }, '入力から出た、税金と手取りの目安です。赤い項目や「要確認」は、「入力」に戻って答えると確定します。'),
-    result, level, cushion, slots.review, situation,
+    inputSummary, result, level, cushion, slots.review, situation,
     stepNav({ back: next('input'), next: { id: 'adjust', label: '調整へ進む' } })),
   adjust: h('section', { class: 'step', id: 'step-adjust', 'aria-labelledby': 'tab-adjust' },
     h('p', { class: 'step-lead' }, '条件を変えて試したり、分かる控除を足して精度を上げたりできます。結果は「確認」で見られます。'),
@@ -109,6 +111,7 @@ store.subscribe((state, e) => {
   situation.refresh();
   cushion.refresh();
   level.refresh();
+  inputSummary.refresh();
   result.update(state);
   simulation.update(state, e);
   refreshBadge(state);
